@@ -34,6 +34,8 @@ const Students = () => {
   const [selectedClass, setSelectedClass] = useState<string | null>(searchParams.get("class"));
   const [selectedGender, setSelectedGender] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [selectedFacility, setSelectedFacility] = useState<string | null>(null);
+  const [selectedPupilStatus, setSelectedPupilStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const classParam = searchParams.get("class");
@@ -50,8 +52,10 @@ const Students = () => {
     const matchesClass = !selectedClass || student.class_name === selectedClass;
     const matchesGender = !selectedGender || student.gender === selectedGender;
     const matchesStatus = !selectedStatus || student.status === selectedStatus;
+    const matchesFacility = !selectedFacility || student.boarding_status === selectedFacility;
+    const matchesPupilStatus = !selectedPupilStatus || student.pupil_status === selectedPupilStatus;
     
-    return matchesSearch && matchesClass && matchesGender && matchesStatus;
+    return matchesSearch && matchesClass && matchesGender && matchesStatus && matchesFacility && matchesPupilStatus;
   });
 
   const classes = Array.from(new Set(learners.map(l => l.class_name).filter(Boolean)));
@@ -60,6 +64,8 @@ const Students = () => {
     setSelectedClass(null);
     setSelectedGender(null);
     setSelectedStatus(null);
+    setSelectedFacility(null);
+    setSelectedPupilStatus(null);
     setSearchQuery("");
   };
 
@@ -70,7 +76,7 @@ const Students = () => {
         <p className="text-xs sm:text-sm text-muted-foreground">
           <span className="font-medium text-foreground">Current Term:</span> Term 3, 2024 | 
           <span className="font-medium text-foreground ml-1 sm:ml-2">Total:</span> {learners.length} learners
-          {(selectedClass || selectedGender || selectedStatus) && (
+          {(selectedClass || selectedGender || selectedStatus || selectedFacility || selectedPupilStatus) && (
             <span className="ml-2 text-primary">| Filtered: {filteredStudents.length}</span>
           )}
         </p>
@@ -94,18 +100,18 @@ const Students = () => {
               <Button variant="outline" size="sm" className="flex items-center gap-2">
                 <Filter className="h-4 w-4" />
                 <span>Filter</span>
-                {(selectedClass || selectedGender || selectedStatus) && (
+                {(selectedClass || selectedGender || selectedStatus || selectedFacility || selectedPupilStatus) && (
                   <Badge variant="secondary" className="ml-1 px-1 h-4 min-w-4 flex items-center justify-center">
                     !
                   </Badge>
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-56 overflow-y-auto max-h-[80vh]">
               <DropdownMenuLabel>Filter Learners</DropdownMenuLabel>
               <DropdownMenuSeparator />
               
-              <DropdownMenuLabel className="text-[10px] font-normal text-muted-foreground">BY CLASS</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-[10px] font-normal text-muted-foreground uppercase">By Class</DropdownMenuLabel>
               {classes.map(c => (
                 <DropdownMenuCheckboxItem
                   key={c}
@@ -117,7 +123,67 @@ const Students = () => {
               ))}
               
               <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-[10px] font-normal text-muted-foreground">BY GENDER</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-[10px] font-normal text-muted-foreground uppercase">By Facility Type</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem
+                checked={selectedFacility === "boarding"}
+                onCheckedChange={() => setSelectedFacility(selectedFacility === "boarding" ? null : "boarding")}
+              >
+                Boarding
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={selectedFacility === "day"}
+                onCheckedChange={() => setSelectedFacility(selectedFacility === "day" ? null : "day")}
+              >
+                Day
+              </DropdownMenuCheckboxItem>
+
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-[10px] font-normal text-muted-foreground uppercase">By Pupil Status</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem
+                checked={selectedPupilStatus === "Teacher's Child"}
+                onCheckedChange={() => setSelectedPupilStatus(selectedPupilStatus === "Teacher's Child" ? null : "Teacher's Child")}
+              >
+                Teacher's Child
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={selectedPupilStatus === "Orphan"}
+                onCheckedChange={() => setSelectedPupilStatus(selectedPupilStatus === "Orphan" ? null : "Orphan")}
+              >
+                Orphan Scholarships
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={selectedPupilStatus === "Bait Zakat"}
+                onCheckedChange={() => setSelectedPupilStatus(selectedPupilStatus === "Bait Zakat" ? null : "Bait Zakat")}
+              >
+                Buytuzaka (Bait Zakat)
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={selectedPupilStatus === "IICO"}
+                onCheckedChange={() => setSelectedPupilStatus(selectedPupilStatus === "IICO" ? null : "IICO")}
+              >
+                IICO
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={selectedPupilStatus === "Community"}
+                onCheckedChange={() => setSelectedPupilStatus(selectedPupilStatus === "Community" ? null : "Community")}
+              >
+                Community
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={selectedPupilStatus === "Paying"}
+                onCheckedChange={() => setSelectedPupilStatus(selectedPupilStatus === "Paying" ? null : "Paying")}
+              >
+                Paying Pupils
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={selectedPupilStatus === "Other"}
+                onCheckedChange={() => setSelectedPupilStatus(selectedPupilStatus === "Other" ? null : "Other")}
+              >
+                Other
+              </DropdownMenuCheckboxItem>
+
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-[10px] font-normal text-muted-foreground uppercase">By Gender</DropdownMenuLabel>
               <DropdownMenuCheckboxItem
                 checked={selectedGender === "male"}
                 onCheckedChange={() => setSelectedGender(selectedGender === "male" ? null : "male")}
@@ -132,7 +198,7 @@ const Students = () => {
               </DropdownMenuCheckboxItem>
               
               <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-[10px] font-normal text-muted-foreground">BY STATUS</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-[10px] font-normal text-muted-foreground uppercase">By Status</DropdownMenuLabel>
               <DropdownMenuCheckboxItem
                 checked={selectedStatus === "active"}
                 onCheckedChange={() => setSelectedStatus(selectedStatus === "active" ? null : "active")}
@@ -147,7 +213,7 @@ const Students = () => {
               </DropdownMenuCheckboxItem>
               
               {/* Clear Filters */}
-              {(selectedClass || selectedGender || selectedStatus) && (
+              {(selectedClass || selectedGender || selectedStatus || selectedFacility || selectedPupilStatus) && (
                 <>
                   <DropdownMenuSeparator />
                   <Button 
@@ -164,7 +230,7 @@ const Students = () => {
           </DropdownMenu>
           
           <RegisterLearnerDialog>
-            <Button size="sm" className="flex-1 sm:flex-none">
+            <Button id="register-pupil-btn" size="sm" className="flex-1 sm:flex-none">
               <UserPlus className="mr-2 h-4 w-4" />
               <span className="sm:inline">Register</span>
             </Button>
@@ -173,7 +239,7 @@ const Students = () => {
       </div>
 
       {/* Students Grid - Shelf Look */}
-      <div className="mt-8 sm:mt-12 animate-slide-up">
+      <div id="student-registry-container" className="mt-8 sm:mt-12 animate-slide-up">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

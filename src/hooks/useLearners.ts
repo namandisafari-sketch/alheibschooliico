@@ -17,6 +17,8 @@ export interface Learner {
   photo_url: string | null;
   religion: string | null;
   uneb_index_number?: string | null;
+  boarding_status?: string | null;
+  pupil_status?: string | null;
   class_name?: string | null;
   guardian_name?: string | null;
   guardian_phone?: string | null;

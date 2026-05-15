@@ -15,6 +15,7 @@ import {
   UserCog,
   PenLine,
   FileText,
+  FileCheck,
   Settings,
   Wallet,
   CreditCard,
@@ -97,6 +98,8 @@ const navSections: NavSection[] = [
       { icon: LayoutDashboard, labelKey: "DOS Home", path: "/dos", roles: ["admin", "dos", "deputy_head_teacher"] },
       { icon: Calendar, labelKey: "Timetable", path: "/dos/timetable", roles: ["admin", "dos", "head_teacher", "deputy_head_teacher"] },
       { icon: BookMarked, labelKey: "Syllabus", path: "/dos/syllabus", roles: ["admin", "dos", "head_teacher", "deputy_head_teacher"] },
+      { icon: GraduationCap, labelKey: "P7 Management", path: "/dos/p7-management", roles: ["admin", "dos", "head_teacher", "deputy_head_teacher"] },
+      { icon: FileCheck, labelKey: "Lesson Tracking", path: "/dos/lesson-tracking", roles: ["admin", "dos", "head_teacher", "deputy_head_teacher"] },
       { icon: FileText, labelKey: "Exam Scheduling", path: "/dos/exams", roles: ["admin", "dos", "head_teacher", "deputy_head_teacher"] },
       { icon: Layers, labelKey: "Class Assignments", path: "/dos/assignments", roles: ["admin", "dos", "head_teacher", "deputy_head_teacher"] },
     ],
@@ -127,6 +130,7 @@ const navSections: NavSection[] = [
     items: [
       { icon: GraduationCap, labelKey: "teachers", path: "/teachers", roles: ["admin", "head_teacher", "deputy_head_teacher"] },
       { icon: HardHat, labelKey: "staffWorkers", path: "/staff", roles: ["admin", "head_teacher", "deputy_head_teacher"] },
+      { icon: Clock, labelKey: "Staff Attendance", path: "/staff-attendance", roles: ["admin", "head_teacher", "deputy_head_teacher", "dos"] },
       { icon: Layers, labelKey: "staffAssignments", path: "/staff-assignments", roles: ["admin", "head_teacher", "deputy_head_teacher"] },
       { icon: UserCog, labelKey: "userManagement", path: "/users", roles: ["admin", "head_teacher", "deputy_head_teacher"] },
       { icon: CreditCard, labelKey: "idCards", path: "/id-cards", roles: ["admin", "head_teacher", "deputy_head_teacher"] },
@@ -285,7 +289,7 @@ export const Sidebar = ({ isOpen = false, onClose, collapsed = false }: SidebarP
       );
 
   return (
-    <aside className={sideClass}>
+    <aside id="primary-sidebar" className={sideClass}>
       <div className="flex h-full flex-col">
         {/* Logo */}
         <div

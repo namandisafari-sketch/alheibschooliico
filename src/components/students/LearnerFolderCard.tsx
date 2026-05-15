@@ -60,6 +60,22 @@ export const LearnerFolderCard = ({ student }: LearnerFolderCardProps) => {
                   )} />
                 </div>
               </div>
+              <div className="flex flex-col">
+                <span className="text-[9px] text-slate-400 uppercase font-semibold">Facility / Pupil Status</span>
+                <div className="flex flex-wrap gap-1 mt-0.5">
+                  {student.boarding_status && (
+                    <Badge variant="secondary" className="text-[8px] px-1 h-3.5 capitalize">
+                      {student.boarding_status}
+                    </Badge>
+                  )}
+                  {student.pupil_status && (
+                    <Badge variant="outline" className="text-[8px] px-1 h-3.5 border-amber-200 text-amber-700 bg-amber-50">
+                      {student.pupil_status}
+                    </Badge>
+                  )}
+                  {!student.boarding_status && !student.pupil_status && <span className="text-xs text-slate-700 font-medium">—</span>}
+                </div>
+              </div>
             </div>
 
             <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between">

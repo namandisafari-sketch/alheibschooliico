@@ -124,6 +124,8 @@ export function LearnerDetailsDialog({ student: basicStudent, open, onOpenChange
                     <InfoItem label="Date of Birth" value={student.date_of_birth && !isNaN(new Date(student.date_of_birth).getTime()) ? format(new Date(student.date_of_birth), "PPP") : "Not Set"} icon={Calendar} />
                     <InfoItem label="Religion" value={student.religion} icon={Shield} />
                     <InfoItem label="Enrollment Date" value={student.enrollment_date && !isNaN(new Date(student.enrollment_date).getTime()) ? format(new Date(student.enrollment_date), "PPP") : "Not Set"} icon={Calendar} />
+                    <InfoItem label="Facility Type" value={student.boarding_status} icon={School} className="capitalize" />
+                    <InfoItem label="Pupil Status" value={student.pupil_status} icon={Badge} />
                   </div>
                 </section>
 

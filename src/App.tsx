@@ -7,12 +7,14 @@ import { AuthProvider } from "@/contexts/AuthProvider";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import ScrollToTop from "@/components/common/ScrollToTop";
+import { PageGuide } from "@/components/common/PageGuide";
 import Index from "./pages/Index";
 import Students from "./pages/Students";
 import Teachers from "./pages/Teachers";
 import Classes from "./pages/Classes";
 import Attendance from "./pages/Attendance";
 import Staff from "./pages/Staff";
+import StaffAttendance from "./pages/StaffAttendance";
 import Auth from "./pages/Auth";
 import ParentDashboard from "./pages/ParentDashboard";
 import UserManagement from "./pages/UserManagement";
@@ -55,6 +57,8 @@ import DosTimetable from "./pages/dos/Timetable";
 import DosSyllabus from "./pages/dos/Syllabus";
 import DosExams from "./pages/dos/Exams";
 import DosAssignments from "./pages/dos/Assignments";
+import DosLessonTracking from "./pages/dos/LessonTracking";
+import P7Mgt from "./pages/dos/P7Mgt";
 
 // Nurse Pages
 import NurseHome from "./pages/nurse/NurseHome";
@@ -116,6 +120,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <ScrollToTop />
+            <PageGuide />
             <Routes>
             {/* Public Routes */}
             <Route path="/auth" element={<Auth />} />
@@ -184,6 +189,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={["admin", "teacher", "head_teacher", "deputy_head_teacher"]}>
                   <Attendance />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/staff-attendance"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "head_teacher", "deputy_head_teacher", "dos"]}>
+                  <StaffAttendance />
                 </ProtectedRoute>
               }
             />
@@ -390,10 +403,26 @@ const App = () => (
               }
             />
             <Route
+              path="/dos/p7-management"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
+                  <P7Mgt />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/dos/assignments"
               element={
                 <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
                   <DosAssignments />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dos/lesson-tracking"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
+                  <DosLessonTracking />
                 </ProtectedRoute>
               }
             />

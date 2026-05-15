@@ -97,7 +97,9 @@ const DosHome = () => {
               {[
                 { label: "Teacher Assignments", icon: Users, path: "/dos/assignments", color: "text-blue-500", desc: "Allocate teachers to classes" },
                 { label: "Syllabus Coverage", icon: BookOpen, path: "/dos/syllabus", color: "text-emerald-500", desc: "Track curriculum progress" },
+                { label: "P7 PLE Management", icon: GraduationCap, path: "/dos/p7-management", color: "text-red-500", desc: "Candidates & Registration" },
                 { label: "Exam Scheduling", icon: ClipboardList, path: "/dos/exams", color: "text-orange-500", desc: "Plan assessment series" },
+                { label: "Lesson Plan Tracking", icon: FileCheck, path: "/dos/lesson-tracking", color: "text-emerald-500", desc: "Review and approve plans" },
                 { label: "Master Timetable", icon: Calendar, path: "/dos/timetable", color: "text-purple-500", desc: "Build school-wide schedule" },
               ].map((action) => (
                 <Link to={action.path} key={action.label}>

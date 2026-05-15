@@ -2,6 +2,7 @@ import { ReactNode, useState, useEffect } from "react";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { PoweredBy } from "./PoweredBy";
+import { PageGuide } from "../common/PageGuide";
 import { Button } from "@/components/ui/button";
 import { Menu, PanelLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -98,7 +99,7 @@ export const DashboardLayout = ({ children, title, subtitle }: DashboardLayoutPr
           </div>
         </div>
 
-        <main className="flex-1 p-4 lg:p-6">{children}</main>
+        <main id="dashboard-main-content" className="flex-1 p-4 lg:p-6">{children}</main>
         <PoweredBy />
         <PoweredBy variant="print" />
       </div>

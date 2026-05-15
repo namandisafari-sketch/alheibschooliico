@@ -5,7 +5,7 @@ import { QuickActions } from "@/components/dashboard/QuickActions";
 import { ClassOverview } from "@/components/dashboard/ClassOverview";
 import { UpcomingEvents } from "@/components/dashboard/UpcomingEvents";
 import { FeeCollectionSummary, RecentFeePayments, OutstandingBalancesWidget } from "@/components/dashboard/FeeWidgets";
-import { Users, GraduationCap, BookOpen, ClipboardCheck } from "lucide-react";
+import { Users, GraduationCap, BookOpen, ClipboardCheck, Monitor, LayoutDashboard, Activity, Wallet, Zap } from "lucide-react";
 import { useLearners } from "@/hooks/useLearners";
 import { useTeachers } from "@/hooks/useTeachers";
 import { useClasses } from "@/hooks/useClasses";
@@ -27,7 +27,7 @@ import { BoardingIslamicWidget } from "@/components/dashboard/BoardingIslamicWid
 import { DynamicAcademicProgress } from "@/components/dashboard/DynamicAcademicProgress";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Monitor } from "lucide-react";
+import { PageGuide } from "@/components/common/PageGuide";
 
 const useAttendanceStats = () => {
   return useQuery({
@@ -215,7 +215,7 @@ const Index = () => {
       {/* Main Content Grid */}
       <div className="mt-6 grid gap-6 lg:grid-cols-4">
         {/* Left Stats Column (Operational Health) */}
-        <div className="space-y-6">
+        <div id="system-health-widget" className="space-y-6">
           <SystemHealthWidget />
           <DynamicAcademicProgress />
           <HealthStatusWidget />
@@ -223,7 +223,7 @@ const Index = () => {
         </div>
 
         {/* Center Main Column (Financial & Academic Oversight) */}
-        <div className="lg:col-span-2 space-y-6">
+        <div id="financial-control-hub" className="lg:col-span-2 space-y-6">
           <FeeCollectionSummary />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <ClassOverview />
@@ -234,7 +234,7 @@ const Index = () => {
         </div>
 
         {/* Right Sidebar Column (Action & Monitoring) */}
-        <div className="space-y-6">
+        <div id="quick-actions-bar" className="space-y-6">
           <QuickActions />
           <DisciplineTrackerWidget />
           <OutstandingBalancesWidget />

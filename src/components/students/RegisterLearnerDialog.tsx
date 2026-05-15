@@ -50,6 +50,7 @@ const formSchema = z.object({
   nationality: z.string().default("Ugandan"),
   religion: z.string().default("Islam"),
   class_id: z.string().optional(),
+  boarding_status: z.enum(["day", "boarding"]).default("day"),
   pupil_status: z.string().default("Paying"),
   house: z.string().optional(),
   
@@ -146,6 +147,7 @@ export function RegisterLearnerDialog({ children }: { children: React.ReactNode 
       gender: undefined,
       nationality: "Ugandan",
       religion: "Islam",
+      boarding_status: "day",
       pupil_status: "Paying",
       application_date: new Date().toISOString().split('T')[0],
       admission_date: new Date().toISOString().split('T')[0],
@@ -206,6 +208,7 @@ export function RegisterLearnerDialog({ children }: { children: React.ReactNode 
         former_school_class: values.former_school_class,
         former_school_year: values.former_school_year,
         siblings_in_school: values.siblings_info,
+        boarding_status: values.boarding_status,
         pupil_status: values.pupil_status,
         house: values.house,
         blood_group: values.blood_group,
@@ -326,12 +329,32 @@ export function RegisterLearnerDialog({ children }: { children: React.ReactNode 
                       </Select>
                     </FormItem>
                   )} />
+                  <FormField control={form.control} name="boarding_status" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Facility Type (Boarding/Day)</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          <SelectItem value="day">Day</SelectItem>
+                          <SelectItem value="boarding">Boarding</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )} />
                   <FormField control={form.control} name="pupil_status" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Pupil Status</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent><SelectItem value="Paying">Paying</SelectItem><SelectItem value="Bait Zakat">Bait Zakat</SelectItem><SelectItem value="IICO">IICO</SelectItem><SelectItem value="Community">Community</SelectItem></SelectContent>
+                        <SelectContent>
+                          <SelectItem value="Paying">Paying Pupil</SelectItem>
+                          <SelectItem value="Bait Zakat">Buytuzaka (Bait Zakat)</SelectItem>
+                          <SelectItem value="IICO">IICO</SelectItem>
+                          <SelectItem value="Community">Community</SelectItem>
+                          <SelectItem value="Teacher's Child">Teacher's Child</SelectItem>
+                          <SelectItem value="Orphan">Orphan Scholarship</SelectItem>
+                          <SelectItem value="Other">Other</SelectItem>
+                        </SelectContent>
                       </Select>
                     </FormItem>
                   )} />

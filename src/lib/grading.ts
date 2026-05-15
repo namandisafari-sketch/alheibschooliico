@@ -64,6 +64,27 @@ export const computeAggregate = (scores: number[]) => {
   return { total, average: total / scores.length };
 };
 
+export const getPLEPoint = (score: number | null): number => {
+  if (score === null || isNaN(score)) return 9;
+  if (score >= 80) return 1; // D1
+  if (score >= 75) return 2; // D2
+  if (score >= 70) return 3; // C3
+  if (score >= 65) return 4; // C4
+  if (score >= 60) return 5; // C5
+  if (score >= 55) return 6; // C6
+  if (score >= 50) return 7; // P7
+  if (score >= 45) return 8; // P8
+  return 9; // F9
+};
+
+export const getDivision = (aggregate: number): string => {
+  if (aggregate <= 12) return "I";
+  if (aggregate <= 23) return "II";
+  if (aggregate <= 29) return "III";
+  if (aggregate <= 33) return "IV";
+  return "U";
+};
+
 export const overallRemark = (avg: number): string => {
   if (avg >= 80) return "Excellent performance — keep it up!";
   if (avg >= 70) return "Very good work this term.";
