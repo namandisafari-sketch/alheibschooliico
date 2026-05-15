@@ -268,14 +268,14 @@ const Inventory = () => {
                 </Button>
               </BulkIssueDialog>
               <InventoryItemDialog>
-                <Button className="flex-1 sm:flex-none">
+                <Button id="new-item-btn" className="flex-1 sm:flex-none">
                   <Plus className="mr-2 h-4 w-4" /> New Item
                 </Button>
               </InventoryItemDialog>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div id="inventory-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredItems?.map((item: any) => {
               const quantity = item.stock?.[0]?.quantity || 0;
               const isLow = quantity <= item.min_stock_level;

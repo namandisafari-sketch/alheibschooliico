@@ -39,7 +39,7 @@ export const DirectorDashboard = () => {
       const [
         teachers, staff, classes, visitors, inventory, suppliers,
         clinic, medication, incidents, leave, advance, letters,
-        warnings, appeals, feePayments, expenses, lowStock,
+        warnings, appeals, feePayments, expenses, lowStock, discipline, lessonPlansPending,
       ] = await Promise.all([
         safeCount("profiles", q => q.eq("role", "teacher")),
         safeCount("profiles"),
@@ -58,11 +58,13 @@ export const DirectorDashboard = () => {
         safeCount("fee_payments", q => q.gte("created_at", since30)),
         safeCount("expense_requests", q => q.eq("status", "pending")),
         safeCount("inventory_items", q => q.lte("quantity", 5)),
+        safeCount("discipline_cases", q => q.eq("status", "pending")),
+        safeCount("lesson_plans", q => q.eq("status", "pending")),
       ]);
       setStats({
         teachers, staff, classes, visitors, inventory, suppliers,
         clinic, medication, incidents, leave, advance, letters,
-        warnings, appeals, feePayments, expenses, lowStock,
+        warnings, appeals, feePayments, expenses, lowStock, discipline, lessonPlansPending,
       });
 
       try {
@@ -111,7 +113,7 @@ export const DirectorDashboard = () => {
   const v = (k: string) => (stats[k] === null || stats[k] === undefined ? "—" : stats[k]);
   const pendingTotal =
     (stats.leave ?? 0) + (stats.advance ?? 0) + (stats.letters ?? 0) +
-    (stats.appeals ?? 0) + (stats.expenses ?? 0);
+    (stats.appeals ?? 0) + (stats.expenses ?? 0) + (stats.discipline ?? 0) + (stats.lessonPlansPending ?? 0);
   const fmtUGX = (n: number | null) => n === null ? "—" : `UGX ${n.toLocaleString()}`;
 
   return (
@@ -163,9 +165,14 @@ export const DirectorDashboard = () => {
           stats={[
             { l: "Classes", v: v("classes") },
             { l: "Teachers", v: v("teachers") },
-            { l: "Pending lesson approvals", v: v("letters") },
+            { l: "Lesson Approvals", v: v("lessonPlansPending") },
           ]}
-          links={[{ label: "DOS workspace", to: "/dos" }, { label: "Teacher hub", to: "/teacher" }]}
+          links={[
+            { label: "DOS workspace", to: "/dos" },
+            { label: "Teacher hub", to: "/teacher" },
+            { label: "P7 PLE Mgt", to: "/dos/p7-management" },
+            { label: "Lesson tracking", to: "/dos/lesson-tracking" }
+          ]}
         />
         <RoleCard
           icon={Wallet} title="Finance (Accountant)" tone="from-emerald-500 to-teal-600"
@@ -175,6 +182,19 @@ export const DirectorDashboard = () => {
             { l: "Salary advance reqs", v: v("advance") },
           ]}
           links={[{ label: "Fees tracking", to: "/accountant/fees-tracking" }, { label: "Reconciliation", to: "/accountant/reconciliation" }]}
+        />
+        <RoleCard
+          icon={AlertCircle} title="Welfare & Discipline" tone="from-rose-500 to-orange-600"
+          stats={[
+            { l: "Open Cases", v: v("discipline") },
+            { l: "Clinic Visits (7d)", v: v("clinic") },
+            { l: "Health Incidents", v: v("incidents") },
+          ]}
+          links={[
+            { label: "Discipline log", to: "/discipline" },
+            { label: "Health center", to: "/nurse" },
+            { label: "Attendance tracking", to: "/attendance" }
+          ]}
         />
         <RoleCard
           icon={Stethoscope} title="Health (Nurse)" tone="from-rose-500 to-pink-600"

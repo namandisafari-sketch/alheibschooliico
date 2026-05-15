@@ -54,7 +54,7 @@ export default function FeesTracking() {
           <p className="text-muted-foreground">Accountant-only view of all fee inflows and outstanding balances.</p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div id="fee-stats-cards" className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm">Collected (recent)</CardTitle>
@@ -84,7 +84,7 @@ export default function FeesTracking() {
           </Card>
         </div>
 
-        <Card>
+        <Card id="fee-payments-table">
           <CardHeader>
             <CardTitle>Recent Payments</CardTitle>
             <Input

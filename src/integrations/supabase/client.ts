@@ -30,8 +30,19 @@ const rawSupabase = createClient<Database>(
 // This allows the app to be explored in demo mode without crashing on fetches
 export const supabase = new Proxy(rawSupabase, {
   get(target, prop, receiver) {
-    if (!isSupabaseConfigured && (prop === 'from' || prop === 'rpc' || prop === 'storage')) {
-      if (prop === 'storage') {
+    if (!isSupabaseConfigured) {
+      if (prop === 'auth') {
+        return {
+          signInWithPassword: () => Promise.resolve({ data: { user: { id: 'demo' }, session: {} }, error: null }),
+          signUp: () => Promise.resolve({ data: { user: { id: 'demo' }, session: {} }, error: null }),
+          signOut: () => Promise.resolve({ error: null }),
+          onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+          getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+          getUser: () => Promise.resolve({ data: { user: null }, error: null }),
+        };
+      }
+      if (prop === 'from' || prop === 'rpc' || prop === 'storage') {
+        if (prop === 'storage') {
         return {
           from: () => ({
             upload: () => Promise.resolve({ data: { path: 'demo' }, error: null }),
@@ -79,7 +90,8 @@ export const supabase = new Proxy(rawSupabase, {
         then: (cb: any) => Promise.resolve({ data: [], error: null }).then(cb),
       });
       return noopQuery;
+      }
     }
     return Reflect.get(target, prop, receiver);
-  }
+  },
 });

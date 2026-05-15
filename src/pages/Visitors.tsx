@@ -732,7 +732,7 @@ const Visitors = () => {
           />
         </div>
 
-        <Tabs defaultValue="gate" className="space-y-6">
+        <Tabs id="visitor-log-container" defaultValue="gate" className="space-y-6">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <TabsList className="bg-white border p-1 h-12 shadow-sm">
               <TabsTrigger value="gate" className="h-10 px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">

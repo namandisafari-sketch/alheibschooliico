@@ -91,7 +91,7 @@ const Staff = () => {
   return (
     <DashboardLayout title="Staff & Workers" subtitle="Manage non-teaching staff and workers">
       {/* Stats Cards */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-4 mb-4 sm:mb-6">
+      <div id="staff-stats-overview" className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-4 mb-4 sm:mb-6">
         {stats.map((stat) => (
           <div
             key={stat.value}
@@ -141,7 +141,7 @@ const Staff = () => {
               </Select>
             </div>
             <AddStaffDialog>
-              <Button size="sm" className="w-full sm:w-auto">
+              <Button id="add-staff-btn" size="sm" className="w-full sm:w-auto">
                 <UserPlus className="mr-2 h-4 w-4" />
                 Add Staff
               </Button>
@@ -165,7 +165,7 @@ const Staff = () => {
                 <p className="text-sm">Add your first staff member to get started</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div id="staff-directory-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {filteredStaff.map((member) => (
                   <div 
                     key={member.id} 
