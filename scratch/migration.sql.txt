@@ -1,0 +1,48 @@
+
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+
+// NOTE: We need a service role key to create tables, but we don't have it.
+// However, the user can run this in the SQL Editor.
+// Or I can try to create the table using a standard RPC if available.
+// But usually, I should just ask the user to run it.
+
+// Wait, I'll check if I can use the existing attendance table and just add a column.
+// No, I've already committed to personnel_attendance.
+
+console.log("PLEASE RUN THE FOLLOWING SQL IN YOUR SUPABASE SQL EDITOR:");
+console.log(`
+CREATE TABLE IF NOT EXISTS public.personnel_attendance (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    employee_id UUID REFERENCES public.employees(id) ON DELETE CASCADE,
+    date DATE NOT NULL DEFAULT CURRENT_DATE,
+    status attendance_status DEFAULT 'present',
+    check_in_time TIME,
+    check_out_time TIME,
+    notes TEXT,
+    recorded_by UUID REFERENCES public.profiles(id),
+    is_finalized BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(employee_id, date)
+);
+
+ALTER TABLE public.personnel_attendance ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow admins to manage personnel attendance" 
+ON public.personnel_attendance FOR ALL 
+TO authenticated 
+USING (
+  EXISTS (
+    SELECT 1 FROM public.user_roles 
+    WHERE user_id = auth.uid() 
+    AND role IN ('admin', 'accountant', 'head_teacher')
+  )
+);
+
+CREATE POLICY "Allow users to view personnel attendance" 
+ON public.personnel_attendance FOR SELECT 
+TO authenticated 
+USING (true);
+`);

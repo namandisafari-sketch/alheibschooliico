@@ -1,0 +1,89 @@
+/* =============================================================
+   SHARED PRINT STYLESHEET — Alheib School Official Forms
+   Used by: StockRequestForm, CustodyForm, LiquidityForm
+   ============================================================= */
+
+/* Arabic typography (loaded once, used wherever dir="rtl") */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500;700&family=Tinos:ital,wght@0,400;0,700;1,400&display=swap');
+
+/* Common wrapper applied to every printable form root */
+.print-form {
+  background: #ffffff;
+  color: #0f172a;
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 15mm 18mm;
+  box-sizing: border-box;
+  font-family: 'Tinos', 'Times New Roman', serif;
+  font-size: 11pt;
+  line-height: 1.5;
+}
+
+/* Arabic text inside forms uses Naskh */
+.print-form [dir="rtl"],
+.print-form [dir="rtl"] * {
+  font-family: 'Noto Naskh Arabic', 'Tinos', 'Times New Roman', serif;
+}
+
+.print-form table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.print-form table, .print-form th, .print-form td {
+  border-color: #0f172a;
+}
+
+/* ============= @PAGE rules — applied only when printing ============= */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 12mm 12mm 12mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Hide everything except the print form when printing */
+  body * {
+    visibility: hidden;
+  }
+  .print-form, .print-form *,
+  .powered-by, .powered-by * {
+    visibility: visible;
+  }
+  .powered-by {
+    position: fixed;
+    bottom: 8mm;
+    left: 0;
+    right: 0;
+    text-align: center;
+  }
+  .print-form {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    min-height: auto;
+    padding: 0;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Hide controls / dialog chrome */
+  .print\:hidden,
+  [data-print-hide],
+  [role="dialog"] > button[aria-label="Close"] {
+    display: none !important;
+  }
+
+  /* Avoid splitting tables awkwardly */
+  table { page-break-inside: avoid; }
+  tr    { page-break-inside: avoid; page-break-after: auto; }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+}
