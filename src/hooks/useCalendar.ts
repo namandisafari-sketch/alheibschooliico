@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
 
 export type CalendarEvent = {
   id: string;
@@ -18,14 +17,34 @@ export const useCalendar = () => {
   return useQuery({
     queryKey: ["school-calendar"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      console.log("Fetching school calendar events...");
+      const fetchPromise = supabase
         .from("school_calendar")
         .select("*")
         .order("start_date", { ascending: true });
 
-      if (error) throw error;
-      return data as CalendarEvent[];
+      // Add a 15-second timeout to the fetch
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Calendar fetch timed out")), 15000)
+      );
+
+      try {
+        const { data, error } = (await Promise.race([fetchPromise, timeoutPromise])) as any;
+
+        if (error) {
+          console.error("Supabase error fetching calendar:", error);
+          throw error;
+        }
+        
+        console.log(`Successfully fetched ${data?.length || 0} calendar events`);
+        return (data || []) as CalendarEvent[];
+      } catch (err) {
+        console.error("Failed to fetch calendar events:", err);
+        throw err;
+      }
     },
+    retry: 1,
+    staleTime: 30000,
   });
 };
 

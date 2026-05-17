@@ -4,8 +4,8 @@ import { useAuth } from "./useAuth";
 export const useIsAdmin = () => {
   const { role, profile } = useAuth();
   
-  const isAdmin = role === "admin";
-  const isGlobalAdmin = isAdmin && profile?.scope === "global";
+  const isAdmin = role === "admin" || role === "director" || role === "center_director";
+  const isGlobalAdmin = (role === "admin" || role === "center_director") && profile?.scope === "global";
   const isDistrictAdmin = isAdmin && profile?.scope === "district";
   const isSchoolAdmin = isAdmin && profile?.scope === "school";
   

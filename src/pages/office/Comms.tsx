@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, Send, User, Users, Search, Plus, Filter, Mail, Smartphone } from "lucide-react";
+import { Bell, Send, Plus, Smartphone, RefreshCw, Mail } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -16,12 +16,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { smsService } from "@/services/smsService";
 
 const Comms = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [sendViaSMS, setSendViaSMS] = useState(false);
+  const [smsBalance, setSmsBalance] = useState<any>(null);
 
   const { data: messages = [], isLoading } = useQuery({
     queryKey: ["communications"],
@@ -35,6 +38,17 @@ const Comms = () => {
     },
   });
 
+  const fetchBalance = async () => {
+    try {
+      const result = await smsService.getBalance();
+      if (result.success) {
+        setSmsBalance(result.data);
+      }
+    } catch {
+      console.error("Failed to fetch SMS balance");
+    }
+  };
+
   const [formData, setFormData] = useState({
     title: "",
     content: "",
@@ -44,17 +58,87 @@ const Comms = () => {
 
   const createMsg = useMutation({
     mutationFn: async (msg: any) => {
-      const { error } = await supabase.from("communications").insert({
-        ...msg,
-        sender_id: user?.id,
-      });
-      if (error) throw error;
+      // 1. Create communication record
+      const { data: newComm, error: commError } = await supabase
+        .from("communications")
+        .insert({
+          ...msg,
+          sender_id: user?.id,
+          sent_via: sendViaSMS ? ["in_app", "sms"] : ["in_app"]
+        })
+        .select()
+        .single();
+
+      if (commError) throw commError;
+
+      // 2. If SMS requested, send via UGSMS
+      if (sendViaSMS && msg.target_roles.length > 0) {
+        try {
+          // Fetch relevant phone numbers and names from profiles based on target_roles
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("phone, full_name")
+            .in("role", msg.target_roles)
+            .not("phone", "is", null);
+
+          if (profiles && profiles.length > 0) {
+            const hasPlaceholders = /\{name\}|\{school\}|\{date\}/i.test(msg.content);
+
+            if (hasPlaceholders) {
+              // Send individual messages for mail merge
+              const messages = profiles.map(p => ({
+                number: p.phone,
+                message: msg.content
+                  .replace(/\{name\}/gi, p.full_name || "Parent/Staff")
+                  .replace(/\{school\}/gi, "Alheib PS")
+                  .replace(/\{date\}/gi, new Date().toLocaleDateString())
+              }));
+              
+              const smsResult = await smsService.sendBulkSMS(messages);
+              if (!smsResult.success) {
+                toast({
+                  title: "Warning",
+                  description: "Broadcast logged, but SMS delivery failed: " + smsResult.message,
+                  variant: "destructive"
+                });
+              } else {
+                toast({
+                  title: "SMS Sent",
+                  description: `Broadcast sent to ${profiles.length} recipients via Personalized SMS.`
+                });
+              }
+            } else {
+              // Standard bulk send (comma separated numbers)
+              const numbers = profiles.map(p => p.phone).join(",");
+              const smsResult = await smsService.sendSMS(numbers, msg.content);
+              
+              if (!smsResult.success) {
+                toast({
+                  title: "Warning",
+                  description: "Broadcast logged, but SMS delivery failed: " + smsResult.message,
+                  variant: "destructive"
+                });
+              } else {
+                toast({
+                  title: "SMS Sent",
+                  description: `Broadcast sent to ${profiles.length} recipients via SMS.`
+                });
+              }
+            }
+          }
+        } catch (smsErr) {
+          console.error("SMS Broadcast error:", smsErr);
+        }
+      }
+
+      return newComm;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["communications"] });
       toast({ title: "Sent", description: "Communication broadcasted successfully" });
       setIsDialogOpen(false);
       setFormData({ title: "", content: "", priority: "normal", target_roles: [] });
+      setSendViaSMS(false);
     },
   });
 
@@ -71,9 +155,17 @@ const Comms = () => {
     <DashboardLayout title="Communications" subtitle="Broadcast School-wide Announcements & Memos">
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <Badge variant="outline" className="bg-primary/5">Active Broadcaster</Badge>
-            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-100">SMS Ready</Badge>
+            <div className="flex items-center gap-2 border rounded-full px-3 py-1 bg-emerald-50 border-emerald-100">
+              <Smartphone className="h-3 w-3 text-emerald-600" />
+              <span className="text-[10px] font-medium text-emerald-700">
+                {smsBalance ? `${smsBalance.balance} ${smsBalance.currency}` : "SMS Ready"}
+              </span>
+              <button onClick={fetchBalance} className="hover:rotate-180 transition-transform duration-500">
+                <RefreshCw className="h-2.5 w-2.5 text-emerald-600" />
+              </button>
+            </div>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -132,6 +224,24 @@ const Comms = () => {
                     </div>
                   </div>
                 </div>
+
+                <div className="flex items-center space-x-2 border p-3 rounded-lg bg-emerald-50/30 border-emerald-100">
+                  <Checkbox 
+                    id="send-sms" 
+                    checked={sendViaSMS}
+                    onCheckedChange={(checked) => setSendViaSMS(!!checked)}
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <Label htmlFor="send-sms" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2">
+                      <Smartphone className="h-4 w-4 text-emerald-600" />
+                      Broadcast also via SMS (UGSMS)
+                    </Label>
+                    <p className="text-xs text-muted-foreground italic">
+                      Standard SMS rates apply. Ensure target groups have valid Ugandan phone numbers.
+                    </p>
+                  </div>
+                </div>
+
                 <Button className="w-full gap-2" onClick={() => createMsg.mutate(formData)} disabled={createMsg.isPending}>
                   <Send className="h-4 w-4" /> {createMsg.isPending ? "Broadcasting..." : "Broadcast Now"}
                 </Button>

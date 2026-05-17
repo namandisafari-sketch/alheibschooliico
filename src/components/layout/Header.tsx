@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { LanguageToggle } from "./LanguageToggle";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { GlobalSearch } from "./GlobalSearch";
+import { useAuth } from "@/hooks/useAuth";
+import { ROLE_LABEL } from "@/lib/roleConfig";
 
 interface HeaderProps {
   title: string;
@@ -12,6 +14,7 @@ interface HeaderProps {
 }
 
 export const Header = ({ title, subtitle, hideBorder }: HeaderProps) => {
+  const { user, role } = useAuth();
   const openSearch = () => {
     const event = new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true });
     document.dispatchEvent(event);
@@ -70,15 +73,22 @@ export const Header = ({ title, subtitle, hideBorder }: HeaderProps) => {
 
             <div className="flex items-center gap-2">
               <div className="hidden lg:text-right lg:block">
-                <p className="text-[10px] font-bold text-slate-900 leading-none">Admin User</p>
-                <p className="text-[9px] text-muted-foreground font-medium mt-0.5">Administrator</p>
+                <p className="text-[10px] font-bold text-slate-900 leading-none">
+                  {user?.user_metadata?.full_name || user?.email?.split('@')[0] || "Guest"}
+                </p>
+                <p className="text-[9px] text-muted-foreground font-medium mt-0.5">
+                  {role ? (ROLE_LABEL[role] || role) : "No Access Role"}
+                </p>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-9 w-9 rounded-full bg-slate-100 text-slate-600 hover:bg-primary/10 hover:text-primary transition-colors"
+                asChild
               >
-                <User className="h-5 w-5" />
+                <a href="/account-settings">
+                  <User className="h-5 w-5" />
+                </a>
               </Button>
             </div>
           </div>

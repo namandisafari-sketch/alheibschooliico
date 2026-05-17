@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Eye, Pencil, FileText } from "lucide-react";
 import { useFeePayments, formatUGX } from "@/hooks/useFees";
 import { format } from "date-fns";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PaymentReceipt } from "./PaymentReceipt";
 import { useReactToPrint } from "react-to-print";
 import { useRef } from "react";
@@ -124,6 +124,9 @@ export const PaymentHistoryTab = () => {
 
       <Dialog open={!!view} onOpenChange={() => setView(null)}>
         <DialogContent className="max-w-md p-4">
+          <DialogHeader className="sr-only">
+            <DialogTitle>View Receipt</DialogTitle>
+          </DialogHeader>
           <div className="flex justify-end mb-2">
             <Button size="sm" onClick={handlePrint}><Printer className="h-4 w-4 mr-1" /> Print</Button>
           </div>

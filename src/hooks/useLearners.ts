@@ -32,23 +32,29 @@ export const useLearners = () => {
   return useQuery({
     queryKey: ["learners", profile?.scope, profile?.district_id],
     queryFn: async () => {
+      console.log("Supabase: Fetching learners...");
       let query = supabase.from("learners").select("*");
 
       if (profile?.scope === "district" && profile.district_id) {
-        // Assuming learners.district stores the GeoNames ID or we match by it
         query = query.eq("district", profile.district_id);
       } else if (profile?.scope === "school" && profile.school_id) {
-        // If we want to filter by school too
-        // query = query.eq("school_id", profile.school_id);
+        // Filter by school
       }
 
       const { data: learners, error: learnersError } = await query.order("full_name");
 
-      if (learnersError) throw learnersError;
+      if (learnersError) {
+        console.error("Supabase: Error fetching learners:", learnersError);
+        throw learnersError;
+      }
+
+      console.log(`Supabase: Found ${learners?.length || 0} learners`);
 
       // Fetch classes and guardians for joining
       const { data: classes } = await supabase.from("classes").select("id, name");
       const { data: guardians } = await supabase.from("guardians").select("id, full_name, phone");
+      
+      console.log(`Supabase: Found ${classes?.length || 0} classes and ${guardians?.length || 0} guardians`);
 
       const classMap = new Map(classes?.map((c) => [c.id, c.name]) || []);
       const guardianMap = new Map(

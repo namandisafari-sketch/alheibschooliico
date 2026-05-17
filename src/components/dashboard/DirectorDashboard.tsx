@@ -1,10 +1,9 @@
-// @ts-nocheck
 import { useEffect, useState } from "react";
 import { Kpi, Section } from "@/components/role/RolePage";
 import {
-  Crown, TrendingUp, Wallet, Users, FileBarChart, ShieldCheck,
+  Crown, TrendingUp, Wallet, Users, FileBarChart,
   GraduationCap, Stethoscope, Box, DoorOpen, Briefcase, ClipboardCheck,
-  AlertCircle, Bell, BookOpen, Activity, ArrowRight,
+  AlertCircle, Bell, Activity, ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -47,8 +46,8 @@ export const DirectorDashboard = () => {
         safeCount("visitors", q => q.gte("created_at", since7)),
         safeCount("inventory_items"),
         safeCount("suppliers"),
-        safeCount("clinic_visits", q => q.gte("created_at", since7)),
-        safeCount("medication_register"),
+        safeCount("health_visits", q => q.gte("created_at", since7)),
+        safeCount("medication_logs"),
         safeCount("incident_reports", q => q.eq("status", "open")),
         safeCount("leave_requests", q => q.eq("status", "pending")),
         safeCount("advance_requests", q => q.eq("status", "pending")),
@@ -71,13 +70,17 @@ export const DirectorDashboard = () => {
         const { data: payRows } = await supabase
           .from("fee_payments").select("amount").gte("created_at", since30);
         if (payRows) setFeeTotal30d(payRows.reduce((s: number, r: any) => s + Number(r.amount || 0), 0));
-      } catch {}
+      } catch (err) {
+        console.error("DirectorDashboard fetch fee error:", err);
+      }
 
       try {
         const { data: expRows } = await supabase
           .from("expense_requests").select("amount").eq("status", "pending");
         if (expRows) setExpenseTotal(expRows.reduce((s: number, r: any) => s + Number(r.amount || 0), 0));
-      } catch {}
+      } catch (err) {
+        console.error("DirectorDashboard fetch expense error:", err);
+      }
 
       try {
         const { data: att } = await supabase
@@ -86,7 +89,9 @@ export const DirectorDashboard = () => {
           const present = att.filter((a: any) => a.status === "present").length;
           setAttendancePct(Math.round((present / att.length) * 100));
         }
-      } catch {}
+      } catch (err) {
+        console.error("DirectorDashboard fetch attendance error:", err);
+      }
 
       try {
         const feeds: any[] = [];
@@ -94,7 +99,9 @@ export const DirectorDashboard = () => {
           try {
             const { data } = await supabase.from(table).select("*").order("created_at", { ascending: false }).limit(4);
             (data || []).forEach((r: any) => feeds.push({ label, when: r.created_at, text: fmt(r) }));
-          } catch {}
+          } catch (err) {
+            console.error(`DirectorDashboard pull ${table} error:`, err);
+          }
         };
         await Promise.all([
           pull("leave_requests", "Leave", (r) => `${r.full_name || "Staff"} requested ${r.leave_type || "leave"}`),
@@ -106,7 +113,9 @@ export const DirectorDashboard = () => {
         ]);
         feeds.sort((a, b) => (b.when || "").localeCompare(a.when || ""));
         setActivity(feeds.slice(0, 12));
-      } catch {}
+      } catch (err) {
+        console.error("DirectorDashboard activity calculation error:", err);
+      }
     })();
   }, []);
 

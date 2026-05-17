@@ -1,44 +1,40 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export interface TimetableEntry {
+export type TimetableEntry = {
   id: string;
   class_id: string;
   subject_id: string;
   teacher_id: string;
-  room_id: string | null;
+  room_id?: string | null;
   day_of_week: number;
   start_time: string;
   end_time: string;
-  notes: string | null;
-  academic_year: number;
-  term: string;
-  classes?: { name: string; level: string };
+  notes?: string | null;
+  term?: string;
   subjects?: { name: string; code: string };
   profiles?: { full_name: string };
-  school_infrastructure?: { name: string };
-}
+  classes?: { name: string };
+};
 
-export const useTimetable = (filters?: { class_id?: string; teacher_id?: string; day_of_week?: number }) => {
+export const useTimetable = (filter?: { class_id?: string }) => {
   return useQuery({
-    queryKey: ["class-timetables", filters],
+    queryKey: ["timetable", filter],
     queryFn: async () => {
       let query = supabase
         .from("class_timetables")
         .select(`
           *,
-          classes (name, level),
-          subjects (name, code),
-          profiles (full_name),
-          school_infrastructure (name)
+          subjects:subjects(name, code),
+          profiles:profiles(full_name),
+          classes:classes(name)
         `);
-
-      if (filters?.class_id) query = query.eq("class_id", filters.class_id);
-      if (filters?.teacher_id) query = query.eq("teacher_id", filters.teacher_id);
-      if (filters?.day_of_week) query = query.eq("day_of_week", filters.day_of_week);
-
-      const { data, error } = await query.order("day_of_week").order("start_time");
+      
+      if (filter?.class_id && filter.class_id !== 'all') {
+        query = query.eq("class_id", filter.class_id);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data as TimetableEntry[];
     },
@@ -46,25 +42,20 @@ export const useTimetable = (filters?: { class_id?: string; teacher_id?: string;
 };
 
 export const useUpsertTimetableEntry = () => {
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (entry: Partial<TimetableEntry>) => {
-      const { data, error } = await supabase
+    mutationFn: async (payload: any) => {
+      const { error } = await supabase
         .from("class_timetables")
-        .upsert(entry)
-        .select()
-        .single();
+        .upsert(payload);
       if (error) throw error;
-      return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["class-timetables"] });
-    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["timetable"] }),
   });
 };
 
 export const useDeleteTimetableEntry = () => {
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -73,8 +64,10 @@ export const useDeleteTimetableEntry = () => {
         .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["class-timetables"] });
-    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["timetable"] }),
   });
 };
+
+// Aliases for compatibility
+export const useClassTimetable = (classId: string, term: string) => useTimetable({ class_id: classId });
+export const useCreateTimetableSlot = useUpsertTimetableEntry;

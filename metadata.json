@@ -1,6 +1,6 @@
 {
   "name": "Alheb School Bloom - Management Suite",
-  "description": "Comprehensive school management system for academic tracking, infirmary, store inventory, and administrative operations.",
+  "description": "Comprehensive school management and governance suite with executive dashboards, academic tracking, syllabus completion metrics, and integrated operations for staff and students.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

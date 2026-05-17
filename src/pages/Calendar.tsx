@@ -3,7 +3,7 @@ import { motion } from "motion/react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { useCalendar, useUpsertCalendarEvent, CalendarEvent } from "@/hooks/useCalendar";
-import { Printer, Plus, Calendar as CalendarIcon, ChevronLeft, ChevronRight, School, Palmtree, Loader2, ClipboardList } from "lucide-react";
+import { Printer, Plus, Calendar as CalendarIcon, ChevronLeft, ChevronRight, School, Palmtree, Loader2, ClipboardList, AlertCircle, RefreshCw } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWithinInterval, parseISO, isAfter, isBefore } from "date-fns";
 import { 
   Dialog, 
@@ -95,7 +95,7 @@ const PRINT_STYLES = `
 `;
 
 const Calendar = () => {
-  const { data: events = [], isLoading } = useCalendar();
+  const { data: events = [], isLoading, isError, error } = useCalendar();
   const { role } = useAuth();
   const isAdmin = role === "admin" || role === "head_teacher";
   const { data: idSettings } = useIdCardSettings();
@@ -118,16 +118,52 @@ const Calendar = () => {
   });
 
   if (isLoading) {
-     return (
-       <DashboardLayout title="Academic Calendar" subtitle="School Program & Yearly Itinerary">
-         <div className="flex items-center justify-center min-h-[60vh]">
-            <div className="text-center space-y-4">
-               <Loader2 className="w-12 h-12 text-[#008284] animate-spin mx-auto" />
-               <p className="text-[#008284] font-black uppercase tracking-widest text-xs">Propagating Calendar Data...</p>
+    return (
+      <DashboardLayout title="Academic Calendar" subtitle="School Program & Yearly Itinerary">
+        <div className="flex h-[60vh] flex-col items-center justify-center space-y-6">
+          <div className="relative">
+            <div className="h-24 w-24 rounded-full border-t-2 border-[#16b2b4] animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="h-16 w-16 rounded-full border-b-2 border-slate-600 animate-spin flex items-center justify-center" style={{ animationDirection: 'reverse' }}>
+                <CalendarIcon className="h-6 w-6 text-[#008284]" />
+              </div>
             </div>
-         </div>
-       </DashboardLayout>
-     );
+          </div>
+          <div className="text-center space-y-2">
+            <p className="text-[#008284] font-black uppercase tracking-widest text-xs">Propagating Calendar Data...</p>
+            <p className="text-slate-400 text-[10px] uppercase font-bold tracking-tighter">Synchronizing with Server Protocol</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (isError) {
+    return (
+      <DashboardLayout title="Academic Calendar" subtitle="School Program & Yearly Itinerary">
+        <div className="flex h-[60vh] flex-col items-center justify-center space-y-4 p-8 text-center">
+          <div className="h-16 w-16 rounded-full bg-red-50 flex items-center justify-center text-red-500 mb-2">
+            <AlertCircle className="h-8 w-8" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800">Connection Interrupted</h3>
+          <p className="text-slate-500 text-sm max-w-md">
+            We encountered a protocol error while retrieving the calendar data. 
+            This usually happens if your connection is unstable or the database is currently indexing.
+          </p>
+          <div className="bg-red-50/50 p-3 rounded-lg border border-red-100 mt-2">
+            <code className="text-[10px] text-red-700 font-mono">{(error as Error)?.message || "Unknown Error State"}</code>
+          </div>
+          <Button 
+            onClick={() => window.location.reload()}
+            variant="outline"
+            className="mt-4 gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Retry Synchronization
+          </Button>
+        </div>
+      </DashboardLayout>
+    );
   }
 
   const handleUpsert = async () => {

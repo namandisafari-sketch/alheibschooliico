@@ -5,31 +5,48 @@ import { Plus, Download, Clock, MapPin, User, ChevronLeft, ChevronRight, AlertTr
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { useClasses } from "@/hooks/useClasses";
+import { useClassTimetable } from "@/hooks/useTimetable";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+const DAYS = [
+  { label: "Monday", value: 1 },
+  { label: "Tuesday", value: 2 },
+  { label: "Wednesday", value: 3 },
+  { label: "Thursday", value: 4 },
+  { label: "Friday", value: 5 }
+];
 const TIMES = ["08:30", "09:30", "10:30", "11:30", "12:30", "14:00", "15:00"];
 
 const Timetable = () => {
-    const [selectedClass, setSelectedClass] = useState("Primary 1");
+    const { data: classes = [] } = useClasses();
+    const [selectedClassId, setSelectedClassId] = useState<string>("");
+    const [term, setTerm] = useState("term_1");
+    
+    const { data: slots = [], isLoading } = useClassTimetable(selectedClassId, term);
+
+    const getSlot = (dayValue: number, time: string) => {
+        return slots.find(s => s.day_of_week === dayValue && s.start_time.startsWith(time));
+    };
 
     return (
         <DashboardLayout title="Academic Timetable" subtitle="Master Schedule & Block Planning">
             <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
                     <div className="flex items-center gap-4">
-                        <Select value={selectedClass} onValueChange={setSelectedClass}>
+                        <Select value={selectedClassId} onValueChange={setSelectedClassId}>
                             <SelectTrigger className="w-[180px]">
                                 <SelectValue placeholder="Select Class" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="Primary 1">Primary 1</SelectItem>
-                                <SelectItem value="Primary 2">Primary 2</SelectItem>
-                                <SelectItem value="Primary 3">Primary 3</SelectItem>
+                                {classes.map(c => (
+                                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                         <div className="flex items-center bg-slate-100 rounded-lg p-1">
                             <Button variant="ghost" size="icon" className="h-8 w-8"><ChevronLeft className="h-4 w-4" /></Button>
-                            <span className="text-xs font-bold px-3">Term 1, 2024</span>
+                            <span className="text-xs font-bold px-3 uppercase">{term.replace("_", " ")}</span>
                             <Button variant="ghost" size="icon" className="h-8 w-8"><ChevronRight className="h-4 w-4" /></Button>
                         </div>
                     </div>
@@ -43,62 +60,84 @@ const Timetable = () => {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <div className="min-w-[800px] bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                        <div className="grid grid-cols-6 border-b border-slate-100">
-                            <div className="p-4 bg-slate-50/50 border-r border-slate-100 font-bold text-xs text-muted-foreground flex items-center justify-center">
-                                TIME
+                {!selectedClassId ? (
+                    <Card className="border-dashed py-20">
+                        <CardContent className="text-center space-y-3">
+                            <div className="h-12 w-12 bg-muted rounded-full flex items-center justify-center mx-auto">
+                                <Clock className="h-6 w-6 text-muted-foreground" />
                             </div>
-                            {DAYS.map(day => (
-                                <div key={day} className="p-4 font-bold text-xs text-center border-r border-slate-100 last:border-0 uppercase tracking-wider text-slate-500">
-                                    {day}
-                                </div>
-                            ))}
-                        </div>
-
-                        {TIMES.map((time, idx) => (
-                            <div key={time} className="grid grid-cols-6 border-b border-slate-100 last:border-0 min-h-[100px]">
-                                <div className="p-4 bg-slate-50/30 border-r border-slate-100 font-medium text-xs text-slate-400 flex flex-col items-center justify-center gap-1">
-                                    <Clock className="h-3 w-3" />
-                                    {time}
+                            <div>
+                                <h3 className="font-bold">No Class Selected</h3>
+                                <p className="text-sm text-muted-foreground">Select a class from the dropdown above to view its timetable.</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <div className="min-w-[1000px] bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                            <div className="grid grid-cols-6 border-b border-slate-100">
+                                <div className="p-4 bg-slate-50/50 border-r border-slate-100 font-bold text-xs text-muted-foreground flex items-center justify-center">
+                                    TIME
                                 </div>
                                 {DAYS.map(day => (
-                                    <div key={`${day}-${time}`} className="p-2 border-r border-slate-100 last:border-0 hover:bg-slate-50 transition-colors group">
-                                        {/* Mock data for visualization */}
-                                        {(idx + day.length) % 3 === 0 && (
-                                            <div className="h-full bg-blue-50 border border-blue-100 rounded-lg p-2 text-[10px] space-y-1 relative group-hover:shadow-sm">
-                                                <div className="flex justify-between items-start">
-                                                    <span className="font-bold text-blue-800">English</span>
-                                                    <Badge variant="outline" className="text-[8px] h-4 px-1 bg-white">RM 4</Badge>
-                                                </div>
-                                                <div className="flex items-center gap-1 text-blue-600">
-                                                    <User className="h-3 w-3" />
-                                                    <span>Mr. Okello</span>
-                                                </div>
-                                                <div className="flex items-center gap-1 text-slate-400">
-                                                    <MapPin className="h-3 w-3" />
-                                                    <span>Block B</span>
-                                                </div>
-                                            </div>
-                                        )}
-                                        {(idx + day.length) % 5 === 0 && idx < 4 && (
-                                            <div className="h-full bg-emerald-50 border border-emerald-100 rounded-lg p-2 text-[10px] space-y-1 relative group-hover:shadow-sm">
-                                                <div className="flex justify-between items-start">
-                                                    <span className="font-bold text-emerald-800">Science</span>
-                                                    <Badge variant="outline" className="text-[8px] h-4 px-1 bg-white">Lab</Badge>
-                                                </div>
-                                                <div className="flex items-center gap-1 text-emerald-600">
-                                                    <User className="h-3 w-3" />
-                                                    <span>Ms. Atim</span>
-                                                </div>
-                                            </div>
-                                        )}
+                                    <div key={day.value} className="p-4 font-bold text-xs text-center border-r border-slate-100 last:border-0 uppercase tracking-wider text-slate-500">
+                                        {day.label}
                                     </div>
                                 ))}
                             </div>
-                        ))}
+
+                            {isLoading ? (
+                                TIMES.map(time => (
+                                    <div key={time} className="grid grid-cols-6 border-b border-slate-100 min-h-[100px]">
+                                        <div className="p-4 bg-slate-50/30 border-r border-slate-100 flex items-center justify-center">
+                                            <Skeleton className="h-4 w-12" />
+                                        </div>
+                                        {DAYS.map(day => (
+                                            <div key={`${day.value}-${time}`} className="p-2 border-r border-slate-100 flex items-center justify-center">
+                                                <Skeleton className="h-full w-full rounded-lg" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                ))
+                            ) : (
+                                TIMES.map((time) => (
+                                    <div key={time} className="grid grid-cols-6 border-b border-slate-100 last:border-0 min-h-[100px]">
+                                        <div className="p-4 bg-slate-50/30 border-r border-slate-100 font-medium text-xs text-slate-400 flex flex-col items-center justify-center gap-1">
+                                            <Clock className="h-3 w-3" />
+                                            {time}
+                                        </div>
+                                        {DAYS.map(day => {
+                                            const slot = getSlot(day.value, time);
+                                            return (
+                                                <div key={`${day.value}-${time}`} className="p-2 border-r border-slate-100 last:border-0 hover:bg-slate-50 transition-colors group">
+                                                    {slot ? (
+                                                        <div className="h-full bg-blue-50 border border-blue-100 rounded-lg p-2 text-[10px] space-y-1 relative group-hover:shadow-sm">
+                                                            <div className="flex justify-between items-start">
+                                                                <span className="font-bold text-blue-800">{slot.subject?.name}</span>
+                                                                <Badge variant="outline" className="text-[8px] h-4 px-1 bg-white">
+                                                                    {slot.room?.name || "N/A"}
+                                                                </Badge>
+                                                            </div>
+                                                            <div className="flex items-center gap-1 text-blue-600">
+                                                                <User className="h-3 w-3" />
+                                                                <span className="truncate">{slot.teacher?.full_name}</span>
+                                                            </div>
+                                                            {slot.notes && (
+                                                                <p className="text-[9px] text-slate-400 italic truncate">{slot.notes}</p>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="h-full w-full border-2 border-dashed border-slate-50 rounded-lg group-hover:border-slate-200 transition-colors" />
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ))
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <Card>
