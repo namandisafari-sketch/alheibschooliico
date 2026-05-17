@@ -1,3 +1,13 @@
+import { lazy, Suspense } from "react";
+import Index from "./pages/Index";
+import Auth from "./pages/Auth";
+import OfficeComms from "./pages/office/Comms";
+import TeacherParentChat from "./pages/teacher/ParentChat";
+import HeadTeacherHome from "./pages/headteacher/HeadTeacherHome";
+import TeacherHome from "./pages/teacher/TeacherHome";
+import AccountantHome from "./pages/accountant/AccountantHome";
+import DosHome from "./pages/dos/DosHome";
+import NurseHome from "./pages/nurse/NurseHome";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,108 +18,110 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import ScrollToTop from "@/components/common/ScrollToTop";
 import { PageGuide } from "@/components/common/PageGuide";
-import Index from "./pages/Index";
-import Students from "./pages/Students";
-import Teachers from "./pages/Teachers";
-import Classes from "./pages/Classes";
-import Attendance from "./pages/Attendance";
-import Staff from "./pages/Staff";
-import StaffAttendance from "./pages/StaffAttendance";
-import Auth from "./pages/Auth";
-import ParentDashboard from "./pages/ParentDashboard";
-import UserManagement from "./pages/UserManagement";
-import MarksEntry from "./pages/MarksEntry";
-import Reports from "./pages/Reports";
-import Notifications from "./pages/Notifications";
-import SiteSettings from "./pages/SiteSettings";
-import Salary from "./pages/Salary";
-import IDCards from "./pages/IDCards";
-import FeeManagement from "./pages/FeeManagement";
-import HeadTeacherHome from "./pages/headteacher/HeadTeacherHome";
-import Schedule from "./pages/Schedule";
-import Visitors from "./pages/Visitors";
-import Inventory from "./pages/Inventory";
-import InventoryTracking from "./pages/InventoryTracking";
-import Calendar from "./pages/Calendar";
-import HealthManagement from "./pages/HealthManagement";
-import AccountSettings from "./pages/AccountSettings";
-import Madrasa from "./pages/Madrasa";
-import Hostel from "./pages/Hostel";
-import Budget from "./pages/Budget";
-import Homework from "./pages/Homework";
-import StaffManagement from "./pages/StaffManagement";
-import Discipline from "./pages/Discipline";
-import AccountantAccounts from "./pages/accountant/Accounts";
-import AccountantProcurement from "./pages/accountant/Procurement";
-import AccountantPettyCash from "./pages/accountant/PettyCash";
-import AccountantPayroll from "./pages/accountant/Payroll";
-import AccountantAuditLog from "./pages/accountant/AuditLog";
-import AccountantHome from "./pages/accountant/AccountantHome";
-import AccountantReconciliation from "./pages/accountant/Reconciliation";
-import AccountantExpenseApprovals from "./pages/accountant/ExpenseApprovals";
-import AccountantTaxReports from "./pages/accountant/TaxReports";
-import AccountantFeesTracking from "./pages/accountant/FeesTracking";
-import AccountantFees from "./pages/FeeManagement";
+import { Loader2 } from "lucide-react";
+
+// Lazy load other pages
+const Students = lazy(() => import("./pages/Students"));
+const Teachers = lazy(() => import("./pages/Teachers"));
+const Classes = lazy(() => import("./pages/Classes"));
+const Attendance = lazy(() => import("./pages/Attendance"));
+const Staff = lazy(() => import("./pages/Staff"));
+const StaffAttendance = lazy(() => import("./pages/StaffAttendance"));
+const ParentDashboard = lazy(() => import("./pages/ParentDashboard"));
+const UserManagement = lazy(() => import("./pages/UserManagement"));
+const MarksEntry = lazy(() => import("./pages/MarksEntry"));
+const Reports = lazy(() => import("./pages/Reports"));
+const Notifications = lazy(() => import("./pages/Notifications"));
+const SiteSettings = lazy(() => import("./pages/SiteSettings"));
+const Salary = lazy(() => import("./pages/Salary"));
+const IDCards = lazy(() => import("./pages/IDCards"));
+const FeeManagement = lazy(() => import("./pages/FeeManagement"));
+const Schedule = lazy(() => import("./pages/Schedule"));
+const Visitors = lazy(() => import("./pages/Visitors"));
+const Inventory = lazy(() => import("./pages/Inventory"));
+const InventoryTracking = lazy(() => import("./pages/InventoryTracking"));
+const Calendar = lazy(() => import("./pages/Calendar"));
+const HealthManagement = lazy(() => import("./pages/HealthManagement"));
+const AccountSettings = lazy(() => import("./pages/AccountSettings"));
+const Madrasa = lazy(() => import("./pages/Madrasa"));
+const Hostel = lazy(() => import("./pages/Hostel"));
+const Budget = lazy(() => import("./pages/Budget"));
+const Homework = lazy(() => import("./pages/Homework"));
+const StaffManagement = lazy(() => import("./pages/StaffManagement"));
+const Discipline = lazy(() => import("./pages/Discipline"));
+const AccountantAccounts = lazy(() => import("./pages/accountant/Accounts"));
+const AccountantProcurement = lazy(() => import("./pages/accountant/Procurement"));
+const AccountantPettyCash = lazy(() => import("./pages/accountant/PettyCash"));
+const AccountantPayroll = lazy(() => import("./pages/accountant/Payroll"));
+const AccountantAuditLog = lazy(() => import("./pages/accountant/AuditLog"));
+const AccountantReconciliation = lazy(() => import("./pages/accountant/Reconciliation"));
+const AccountantExpenseApprovals = lazy(() => import("./pages/accountant/ExpenseApprovals"));
+const AccountantTaxReports = lazy(() => import("./pages/accountant/TaxReports"));
+const AccountantFeesTracking = lazy(() => import("./pages/accountant/FeesTracking"));
+const AccountantFees = lazy(() => import("./pages/FeeManagement"));
 
 // DOS Pages
-import DosHome from "./pages/dos/DosHome";
-import DosTimetable from "./pages/dos/Timetable";
-import DosSyllabus from "./pages/dos/Syllabus";
-import DosExams from "./pages/dos/Exams";
-import DosAssignments from "./pages/dos/Assignments";
-import DosLessonTracking from "./pages/dos/LessonTracking";
-import P7Mgt from "./pages/dos/P7Mgt";
+const DosTimetable = lazy(() => import("./pages/dos/Timetable"));
+const DosSyllabus = lazy(() => import("./pages/dos/Syllabus"));
+const DosExams = lazy(() => import("./pages/dos/Exams"));
+const DosAssignments = lazy(() => import("./pages/dos/Assignments"));
+const DosLessonTracking = lazy(() => import("./pages/dos/LessonTracking"));
+const P7Mgt = lazy(() => import("./pages/dos/P7Mgt"));
 
 // Nurse Pages
-import NurseHome from "./pages/nurse/NurseHome";
-import NurseClinic from "./pages/nurse/Clinic";
-import NurseMedication from "./pages/nurse/Medication";
-import NurseIncidents from "./pages/nurse/Incidents";
+const NurseClinic = lazy(() => import("./pages/nurse/Clinic"));
+const NurseMedication = lazy(() => import("./pages/nurse/Medication"));
+const NurseIncidents = lazy(() => import("./pages/nurse/Incidents"));
 
 // Store Pages
-import StoreHome from "./pages/store/StoreHome";
-import StoreReceiving from "./pages/store/Receiving";
-import StoreLowStock from "./pages/store/LowStock";
-import StoreSuppliers from "./pages/store/Suppliers";
+const StoreHome = lazy(() => import("./pages/store/StoreHome"));
+const StoreReceiving = lazy(() => import("./pages/store/Receiving"));
+const StoreLowStock = lazy(() => import("./pages/store/LowStock"));
+const StoreSuppliers = lazy(() => import("./pages/store/Suppliers"));
 
 // Gate Pages
-import GateHome from "./pages/gate/GateHome";
-import GateVehicles from "./pages/gate/VehicleLog";
-import GateExitPasses from "./pages/gate/ExitPasses";
-import GateHandover from "./pages/gate/Handover";
+const GateHome = lazy(() => import("./pages/gate/GateHome"));
+const GateVehicles = lazy(() => import("./pages/gate/VehicleLog"));
+const GateExitPasses = lazy(() => import("./pages/gate/ExitPasses"));
+const GateHandover = lazy(() => import("./pages/gate/Handover"));
 
 // Office Pages
-import OfficeHome from "./pages/office/OfficeHome";
-import OfficeDocuments from "./pages/office/Documents";
-import OfficeComms from "./pages/office/Comms";
+const OfficeHome = lazy(() => import("./pages/office/OfficeHome"));
+const OfficeDocuments = lazy(() => import("./pages/office/Documents"));
 
 // Manager & Director Pages
-import ManagerHome from "./pages/manager/ManagerHome";
-import ManagerApprovals from "./pages/manager/Approvals";
-import ManagerPerformance from "./pages/manager/Performance";
-import DirectorHome from "./pages/director/DirectorHome";
-import DirectorUsers from "./pages/director/UserManagement";
-import DirectorReports from "./pages/director/ExecutiveReports";
-import DirectorApprovals from "./pages/director/Approvals";
+const ManagerHome = lazy(() => import("./pages/manager/ManagerHome"));
+const ManagerApprovals = lazy(() => import("./pages/manager/Approvals"));
+const ManagerPerformance = lazy(() => import("./pages/manager/Performance"));
+const DirectorHome = lazy(() => import("./pages/director/DirectorHome"));
+const DirectorUsers = lazy(() => import("./pages/director/UserManagement"));
+const DirectorReports = lazy(() => import("./pages/director/ExecutiveReports"));
+const DirectorApprovals = lazy(() => import("./pages/director/Approvals"));
+const Governance = lazy(() => import("./pages/Governance"));
+const Ministry = lazy(() => import("./pages/Ministry"));
 
 // Teacher Specific Pages
-import TeacherHome from "./pages/teacher/TeacherHome";
-import TeacherClasses from "./pages/teacher/MyClasses";
-import TeacherPlanner from "./pages/teacher/LessonPlanner";
-import TeacherGradebook from "./pages/teacher/Gradebook";
-import TeacherParentChat from "./pages/teacher/ParentChat";
-import TeacherInbox from "./pages/teacher/Inbox";
-import TeacherFinance from "./pages/teacher/Finance";
-import TeacherAttendance from "./pages/teacher/MyAttendance";
-import TeacherRequests from "./pages/teacher/Requests";
-import TeacherLetters from "./pages/teacher/Letters";
+const TeacherClasses = lazy(() => import("./pages/teacher/MyClasses"));
+const TeacherPlanner = lazy(() => import("./pages/teacher/LessonPlanner"));
+const TeacherGradebook = lazy(() => import("./pages/teacher/Gradebook"));
+const TeacherInbox = lazy(() => import("./pages/teacher/Inbox"));
+const TeacherFinance = lazy(() => import("./pages/teacher/Finance"));
+const TeacherAttendance = lazy(() => import("./pages/teacher/MyAttendance"));
+const TeacherRequests = lazy(() => import("./pages/teacher/Requests"));
+const TeacherLetters = lazy(() => import("./pages/teacher/Letters"));
 
 // Security Pages
-import SecurityHome from "./pages/security/SecurityHome";
+const SecurityHome = lazy(() => import("./pages/security/SecurityHome"));
 
-import NotFound from "./pages/NotFound";
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
+
+const PageLoader = () => (
+  <div className="flex h-screen w-full items-center justify-center">
+    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  </div>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -118,9 +130,10 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <ScrollToTop />
             <PageGuide />
+            <Suspense fallback={<PageLoader />}>
             <Routes>
             {/* Public Routes */}
             <Route path="/auth" element={<Auth />} />
@@ -797,9 +810,27 @@ const App = () => (
               }
             />
 
+            <Route
+              path="/governance"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "head_teacher", "deputy_head_teacher", "center_director"]}>
+                  <Governance />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ministry"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "head_teacher", "deputy_head_teacher", "center_director"]}>
+                  <Ministry />
+                </ProtectedRoute>
+              }
+            />
+
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>

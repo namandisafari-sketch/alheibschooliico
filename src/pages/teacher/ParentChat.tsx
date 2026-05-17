@@ -7,17 +7,58 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Phone, Send, Search } from "lucide-react";
+import { MessageSquare, Phone, Send, Search, Smartphone, Loader2 } from "lucide-react";
+import { smsService } from "@/services/smsService";
+import { useToast } from "@/hooks/use-toast";
 
 const ParentChat = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [classes, setClasses] = useState<any[]>([]);
   const [classId, setClassId] = useState<string>("");
   const [contacts, setContacts] = useState<any[]>([]);
   const [filter, setFilter] = useState("");
+  const [isSendingSMS, setIsSendingSMS] = useState<string | null>(null);
   const [tpl, setTpl] = useState(
     "Asalaam Aleykum, this is regarding your child's progress at school."
   );
+
+  const sendDirectSMS = async (phone: string, learnerName: string) => {
+    if (!phone) return;
+    
+    setIsSendingSMS(phone);
+    try {
+      // Mail Merge Logic: Replace {name} with learnerName and {school} with school name
+      const mergedTemplate = tpl
+        .replace(/\{name\}/gi, learnerName)
+        .replace(/\{school\}/gi, "Alheib PS")
+        .replace(/\{date\}/gi, new Date().toLocaleDateString());
+
+      const fullMessage = `${mergedTemplate}\n— Sent via TennaHub`;
+      const result = await smsService.sendSMS(phone, fullMessage);
+      
+      if (result.success) {
+        toast({
+          title: "SMS Sent",
+          description: "Message delivered successfully to " + phone
+        });
+      } else {
+        toast({
+          title: "SMS Failed",
+          description: result.message || "Could not send SMS. Check balance or API key.",
+          variant: "destructive"
+        });
+      }
+    } catch {
+      toast({
+        title: "Error",
+        description: "A connection error occurred.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSendingSMS(null);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -153,12 +194,26 @@ const ParentChat = () => {
                     </div>
                     {p.phone && (
                       <>
-                        <Button asChild size="sm" variant="outline" className="gap-1">
+                        <Button asChild size="sm" variant="outline" className="h-8 px-2.5">
                           <a href={`tel:${p.phone}`}>
-                            <Phone className="h-3.5 w-3.5" /> Call
+                            <Phone className="h-3.5 w-3.5" />
                           </a>
                         </Button>
-                        <Button asChild size="sm" className="gap-1 bg-emerald-600 hover:bg-emerald-700">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="h-8 gap-1.5 px-3 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                          onClick={() => sendDirectSMS(p.phone, c.learner.full_name)}
+                          disabled={isSendingSMS === p.phone}
+                        >
+                          {isSendingSMS === p.phone ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Smartphone className="h-3.5 w-3.5" />
+                          )}
+                          SMS
+                        </Button>
+                        <Button asChild size="sm" className="h-8 gap-1.5 px-3 bg-emerald-600 hover:bg-emerald-700">
                           <a href={wa(p.phone, c.learner.full_name)} target="_blank" rel="noreferrer">
                             <Send className="h-3.5 w-3.5" /> WhatsApp
                           </a>

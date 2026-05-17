@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +11,7 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY);
 
 if (!isSupabaseConfigured) {
-  console.warn("Supabase credentials strongly recommended for full functionality. Please set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in your environment variables.");
+  console.warn("Supabase credentials strongly recommended for full functionality. Please set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY (or ANNON_KEY) in your environment variables.");
 }
 
 const rawSupabase = createClient<Database>(
@@ -33,12 +33,23 @@ export const supabase = new Proxy(rawSupabase, {
     if (!isSupabaseConfigured) {
       if (prop === 'auth') {
         return {
-          signInWithPassword: () => Promise.resolve({ data: { user: { id: 'demo' }, session: {} }, error: null }),
+          signInWithPassword: () => {
+            if (typeof window !== 'undefined') localStorage.setItem('demo_logged_in', 'true');
+            return Promise.resolve({ data: { user: { id: 'demo', email: 'demo@example.com' }, session: {} }, error: null });
+          },
           signUp: () => Promise.resolve({ data: { user: { id: 'demo' }, session: {} }, error: null }),
-          signOut: () => Promise.resolve({ error: null }),
-          onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+          signOut: () => {
+            if (typeof window !== 'undefined') localStorage.removeItem('demo_logged_in');
+            return Promise.resolve({ error: null });
+          },
+          onAuthStateChange: (cb: any) => {
+            return { data: { subscription: { unsubscribe: () => {} } } };
+          },
           getSession: () => Promise.resolve({ data: { session: null }, error: null }),
-          getUser: () => Promise.resolve({ data: { user: null }, error: null }),
+          getUser: () => {
+            const isLoggedIn = typeof window !== 'undefined' && localStorage.getItem('demo_logged_in') === 'true';
+            return Promise.resolve({ data: { user: isLoggedIn ? { id: 'demo', email: 'demo@example.com' } : null }, error: null });
+          },
         };
       }
       if (prop === 'from' || prop === 'rpc' || prop === 'storage') {

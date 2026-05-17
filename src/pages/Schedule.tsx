@@ -528,7 +528,7 @@ const TimetableEntryDialog = () => {
     const newConflicts = [];
     
     const { data: others } = await supabase
-      .from("timetable_entries")
+      .from("class_timetables")
       .select("*, classes(name), profiles(full_name), subjects(name)")
       .eq("day_of_week", Number(form.day_of_week));
 

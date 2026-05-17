@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Search, Printer, X, ScanLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -158,6 +158,9 @@ export const CollectPaymentTab = () => {
 
       <Dialog open={!!receipt} onOpenChange={() => setReceipt(null)}>
         <DialogContent className="max-w-md p-4">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Payment Receipt</DialogTitle>
+          </DialogHeader>
           <div className="flex justify-end mb-2">
             <Button size="sm" onClick={handlePrint}><Printer className="h-4 w-4 mr-1" /> Print</Button>
           </div>

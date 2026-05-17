@@ -23,6 +23,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   role: AppRole | null;
+  roleFetched: boolean;
   profile: {
     scope: "global" | "district" | "school";
     district_id: string | null;
@@ -48,88 +49,211 @@ export const useAuthState = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
+  const [roleFetched, setRoleFetched] = useState(false);
   const [profile, setProfile] = useState<AuthContextType["profile"]>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
       // Mock demo user for preview
-      const mockUser: any = {
-        id: "demo-user-id",
-        email: "demo@example.com",
-        user_metadata: { full_name: "Demo User" }
-      };
-      setUser(mockUser);
-      setRole("admin");
-      setProfile({ scope: "global", district_id: null, school_id: null });
+      const isLoggedIn = typeof window !== 'undefined' && localStorage.getItem('demo_logged_in') === 'true';
+      if (isLoggedIn) {
+        const mockUser: any = {
+          id: "demo-user-id",
+          email: "demo@example.com",
+          user_metadata: { full_name: "Demo User" }
+        };
+        setUser(mockUser);
+        setRole("admin");
+        setRoleFetched(true);
+        setProfile({ scope: "global", district_id: null, school_id: null });
+      } else {
+        setUser(null);
+        setRole(null);
+        setRoleFetched(false);
+        setProfile(null);
+      }
       setLoading(false);
       return;
     }
 
-    // Set up auth state listener FIRST
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      // Safety timeout: don't stay stuck on loading for more than 15 seconds
+      const timeoutId = setTimeout(() => {
+        if (mounted && loading) {
+          console.warn("Auth initialization timed out, forcing loading to false");
+          // If we have a user but no role yet, maybe the fetches are just slow
+          if (session?.user && !role) {
+            console.warn("User exists but role not fetched yet during timeout");
+          }
+          setRoleFetched(true);
+          setLoading(false);
+        }
+      }, 15000);
+
+      try {
+        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Auth session fetch error:", error);
+          if (error.message?.includes("Refresh Token") || error.message?.includes("Invalid Refresh Token")) {
+            await supabase.auth.signOut().catch(() => {});
+            if (mounted) {
+              setSession(null);
+              setUser(null);
+              setRole(null);
+            }
+          }
+        } else if (currentSession) {
+          if (mounted) {
+            const user = currentSession.user;
+            setSession(currentSession);
+            setUser(user);
+            
+            // PRE-EMPTIVE ADMIN CHECK: Ensure system administrators always have access
+            const adminEmails = [
+              "muslim.ummahlink@gmail.com",
+              "admin@ummahlink.app",
+              "admin@alhebi.com",
+              "info.kabejjasystems@gmail.com",
+              "papa@alheib.teacher",
+              "admin@alheib.com",
+              "alhebiadmin@gmail.com"
+            ];
+            
+            if (user.email && adminEmails.includes(user.email.toLowerCase().trim())) {
+              console.log("Auth: Pre-emptive admin access granted for", user.email);
+              setRole("admin");
+              setProfile({ scope: "global", district_id: null, school_id: null });
+            }
+
+            // Still fetch from DB to see if there are updates or specific profile data
+            await fetchUserRole(user.id, user.email).catch(err => {
+              console.error("Error in fetchUserRole:", err);
+            });
+            setRoleFetched(true);
+          }
+        }
+      } catch (err) {
+        console.error("Auth initialization error:", err);
+      } finally {
+        clearTimeout(timeoutId);
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    initializeAuth();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
+        if (!mounted) return;
+
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Fetch role with setTimeout to avoid deadlock
         if (session?.user) {
-          setTimeout(() => {
-            fetchUserRole(session.user.id);
-          }, 0);
+          const user = session.user;
+          // PRE-EMPTIVE ADMIN CHECK: Ensure system administrators always have access
+          const adminEmails = [
+            "muslim.ummahlink@gmail.com",
+            "admin@ummahlink.app",
+            "admin@alhebi.com",
+            "info.kabejjasystems@gmail.com",
+            "papa@alheib.teacher",
+            "admin@alheib.com",
+            "alhebiadmin@gmail.com"
+          ];
+          
+          if (user.email && adminEmails.includes(user.email.toLowerCase().trim())) {
+            console.log("Auth: Pre-emptive admin access granted via StateChange for", user.email);
+            setRole("admin");
+            setProfile({ scope: "global", district_id: null, school_id: null });
+          }
+          
+          await fetchUserRole(user.id, user.email);
+          setRoleFetched(true);
         } else {
           setRole(null);
+          setRoleFetched(false);
+          setProfile(null);
         }
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
-        console.error("Auth session fetch error:", error);
-        // Handle "Refresh Token Not Found" or similar auth errors by clearing stale data
-        if (error.message?.includes("Refresh Token") || error.message?.includes("Invalid Refresh Token")) {
-          console.warn("Detected invalid refresh token, clearing session storage...");
-          supabase.auth.signOut().catch(() => {});
-          setUser(null);
-          setSession(null);
-          setRole(null);
-        }
-      } else {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          fetchUserRole(session.user.id);
-        }
-      }
-      setLoading(false);
-    }).catch(err => {
-      console.error("Auth promise error:", err);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const fetchUserRole = async (userId: string) => {
+  const fetchUserRole = async (userId: string, email?: string) => {
     try {
       const [roleResult, profileResult] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
         supabase.from("profiles").select("scope, district_id, school_id").eq("id", userId).maybeSingle()
       ]);
 
-      if (!roleResult.error && roleResult.data) {
+      const adminEmails = [
+        "muslim.ummahlink@gmail.com",
+        "admin@ummahlink.app",
+        "admin@alhebi.com",
+        "info.kabejjasystems@gmail.com",
+        "papa@alheib.teacher",
+        "admin@alheib.com",
+        "alhebiadmin@gmail.com"
+      ];
+      
+      const sessionUser = (await supabase.auth.getUser()).data.user;
+      const currentEmail = (email || sessionUser?.email || "").toLowerCase().trim();
+      const isAdminEmail = currentEmail && adminEmails.includes(currentEmail);
+
+      console.log(`Auth: fetchUserRole for ${currentEmail}, isAdminEmail: ${isAdminEmail}`);
+
+      // Priority 1: System Administrator Check (IMMUTABLE OVERRIDE)
+      if (isAdminEmail) {
+        console.log("Auth: APPLYING PERMANENT ADMIN BYPASS for:", currentEmail);
+        setRole("admin");
+        setProfile((prev) => ({
+          ...profileResult.data,
+          scope: "global",
+          district_id: null,
+          school_id: null
+        }));
+        setRoleFetched(true);
+        return; // Stop here, do not process DB results for role
+      } 
+      
+      // Priority 2: Database Role Check
+      if (!roleResult.error && roleResult.data && roleResult.data.role) {
         setRole(roleResult.data.role as AppRole);
+      } 
+      // Priority 3: No role found
+      else {
+        console.warn(`Auth: No role found in DB for ${userId}`);
+        setRole(null);
       }
 
+      // Update Profile state
       if (profileResult.data) {
-        setProfile(profileResult.data as any);
+        setProfile((prev) => ({
+          ...profileResult.data,
+          ...(isAdminEmail ? { scope: "global" } : {})
+        } as any));
+      } else if (isAdminEmail) {
+        // Already handled above but as a fallback
+        setProfile({ scope: "global", district_id: null, school_id: null });
       } else {
         setProfile({ scope: "school", district_id: null, school_id: null });
       }
+      
+      setRoleFetched(true);
     } catch (error) {
       console.error("Error fetching user role and profile:", error);
+      setRoleFetched(true);
     }
   };
 
@@ -169,6 +293,7 @@ export const useAuthState = () => {
     user,
     session,
     role,
+    roleFetched,
     profile,
     loading,
     signIn,
