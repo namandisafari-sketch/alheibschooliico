@@ -16,7 +16,6 @@ import {
   PenLine,
   FileText,
   FileCheck,
-  Settings,
   Wallet,
   CreditCard,
   Receipt,
@@ -41,6 +40,7 @@ import { cn } from "@/lib/utils";
 import { useAuth, AppRole } from "@/hooks/useAuth";
 import { navSections, bottomNavItems, NavItem } from "@/config/navigation";
 import { isSupabaseConfigured } from "@/integrations/supabase/client";
+import { isWhitelistedAdmin } from "@/config/admins";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -71,16 +71,7 @@ export const Sidebar = ({ isOpen = false, onClose, collapsed = false }: SidebarP
     }
   };
 
-  const adminEmails = [
-    "muslim.ummahlink@gmail.com",
-    "admin@ummahlink.app",
-    "admin@alhebi.com",
-    "info.kabejjasystems@gmail.com",
-    "papa@alheib.teacher",
-    "admin@alheib.com",
-    "alhebiadmin@gmail.com"
-  ];
-  const isWhitelisted = user?.email && adminEmails.includes(user.email.toLowerCase().trim());
+  const isWhitelisted = isWhitelistedAdmin(user?.email);
 
   const allowed = (item: NavItem) => {
     if (isWhitelisted) return true;

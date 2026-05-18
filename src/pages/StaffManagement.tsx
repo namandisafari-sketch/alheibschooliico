@@ -11,6 +11,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useStaff } from "@/hooks/useStaff";
+import { useRealtime } from "@/hooks/useRealtime";
+import { DataTable } from "@/components/ui/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
 import { useGeoDistricts } from "@/hooks/useGeoNames";
 import { LocationSelector } from "@/components/common/LocationSelector";
 import { useSchools } from "@/hooks/useSchools";
@@ -20,9 +23,13 @@ import { Shield, MapPin, School as SchoolIcon, Users, Settings2, Globe } from "l
 
 export default function StaffManagement() {
   const { role: currentUserRole, profile: currentUserProfile } = useAuth();
-  const { data: staff = [], refetch } = useStaff();
+  const { data: staff = [], isLoading } = useStaff();
   const { data: schools = [] } = useSchools();
   
+  // Real-time updates
+  useRealtime("profiles", [["staff"], ["all-staff"]]);
+  useRealtime("user_roles", [["staff"], ["all-staff"]]);
+
   const [editingStaff, setEditingStaff] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -32,6 +39,63 @@ export default function StaffManagement() {
     school_id: "",
     role: "staff"
   });
+
+  const columns: ColumnDef<any>[] = [
+    {
+      accessorKey: "full_name",
+      header: "Staff Member",
+      cell: ({ row }) => (
+        <div>
+          <div className="font-black text-slate-900 uppercase tracking-tight">{row.original.full_name}</div>
+          <div className="text-[10px] text-slate-500 font-bold">{row.original.email}</div>
+        </div>
+      )
+    },
+    {
+      accessorKey: "role",
+      header: "Role",
+      cell: ({ row }) => (
+        <Badge variant="outline" className="bg-white border-slate-200 text-slate-700 font-black uppercase text-[9px] tracking-widest whitespace-nowrap">
+          {row.original.role || "staff"}
+        </Badge>
+      )
+    },
+    {
+      accessorKey: "scope",
+      header: "Scope",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          {row.original.scope === "global" && <Globe className="h-3 w-3 text-blue-500" />}
+          {row.original.scope === "district" && <MapPin className="h-3 w-3 text-emerald-500" />}
+          {row.original.scope === "school" && <SchoolIcon className="h-3 w-3 text-amber-500" />}
+          <span className="text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
+            {row.original.scope || "school"}
+          </span>
+        </div>
+      )
+    },
+    {
+      accessorKey: "assignment",
+      header: "Assignment",
+      cell: ({ row }) => (
+        <span className="text-xs font-medium text-slate-600 line-clamp-1">
+          {row.original.scope === "district" ? (row.original.district_id || "Multiple Districts") : 
+           row.original.scope === "school" ? (schools.find(sc => sc.id === row.original.school_id)?.name || "Primary School") : 
+           "Full System Access"}
+        </span>
+      )
+    },
+    {
+      id: "actions",
+      cell: ({ row }) => (
+        <div className="text-right">
+          <Button variant="ghost" size="sm" onClick={() => handleEdit(row.original)} className="h-8 w-8 p-0">
+            <Settings2 className="h-4 w-4" />
+          </Button>
+        </div>
+      )
+    }
+  ];
 
   const handleEdit = (user: any) => {
     setEditingStaff(user);
@@ -107,54 +171,12 @@ export default function StaffManagement() {
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent border-b-2">
-                  <TableHead className="font-bold uppercase text-[10px] tracking-widest py-4">Staff Member</TableHead>
-                  <TableHead className="font-bold uppercase text-[10px] tracking-widest py-4">Role</TableHead>
-                  <TableHead className="font-bold uppercase text-[10px] tracking-widest py-4">Scope</TableHead>
-                  <TableHead className="font-bold uppercase text-[10px] tracking-widest py-4">Assignment</TableHead>
-                  <TableHead className="text-right font-bold uppercase text-[10px] tracking-widest py-4">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {staff.map((s) => (
-                  <TableRow key={s.id} className="group hover:bg-white transition-colors border-b border-slate-100">
-                    <TableCell className="py-4">
-                      <div className="font-black text-slate-900 uppercase tracking-tight">{s.full_name}</div>
-                      <div className="text-[10px] text-slate-500 font-bold">{s.email}</div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="bg-white border-slate-200 text-slate-700 font-black uppercase text-[9px] tracking-widest">
-                        {s.role || "staff"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {s.scope === "global" && <Globe className="h-3 w-3 text-blue-500" />}
-                        {s.scope === "district" && <MapPin className="h-3 w-3 text-emerald-500" />}
-                        {s.scope === "school" && <SchoolIcon className="h-3 w-3 text-amber-500" />}
-                        <span className="text-[10px] font-black uppercase tracking-widest">
-                          {s.scope || "school"}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-xs font-medium text-slate-600">
-                        {s.scope === "district" ? (s.district_id || "Multiple Districts") : 
-                         s.scope === "school" ? (schools.find(sc => sc.id === s.school_id)?.name || "Primary School") : 
-                         "Full System Access"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => handleEdit(s)}>
-                        <Settings2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <DataTable 
+              columns={columns} 
+              data={staff} 
+              searchKey="full_name"
+              searchPlaceholder="Search staff by name..."
+            />
           </CardContent>
         </Card>
 

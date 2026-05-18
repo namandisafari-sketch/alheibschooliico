@@ -346,21 +346,13 @@ const MarksEntry = () => {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs sm:text-sm">{t("term")}</Label>
-              <Select
+              <SearchableSelect
                 value={selectedTerm}
                 onValueChange={(v) => setSelectedTerm(v as TermType)}
-              >
-                <SelectTrigger className="h-9 sm:h-10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {terms.map((tm) => (
-                    <SelectItem key={tm.value} value={tm.value}>
-                      {tm.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={terms}
+                placeholder="Select term"
+                className="h-9 sm:h-10"
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs sm:text-sm">{t("academicYear")}</Label>
@@ -590,21 +582,13 @@ const MarksGrid = ({
                         </div>
                       )}
                       {s.grading_type === "letter" && (
-                        <Select
+                        <SearchableSelect
                           value={cell.letter || undefined}
                           onValueChange={(v) => onChange(l.id, s.id, "letter", v)}
-                        >
-                          <SelectTrigger className="h-8 w-20 text-sm" data-cell={`${rowIdx}-${colIdx}`}>
-                            <SelectValue placeholder="—" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {ISLAMIC_LETTER_OPTIONS.map((g) => (
-                              <SelectItem key={g} value={g}>
-                                {g}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          options={ISLAMIC_LETTER_OPTIONS.map(g => ({ value: g, label: g }))}
+                          placeholder="—"
+                          className="h-8 w-20 text-sm"
+                        />
                       )}
                       {s.grading_type === "descriptive" && (
                         <Input

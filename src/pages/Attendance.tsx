@@ -10,6 +10,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Check, X, Clock, Calendar, Loader2, Users } from "lucide-react";
+import { useRealtime } from "@/hooks/useRealtime";
+import { DataTable } from "@/components/ui/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
+import { cn } from "@/lib/utils";
 import { useClasses } from "@/hooks/useClasses";
 import { useAttendance, useMarkAttendance, useBulkMarkAttendance, LearnerWithAttendance } from "@/hooks/useAttendance";
 import { useDisciplineFlags } from "@/hooks/useDisciplineFlags";
@@ -38,6 +42,9 @@ const Attendance = () => {
   const bulkMarkAttendance = useBulkMarkAttendance();
   const { data: flags } = useDisciplineFlags();
 
+  // Real-time updates
+  useRealtime("attendance", [["attendance", selectedClassId, selectedDate]]);
+
   const selectedClass = classes.find((c) => c.id === selectedClassId);
 
   // Merge server data with local changes
@@ -48,14 +55,91 @@ const Attendance = () => {
     }));
   }, [learners, localAttendance]);
 
+  const handleStatusChange = (learnerId: string, status: AttendanceStatus) => {
+    setLocalAttendance((prev) => ({ ...prev, [learnerId]: status }));
+  };
+
   // Calculate stats
   const presentCount = learnersWithStatus.filter((s) => s.currentStatus === "present").length;
   const absentCount = learnersWithStatus.filter((s) => s.currentStatus === "absent").length;
   const lateCount = learnersWithStatus.filter((s) => s.currentStatus === "late").length;
 
-  const handleStatusChange = (learnerId: string, status: AttendanceStatus) => {
-    setLocalAttendance((prev) => ({ ...prev, [learnerId]: status }));
-  };
+  const columns: ColumnDef<any>[] = [
+    {
+      accessorKey: "full_name",
+      header: "Learner",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
+            {row.original.full_name?.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+          </div>
+          <div className="min-w-0">
+            <p className="font-bold text-slate-900 uppercase tracking-tight text-xs">{row.original.full_name}</p>
+            <p className="text-[10px] text-slate-500 font-bold">
+              {row.original.attendance?.check_in_time
+                ? `Checked in: ${row.original.attendance.check_in_time.slice(0, 5)}`
+                : "Not recorded"}
+            </p>
+            {flags?.[row.original.id] && (
+              <div className="mt-1 w-full max-w-[200px]">
+                <DisciplineFlag disciplineCase={flags[row.original.id]} />
+              </div>
+            )}
+          </div>
+        </div>
+      )
+    },
+    {
+      id: "status",
+      header: "Status",
+      cell: ({ row }) => {
+        const status = row.original.currentStatus;
+        const config = status ? statusConfig[status as AttendanceStatus] : null;
+        const StatusIcon = config?.icon;
+        return config && StatusIcon ? (
+          <Badge className={cn("text-[9px] font-black uppercase tracking-widest h-5 px-1.5", config.color)}>
+            <StatusIcon className="mr-1 h-2.5 w-2.5" />
+            {config.label}
+          </Badge>
+        ) : null;
+      }
+    },
+    {
+      id: "actions",
+      header: () => <div className="text-right">Action</div>,
+      cell: ({ row }) => {
+        const status = row.original.currentStatus;
+        return (
+          <div className="flex gap-1 justify-end">
+            <Button
+              variant={status === "present" ? "default" : "outline"}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handleStatusChange(row.original.id, "present")}
+            >
+              <Check className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={status === "absent" ? "destructive" : "outline"}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handleStatusChange(row.original.id, "absent")}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={status === "late" ? "secondary" : "outline"}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handleStatusChange(row.original.id, "late")}
+            >
+              <Clock className="h-4 w-4" />
+            </Button>
+          </div>
+        );
+      }
+    }
+  ];
 
   const handleSaveAttendance = async () => {
     if (!selectedClassId) return;
@@ -195,72 +279,8 @@ const Attendance = () => {
             <p>No learners in this class</p>
           </div>
         ) : (
-          <div className="divide-y divide-border">
-            {learnersWithStatus.map((learner) => {
-              const status = learner.currentStatus;
-              const config = status ? statusConfig[status] : null;
-              const StatusIcon = config?.icon;
-
-              return (
-                <div
-                  key={learner.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-4 transition-colors hover:bg-muted/30"
-                >
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs sm:text-sm font-medium text-primary">
-                      {learner.full_name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-sm sm:text-base text-card-foreground truncate">{learner.full_name}</p>
-                      <p className="text-xs sm:text-sm text-muted-foreground">
-                        {learner.attendance?.check_in_time
-                          ? `Checked in: ${learner.attendance.check_in_time.slice(0, 5)}`
-                          : "Not recorded"}
-                      </p>
-                      {flags?.[learner.id] && (
-                        <div className="mt-2 w-full max-w-xs">
-                          <DisciplineFlag disciplineCase={flags[learner.id]} />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3">
-                    {config && StatusIcon && (
-                      <Badge className={`${config.color} text-xs`}>
-                        <StatusIcon className="mr-1 h-3 w-3" />
-                        <span className="hidden sm:inline">{config.label}</span>
-                      </Badge>
-                    )}
-                    <div className="flex gap-1">
-                      <Button
-                        variant={status === "present" ? "default" : "outline"}
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleStatusChange(learner.id, "present")}
-                      >
-                        <Check className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant={status === "absent" ? "destructive" : "outline"}
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleStatusChange(learner.id, "absent")}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant={status === "late" ? "secondary" : "outline"}
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleStatusChange(learner.id, "late")}
-                      >
-                        <Clock className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="p-4 sm:p-6">
+            <DataTable columns={columns} data={learnersWithStatus} searchKey="full_name" />
           </div>
         )}
       </div>

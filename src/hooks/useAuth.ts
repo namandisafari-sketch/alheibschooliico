@@ -1,6 +1,7 @@
-import { useState, useEffect, createContext, useContext } from "react";
+import { useState, useEffect, createContext, useContext, useCallback } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
+import { isWhitelistedAdmin } from "@/config/admins";
 
 type AppRole = 
   | "admin" 
@@ -52,6 +53,62 @@ export const useAuthState = () => {
   const [roleFetched, setRoleFetched] = useState(false);
   const [profile, setProfile] = useState<AuthContextType["profile"]>(null);
   const [loading, setLoading] = useState(true);
+
+  const fetchUserRole = useCallback(async (userId: string, email?: string) => {
+    try {
+      const [roleResult, profileResult] = await Promise.all([
+        supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
+        supabase.from("profiles").select("scope, district_id, school_id").eq("id", userId).maybeSingle()
+      ]);
+
+      const sessionUser = (await supabase.auth.getUser()).data.user;
+      const isAdminEmail = isWhitelistedAdmin(email || sessionUser?.email);
+
+      console.log(`Auth: fetchUserRole for ${email || sessionUser?.email}, isAdminEmail: ${isAdminEmail}`);
+
+      // Priority 1: System Administrator Check (IMMUTABLE OVERRIDE)
+      if (isAdminEmail) {
+        console.log("Auth: APPLYING PERMANENT ADMIN BYPASS for:", email || sessionUser?.email);
+        setRole("admin");
+        setProfile({
+          ...profileResult.data,
+          scope: "global",
+          district_id: null,
+          school_id: null
+        });
+        setRoleFetched(true);
+        return; // Stop here, do not process DB results for role
+      } 
+      
+      // Priority 2: Database Role Check
+      if (!roleResult.error && roleResult.data && roleResult.data.role) {
+        setRole(roleResult.data.role as AppRole);
+      } 
+      // Priority 3: No role found
+      else {
+        console.warn(`Auth: No role found in DB for ${userId}`);
+        setRole(null);
+      }
+
+      // Update Profile state
+      if (profileResult.data) {
+        setProfile({
+          ...profileResult.data,
+          ...(isAdminEmail ? { scope: "global" } : {})
+        } as any);
+      } else if (isAdminEmail) {
+        // Already handled above but as a fallback
+        setProfile({ scope: "global", district_id: null, school_id: null });
+      } else {
+        setProfile({ scope: "school", district_id: null, school_id: null });
+      }
+      
+      setRoleFetched(true);
+    } catch (error) {
+      console.error("Error fetching user role and profile:", error);
+      setRoleFetched(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -112,18 +169,7 @@ export const useAuthState = () => {
             setSession(currentSession);
             setUser(user);
             
-            // PRE-EMPTIVE ADMIN CHECK: Ensure system administrators always have access
-            const adminEmails = [
-              "muslim.ummahlink@gmail.com",
-              "admin@ummahlink.app",
-              "admin@alhebi.com",
-              "info.kabejjasystems@gmail.com",
-              "papa@alheib.teacher",
-              "admin@alheib.com",
-              "alhebiadmin@gmail.com"
-            ];
-            
-            if (user.email && adminEmails.includes(user.email.toLowerCase().trim())) {
+            if (isWhitelistedAdmin(user.email)) {
               console.log("Auth: Pre-emptive admin access granted for", user.email);
               setRole("admin");
               setProfile({ scope: "global", district_id: null, school_id: null });
@@ -188,74 +234,7 @@ export const useAuthState = () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
-
-  const fetchUserRole = async (userId: string, email?: string) => {
-    try {
-      const [roleResult, profileResult] = await Promise.all([
-        supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
-        supabase.from("profiles").select("scope, district_id, school_id").eq("id", userId).maybeSingle()
-      ]);
-
-      const adminEmails = [
-        "muslim.ummahlink@gmail.com",
-        "admin@ummahlink.app",
-        "admin@alhebi.com",
-        "info.kabejjasystems@gmail.com",
-        "papa@alheib.teacher",
-        "admin@alheib.com",
-        "alhebiadmin@gmail.com"
-      ];
-      
-      const sessionUser = (await supabase.auth.getUser()).data.user;
-      const currentEmail = (email || sessionUser?.email || "").toLowerCase().trim();
-      const isAdminEmail = currentEmail && adminEmails.includes(currentEmail);
-
-      console.log(`Auth: fetchUserRole for ${currentEmail}, isAdminEmail: ${isAdminEmail}`);
-
-      // Priority 1: System Administrator Check (IMMUTABLE OVERRIDE)
-      if (isAdminEmail) {
-        console.log("Auth: APPLYING PERMANENT ADMIN BYPASS for:", currentEmail);
-        setRole("admin");
-        setProfile((prev) => ({
-          ...profileResult.data,
-          scope: "global",
-          district_id: null,
-          school_id: null
-        }));
-        setRoleFetched(true);
-        return; // Stop here, do not process DB results for role
-      } 
-      
-      // Priority 2: Database Role Check
-      if (!roleResult.error && roleResult.data && roleResult.data.role) {
-        setRole(roleResult.data.role as AppRole);
-      } 
-      // Priority 3: No role found
-      else {
-        console.warn(`Auth: No role found in DB for ${userId}`);
-        setRole(null);
-      }
-
-      // Update Profile state
-      if (profileResult.data) {
-        setProfile((prev) => ({
-          ...profileResult.data,
-          ...(isAdminEmail ? { scope: "global" } : {})
-        } as any));
-      } else if (isAdminEmail) {
-        // Already handled above but as a fallback
-        setProfile({ scope: "global", district_id: null, school_id: null });
-      } else {
-        setProfile({ scope: "school", district_id: null, school_id: null });
-      }
-      
-      setRoleFetched(true);
-    } catch (error) {
-      console.error("Error fetching user role and profile:", error);
-      setRoleFetched(true);
-    }
-  };
+  }, [fetchUserRole]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({

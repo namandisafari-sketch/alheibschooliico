@@ -168,7 +168,7 @@ const App = () => (
             <Route
               path="/students"
               element={
-                <ProtectedRoute allowedRoles={["admin", "teacher", "head_teacher", "deputy_head_teacher"]}>
+                <ProtectedRoute allowedRoles={["admin", "teacher", "head_teacher", "deputy_head_teacher", "dos", "center_director", "director", "accountant", "nurse", "office_manager", "bursar", "staff"]}>
                   <Students />
                 </ProtectedRoute>
               }
@@ -200,7 +200,7 @@ const App = () => (
             <Route
               path="/attendance"
               element={
-                <ProtectedRoute allowedRoles={["admin", "teacher", "head_teacher", "deputy_head_teacher"]}>
+                <ProtectedRoute allowedRoles={["admin", "teacher", "head_teacher", "deputy_head_teacher", "dos", "center_director", "director"]}>
                   <Attendance />
                 </ProtectedRoute>
               }
@@ -224,7 +224,7 @@ const App = () => (
             <Route
               path="/marks"
               element={
-                <ProtectedRoute allowedRoles={["admin", "teacher", "head_teacher", "deputy_head_teacher"]}>
+                <ProtectedRoute allowedRoles={["admin", "teacher", "head_teacher", "deputy_head_teacher", "dos", "center_director", "director"]}>
                   <MarksEntry />
                 </ProtectedRoute>
               }
@@ -232,7 +232,7 @@ const App = () => (
             <Route
               path="/reports"
               element={
-                <ProtectedRoute allowedRoles={["admin", "teacher", "head_teacher", "deputy_head_teacher"]}>
+                <ProtectedRoute allowedRoles={["admin", "teacher", "head_teacher", "deputy_head_teacher", "dos", "center_director", "director"]}>
                   <Reports />
                 </ProtectedRoute>
               }

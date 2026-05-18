@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Truck, Calendar, Wallet, User, Tag, Settings, Info } from "lucide-react";
+import { Loader2, Truck, Calendar, Wallet, User, Tag, Settings2, Info } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const formSchema = z.object({
@@ -196,7 +196,7 @@ export function AssetDialog({ children, asset, open: controlledOpen, onOpenChang
                    <Wallet className="h-4 w-4" /> Purchase & Value
                 </TabsTrigger>
                 <TabsTrigger value="maintenance" className="gap-2">
-                   <Settings className="h-4 w-4" /> Lifecycle
+                   <Settings2 className="h-4 w-4" /> Lifecycle
                 </TabsTrigger>
               </TabsList>
 

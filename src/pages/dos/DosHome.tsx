@@ -1,4 +1,4 @@
-// @ts-nocheck
+// Main component
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,13 +13,19 @@ import {
   BookMarked,
   TrendingUp,
   ArrowRight,
-  ClipboardList
+  ClipboardList,
+  Shield,
+  LayoutDashboard,
+  Clock,
+  UserCheck,
+  TrendingDown
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
+// Dos Dashboard
 const DosHome = () => {
   const { role } = useAuth();
   const isAdmin = role === "admin" || role === "director" || role === "center_director" || role === "dos" || role === "head_teacher";

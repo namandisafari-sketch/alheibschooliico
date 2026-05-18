@@ -45,6 +45,10 @@ import { BulkIssueDialog } from "@/components/inventory/BulkIssueDialog";
 import { GatePassDialog } from "@/components/inventory/GatePassDialog";
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
+import { useRealtime } from "@/hooks/useRealtime";
+import { DataTable } from "@/components/ui/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
+import { LayoutGrid, List as ListIcon } from "lucide-react";
 
 const Inventory = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -53,13 +57,110 @@ const Inventory = () => {
   const [isIssueOpen, setIsIssueOpen] = useState(false);
   const [isRestockOpen, setIsRestockOpen] = useState(false);
   const [isGatePassOpen, setIsGatePassOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   
   const { items, categories } = useInventory();
   const { data: assets } = useAssets();
   const { role, user } = useAuth();
   const queryClient = useQueryClient();
 
+  // Real-time updates
+  useRealtime("inventory_items", [["inventory-items"]]);
+  useRealtime("inventory_stock", [["inventory-items"]]);
+  useRealtime("inventory_transactions", [["inventory-history"]]);
+  useRealtime("assets", [["assets"]]);
+  useRealtime("purchase_orders", [["active-purchase-orders"]]);
+
   const isAdmin = role === "admin";
+
+  const stockColumns: ColumnDef<any>[] = [
+    {
+      accessorKey: "name",
+      header: "Item Name",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+            <Box className="h-4 w-4" />
+          </div>
+          <div>
+            <div className="font-bold text-xs uppercase tracking-tight">{row.original.name}</div>
+            <div className="text-[10px] text-muted-foreground font-mono">{row.original.category?.name || "General"}</div>
+          </div>
+        </div>
+      )
+    },
+    {
+      accessorKey: "quantity",
+      header: "Stock",
+      cell: ({ row }) => {
+        const qty = row.original.stock?.[0]?.quantity || 0;
+        const low = qty <= row.original.min_stock_level;
+        return (
+          <div className="flex items-baseline gap-1">
+            <span className={cn("font-black text-sm", low ? "text-destructive" : "text-slate-900")}>{qty}</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold">{row.original.unit}</span>
+          </div>
+        );
+      }
+    },
+    {
+      id: "actions",
+      header: () => <div className="text-right">Manage</div>,
+      cell: ({ row }) => (
+        <div className="flex gap-1 justify-end">
+          <Button variant="ghost" size="sm" className="h-8 px-2 text-[10px] font-bold" onClick={() => handleIssue(row.original)}>
+            Issue
+          </Button>
+          <Button variant="ghost" size="sm" className="h-8 px-2 text-[10px] font-bold" onClick={() => handleRestock(row.original)}>
+            Restock
+          </Button>
+          <InventoryItemDialog item={row.original} mode="edit">
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Edit className="h-4 w-4" />
+            </Button>
+          </InventoryItemDialog>
+        </div>
+      )
+    }
+  ];
+
+  const historyColumns: ColumnDef<any>[] = [
+    {
+      accessorKey: "transaction_date",
+      header: "Date",
+      cell: ({ row }) => <span className="text-[10px] font-bold text-slate-500">{format(new Date(row.original.transaction_date), "dd MMM, HH:mm")}</span>
+    },
+    {
+      accessorKey: "item.name",
+      header: "Item",
+      cell: ({ row }) => <span className="font-bold text-xs">{row.original.item?.name}</span>
+    },
+    {
+      accessorKey: "type",
+      header: "Type",
+      cell: ({ row }) => (
+        <Badge variant="outline" className={cn(
+          "text-[8px] font-black uppercase h-5",
+          row.original.type === "issuance" ? "border-amber-200 text-amber-600" : "border-emerald-200 text-emerald-600"
+        )}>
+          {row.original.type}
+        </Badge>
+      )
+    },
+    {
+      accessorKey: "quantity",
+      header: "Qty",
+      cell: ({ row }) => <span className="font-black text-xs">{row.original.type === "issuance" ? "-" : "+"}{row.original.quantity}</span>
+    },
+    {
+      id: "actions",
+      cell: ({ row }) => row.original.status === 'approved' && row.original.type === 'issuance' ? (
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => showGatePass(row.original)}>
+          <FileText className="h-4 w-4" />
+        </Button>
+      ) : null
+    }
+  ];
 
   // Fetch transaction history
   const { data: history } = useQuery({
@@ -248,6 +349,24 @@ const Inventory = () => {
               />
             </div>
             <div className="flex gap-2 w-full sm:w-auto">
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
+                <Button 
+                  variant={viewMode === "grid" ? "secondary" : "ghost"} 
+                  size="sm" 
+                  className={cn("h-8 px-2", viewMode === "grid" && "bg-white shadow-sm")}
+                  onClick={() => setViewMode("grid")}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant={viewMode === "table" ? "secondary" : "ghost"} 
+                  size="sm" 
+                  className={cn("h-8 px-2", viewMode === "table" && "bg-white shadow-sm")}
+                  onClick={() => setViewMode("table")}
+                >
+                  <ListIcon className="h-4 w-4" />
+                </Button>
+              </div>
               <Button 
                 variant="outline" 
                 className="flex-1 sm:flex-none border-primary/20 hover:bg-primary/5"
@@ -275,89 +394,95 @@ const Inventory = () => {
             </div>
           </div>
 
-          <div id="inventory-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredItems?.map((item: any) => {
-              const quantity = item.stock?.[0]?.quantity || 0;
-              const isLow = quantity <= item.min_stock_level;
-              
-              return (
-                  <div 
-                    key={item.id} 
-                    className="group relative flex flex-col rounded-xl border border-border bg-gradient-to-b from-card to-muted/20 p-5 shadow-sm transition-all hover:shadow-lg hover:-translate-y-1 overflow-hidden"
-                  >
-                    {/* Background Accent */}
-                    <div className={cn("absolute top-0 left-0 w-1 h-full", isLow ? "bg-destructive" : "bg-primary")} />
-                    
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "h-12 w-12 rounded-xl flex items-center justify-center transition-colors",
-                          isLow ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
-                        )}>
-                          <Box className="h-7 w-7" />
-                        </div>
-                        <div className="min-w-0">
-                          <h4 className="font-bold text-base truncate leading-none mb-1">{item.name}</h4>
-                          <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-tighter">
-                            {item.category?.name || "General"} • {item.unit}
-                          </p>
-                        </div>
-                      </div>
-                      <InventoryItemDialog item={item} mode="edit">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </InventoryItemDialog>
-                    </div>
-
-                    <div className="flex-1 space-y-4">
-                      <div className="flex items-end justify-between px-1">
-                        <div>
-                          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1">Stock Level</p>
-                          <div className="flex items-baseline gap-1">
-                            <span className={cn("text-3xl font-black tracking-tight", isLow ? "text-destructive" : "text-foreground")}>
-                              {quantity}
-                            </span>
-                            <span className="text-xs text-muted-foreground font-medium uppercase">{item.unit}</span>
+          {viewMode === "grid" ? (
+            <div id="inventory-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredItems?.map((item: any) => {
+                const quantity = item.stock?.[0]?.quantity || 0;
+                const isLow = quantity <= item.min_stock_level;
+                
+                return (
+                    <div 
+                      key={item.id} 
+                      className="group relative flex flex-col rounded-xl border border-border bg-gradient-to-b from-card to-muted/20 p-5 shadow-sm transition-all hover:shadow-lg hover:-translate-y-1 overflow-hidden"
+                    >
+                      {/* Background Accent */}
+                      <div className={cn("absolute top-0 left-0 w-1 h-full", isLow ? "bg-destructive" : "bg-primary")} />
+                      
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "h-12 w-12 rounded-xl flex items-center justify-center transition-colors",
+                            isLow ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
+                          )}>
+                            <Box className="h-7 w-7" />
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-base truncate leading-none mb-1">{item.name}</h4>
+                            <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-tighter">
+                              {item.category?.name || "General"} • {item.unit}
+                            </p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1">Threshold</p>
-                          <p className="text-sm font-semibold">{item.min_stock_level || 0}</p>
+                        <InventoryItemDialog item={item} mode="edit">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </InventoryItemDialog>
+                      </div>
+
+                      <div className="flex-1 space-y-4">
+                        <div className="flex items-end justify-between px-1">
+                          <div>
+                            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1">Stock Level</p>
+                            <div className="flex items-baseline gap-1">
+                              <span className={cn("text-3xl font-black tracking-tight", isLow ? "text-destructive" : "text-foreground")}>
+                                {quantity}
+                              </span>
+                              <span className="text-xs text-muted-foreground font-medium uppercase">{item.unit}</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1">Threshold</p>
+                            <p className="text-sm font-semibold">{item.min_stock_level || 0}</p>
+                          </div>
+                        </div>
+
+                        {/* Status Progress Bar */}
+                        <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div 
+                            className={cn("h-full transition-all duration-500", isLow ? "bg-destructive" : "bg-primary")} 
+                            style={{ width: `${Math.min(100, (quantity / ((item.min_stock_level || 1) * 3)) * 100)}%` }}
+                          />
                         </div>
                       </div>
 
-                      {/* Status Progress Bar */}
-                      <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div 
-                          className={cn("h-full transition-all duration-500", isLow ? "bg-destructive" : "bg-primary")} 
-                          style={{ width: `${Math.min(100, (quantity / ((item.min_stock_level || 1) * 3)) * 100)}%` }}
-                        />
+                      <div className="flex gap-2 mt-6 pt-4 border-t border-dashed">
+                        <Button 
+                          variant="secondary" 
+                          size="sm" 
+                          className="flex-1 h-9 text-xs font-bold bg-background hover:bg-primary hover:text-primary-foreground transition-all"
+                          onClick={() => handleIssue(item)}
+                        >
+                          <ArrowDownRight className="mr-1.5 h-3.5 w-3.5" /> Issue
+                        </Button>
+                        <Button 
+                          variant="secondary" 
+                          size="sm" 
+                          className="flex-1 h-9 text-xs font-bold bg-background hover:bg-success hover:text-success-foreground transition-all"
+                          onClick={() => handleRestock(item)}
+                        >
+                          <ArrowUpRight className="mr-1.5 h-3.5 w-3.5" /> Restock
+                        </Button>
                       </div>
                     </div>
-
-                    <div className="flex gap-2 mt-6 pt-4 border-t border-dashed">
-                      <Button 
-                        variant="secondary" 
-                        size="sm" 
-                        className="flex-1 h-9 text-xs font-bold bg-background hover:bg-primary hover:text-primary-foreground transition-all"
-                        onClick={() => handleIssue(item)}
-                      >
-                        <ArrowDownRight className="mr-1.5 h-3.5 w-3.5" /> Issue
-                      </Button>
-                      <Button 
-                        variant="secondary" 
-                        size="sm" 
-                        className="flex-1 h-9 text-xs font-bold bg-background hover:bg-success hover:text-success-foreground transition-all"
-                        onClick={() => handleRestock(item)}
-                      >
-                        <ArrowUpRight className="mr-1.5 h-3.5 w-3.5" /> Restock
-                      </Button>
-                    </div>
-                  </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-xl border shadow-xl bg-slate-50/50 p-6">
+              <DataTable columns={stockColumns} data={filteredItems || []} searchKey="name" />
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="pending" className="space-y-4">
@@ -498,56 +623,8 @@ const Inventory = () => {
         </TabsContent>
 
         <TabsContent value="history">
-          <div className="space-y-3">
-            {history?.map((trans: any) => (
-              <div key={trans.id} className="flex items-center gap-4 rounded-lg border border-border bg-card p-3 hover:bg-muted/30 transition-colors">
-                <div className={cn(
-                  "h-10 w-10 shrink-0 rounded-full flex items-center justify-center",
-                  trans.type === "issuance" ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"
-                )}>
-                  {trans.type === "issuance" ? <ArrowDownRight className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-0.5">
-                    <h4 className="font-bold text-sm truncate">{trans.item?.name}</h4>
-                    <span className={cn(
-                      "font-bold text-sm",
-                      trans.type === "issuance" ? "text-amber-600" : "text-green-600"
-                    )}>
-                      {trans.type === "issuance" ? "-" : "+"}{trans.quantity}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono">{trans.tracking_number}</span>
-                      <span>•</span>
-                      <span>{trans.learner?.full_name || trans.staff?.full_name || "General"}</span>
-                    </div>
-                    <span>{format(new Date(trans.transaction_date), "dd MMM, HH:mm")}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <Badge 
-                    variant="secondary" 
-                    className={cn(
-                      "capitalize text-[10px] h-5",
-                      trans.status === "approved" ? "bg-green-100 text-green-700" : 
-                      trans.status === "pending" ? "bg-yellow-100 text-yellow-700 animate-pulse" : 
-                      "bg-gray-100 text-gray-700"
-                    )}
-                  >
-                    {trans.status || 'restocked'}
-                  </Badge>
-                  {trans.status === 'approved' && trans.type === 'issuance' && (
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onClick={() => showGatePass(trans)}>
-                      <FileText className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
+          <div className="rounded-xl border shadow-xl bg-slate-50/50 p-6">
+            <DataTable columns={historyColumns} data={history || []} searchKey="item.name" />
           </div>
         </TabsContent>
       </Tabs>

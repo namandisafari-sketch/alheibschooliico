@@ -34,6 +34,7 @@ import { useSchools, useUpdateSchool, useCreateSchool, School } from "@/hooks/us
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAcademicSettings, useUpdateAcademicSettings, AcademicSettings } from "@/hooks/useAcademicSettings";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { Tabs as UiTabs, TabsContent as UiTabsContent, TabsList as UiTabsList, TabsTrigger as UiTabsTrigger } from "@/components/ui/tabs";
@@ -198,7 +199,7 @@ const SiteSettings = () => {
                   </div>
                   <div className="space-y-2">
                     <Label>Number of Terms</Label>
-                    <Select 
+                    <SearchableSelect 
                       value={academic.number_of_terms.toString()}
                       onValueChange={(v) => {
                         const count = parseInt(v);
@@ -213,33 +214,19 @@ const SiteSettings = () => {
                         }
                         setAcademic({...academic, number_of_terms: count, terms: newTerms});
                       }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select number of terms" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[2, 3, 4].map(n => (
-                          <SelectItem key={n} value={n.toString()}>{n} Terms</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      options={[2, 3, 4].map(n => ({ value: n.toString(), label: `${n} Terms` }))}
+                      placeholder="Select number of terms"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Current Active Term</Label>
-                    <Select 
+                    <SearchableSelect 
                       disabled={academic.is_automatic}
                       value={academic.current_term_id}
                       onValueChange={(v) => setAcademic({...academic, current_term_id: v})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select active term" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {academic.terms.map(term => (
-                          <SelectItem key={term.id} value={term.id}>{term.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      options={academic.terms.map(term => ({ value: term.id, label: term.name }))}
+                      placeholder="Select active term"
+                    />
                     {academic.is_automatic && <p className="text-[10px] text-primary font-bold italic">Term auto-switched based on today's date</p>}
                   </div>
                 </div>
@@ -366,20 +353,17 @@ const SiteSettings = () => {
                       </div>
                       <div className="space-y-2">
                         <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Registration Status</Label>
-                        <Select 
+                        <SearchableSelect 
                           value={activeSchool.registration_status || ""}
                           onValueChange={(v: any) => setActiveSchool({...activeSchool, registration_status: v})}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="registered">Fully Registered</SelectItem>
-                            <SelectItem value="license valid">License Valid</SelectItem>
-                            <SelectItem value="license expired">License Expired</SelectItem>
-                            <SelectItem value="not registered">Not Registered</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          options={[
+                            { value: "registered", label: "Fully Registered" },
+                            { value: "license valid", label: "License Valid" },
+                            { value: "license expired", label: "License Expired" },
+                            { value: "not registered", label: "Not Registered" }
+                          ]}
+                          placeholder="Select status"
+                        />
                       </div>
                     </div>
 
@@ -387,55 +371,46 @@ const SiteSettings = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 rounded-xl bg-slate-50 border border-slate-100">
                       <div className="space-y-2">
                         <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Ownership</Label>
-                        <Select 
+                        <SearchableSelect 
                           value={activeSchool.ownership_type || ""}
                           onValueChange={(v: any) => setActiveSchool({...activeSchool, ownership_type: v})}
-                        >
-                          <SelectTrigger className="bg-white">
-                            <SelectValue placeholder="Ownership type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="government">Government</SelectItem>
-                            <SelectItem value="private">Private</SelectItem>
-                            <SelectItem value="ngo">NGO</SelectItem>
-                            <SelectItem value="religious">Religious</SelectItem>
-                            <SelectItem value="community">Community</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          options={[
+                            { value: "government", label: "Government" },
+                            { value: "private", label: "Private" },
+                            { value: "ngo", label: "NGO" },
+                            { value: "religious", label: "Religious" },
+                            { value: "community", label: "Community" }
+                          ]}
+                          placeholder="Ownership type"
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Academic Level</Label>
-                        <Select 
+                        <SearchableSelect 
                           value={activeSchool.academic_level || ""}
                           onValueChange={(v: any) => setActiveSchool({...activeSchool, academic_level: v})}
-                        >
-                          <SelectTrigger className="bg-white">
-                            <SelectValue placeholder="Academic level" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pre-primary">Pre-primary</SelectItem>
-                            <SelectItem value="primary">Primary</SelectItem>
-                            <SelectItem value="secondary">Secondary</SelectItem>
-                            <SelectItem value="post-primary">Post-primary</SelectItem>
-                            <SelectItem value="vocational">Vocational</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          options={[
+                            { value: "pre-primary", label: "Pre-primary" },
+                            { value: "primary", label: "Primary" },
+                            { value: "secondary", label: "Secondary" },
+                            { value: "post-primary", label: "Post-primary" },
+                            { value: "vocational", label: "Vocational" }
+                          ]}
+                          placeholder="Academic level"
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Boarding Status</Label>
-                        <Select 
+                        <SearchableSelect 
                           value={activeSchool.boarding_status || ""}
                           onValueChange={(v: any) => setActiveSchool({...activeSchool, boarding_status: v})}
-                        >
-                          <SelectTrigger className="bg-white">
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="day">Day Only</SelectItem>
-                            <SelectItem value="boarding">Boarding Only</SelectItem>
-                            <SelectItem value="mixed">Mixed (Day & Boarding)</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          options={[
+                            { value: "day", label: "Day Only" },
+                            { value: "boarding", label: "Boarding Only" },
+                            { value: "mixed", label: "Mixed (Day & Boarding)" }
+                          ]}
+                          placeholder="Select status"
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Year Founded</Label>
@@ -449,18 +424,15 @@ const SiteSettings = () => {
                       </div>
                       <div className="space-y-2">
                         <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Urban/Rural</Label>
-                        <Select 
+                        <SearchableSelect 
                           value={activeSchool.urban_rural || ""}
                           onValueChange={(v: any) => setActiveSchool({...activeSchool, urban_rural: v})}
-                        >
-                          <SelectTrigger className="bg-white">
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="urban">Urban</SelectItem>
-                            <SelectItem value="rural">Rural</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          options={[
+                            { value: "urban", label: "Urban" },
+                            { value: "rural", label: "Rural" }
+                          ]}
+                          placeholder="Select type"
+                        />
                       </div>
                     </div>
 
@@ -632,20 +604,18 @@ const SiteSettings = () => {
                                 />
                               </TableCell>
                               <TableCell>
-                                <Select 
+                                <SearchableSelect 
                                   value={item.status}
                                   onValueChange={(v: any) => updateInfra.mutate({...item, status: v})}
-                                >
-                                  <SelectTrigger className="h-8 text-xs border-transparent hover:border-slate-200">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="usable">Usable</SelectItem>
-                                    <SelectItem value="under_construction">Construction</SelectItem>
-                                    <SelectItem value="needs_repair">Needs Repair</SelectItem>
-                                    <SelectItem value="unusable">Unusable</SelectItem>
-                                  </SelectContent>
-                                </Select>
+                                  options={[
+                                    { value: "usable", label: "Usable" },
+                                    { value: "under_construction", label: "Construction" },
+                                    { value: "needs_repair", label: "Needs Repair" },
+                                    { value: "unusable", label: "Unusable" }
+                                  ]}
+                                  placeholder="Status"
+                                  className="h-8 text-xs border-transparent hover:border-slate-200"
+                                />
                               </TableCell>
                               <TableCell className="text-right">
                                 <Button 
@@ -724,18 +694,16 @@ const SiteSettings = () => {
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center justify-end gap-2">
-                                  <Select 
+                                  <SearchableSelect 
                                     value={item.status}
                                     onValueChange={(v: any) => updateWash.mutate({...item, status: v})}
-                                  >
-                                    <SelectTrigger className="h-8 text-xs border-transparent hover:border-slate-200">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="usable">Usable</SelectItem>
-                                      <SelectItem value="unusable">Unusable</SelectItem>
-                                    </SelectContent>
-                                  </Select>
+                                    options={[
+                                      { value: "usable", label: "Usable" },
+                                      { value: "unusable", label: "Unusable" }
+                                    ]}
+                                    placeholder="Status"
+                                    className="h-8 text-xs border-transparent hover:border-slate-200"
+                                  />
                                   <Button 
                                     variant="ghost" 
                                     size="icon" 

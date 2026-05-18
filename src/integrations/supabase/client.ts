@@ -5,13 +5,12 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Import the supabase client like this:
-// import { supabase } from "@/integrations/supabase/client";
-
 export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY);
 
 if (!isSupabaseConfigured) {
-  console.warn("Supabase credentials strongly recommended for full functionality. Please set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY (or ANNON_KEY) in your environment variables.");
+  console.warn("⚠️ SUPABASE NOT CONFIGURED: The application is running in DEMO MODE with local mocks. All database fetches will return EMPTY DATA until you provide VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY (or ANON_KEY) in the App Settings Environment Variables.");
+} else {
+  console.log("✅ Supabase is configured with URL:", SUPABASE_URL);
 }
 
 const rawSupabase = createClient<Database>(
@@ -54,53 +53,72 @@ export const supabase = new Proxy(rawSupabase, {
       }
       if (prop === 'from' || prop === 'rpc' || prop === 'storage') {
         if (prop === 'storage') {
-        return {
-          from: () => ({
-            upload: () => Promise.resolve({ data: { path: 'demo' }, error: null }),
-            getPublicUrl: () => ({ data: { publicUrl: '' } }),
-            list: () => Promise.resolve({ data: [], error: null }),
-            remove: () => Promise.resolve({ data: [], error: null }),
-          })
+          return {
+            from: () => ({
+              upload: () => Promise.resolve({ data: { path: 'demo' }, error: null }),
+              getPublicUrl: () => ({ data: { publicUrl: '' } }),
+              list: () => Promise.resolve({ data: [], error: null }),
+              remove: () => Promise.resolve({ data: [], error: null }),
+            })
+          };
+        }
+        
+        const createMockQuery = (tableName?: string) => {
+          const mockDataMap: Record<string, any[]> = {
+            learners: [
+              { id: '1', full_name: 'Ahmed Musa', first_name: 'Ahmed', last_name: 'Musa', gender: 'male', class_id: 'c1', religion: 'Islam', boarding_status: 'day', pupil_status: 'Paying' },
+              { id: '2', full_name: 'Sarah Ummah', first_name: 'Sarah', last_name: 'Ummah', gender: 'female', class_id: 'c2', religion: 'Islam', boarding_status: 'boarding', pupil_status: 'Paying' }
+            ],
+            classes: [
+              { id: 'c1', name: 'Primary 1', level: 1, capacity: 40, room: 'A1', teacher_id: 't1' },
+              { id: 'c2', name: 'Primary 2', level: 2, capacity: 35, room: 'A2', teacher_id: 't2' }
+            ],
+            profiles: [
+              { id: 'demo', full_name: 'Demo Admin', role: 'admin', scope: 'global' },
+              { id: 't1', full_name: 'Teacher Ahmed', role: 'teacher' },
+              { id: 't2', full_name: 'Teacher Sarah', role: 'teacher' }
+            ],
+            user_roles: [
+              { user_id: 'demo', role: 'admin' }
+            ]
+          };
+
+          const data = tableName ? (mockDataMap[tableName] || []) : [];
+
+          const query: any = () => query;
+          query.select = () => query;
+          query.insert = () => query;
+          query.update = () => query;
+          query.upsert = () => query;
+          query.delete = () => query;
+          query.eq = () => query;
+          query.neq = () => query;
+          query.gt = () => query;
+          query.gte = () => query;
+          query.lt = () => query;
+          query.lte = () => query;
+          query.like = () => query;
+          query.ilike = () => query;
+          query.is = () => query;
+          query.in = () => query;
+          query.match = () => query;
+          query.not = () => query;
+          query.or = () => query;
+          query.filter = () => query;
+          query.order = () => query;
+          query.limit = () => query;
+          query.range = () => query;
+          query.single = () => Promise.resolve({ data: data[0] || null, error: null });
+          query.maybeSingle = () => Promise.resolve({ data: data[0] || null, error: null });
+          query.then = (cb: any) => Promise.resolve({ data, error: null, count: data.length }).then(cb);
+          
+          return query;
         };
-      }
-      
-      const noopQuery: any = () => ({
-        select: noopQuery,
-        insert: noopQuery,
-        update: noopQuery,
-        upsert: noopQuery,
-        delete: noopQuery,
-        eq: noopQuery,
-        neq: noopQuery,
-        gt: noopQuery,
-        gte: noopQuery,
-        lt: noopQuery,
-        lte: noopQuery,
-        like: noopQuery,
-        ilike: noopQuery,
-        is: noopQuery,
-        in: noopQuery,
-        contains: noopQuery,
-        containedBy: noopQuery,
-        rangeGt: noopQuery,
-        rangeGte: noopQuery,
-        rangeLt: noopQuery,
-        rangeLte: noopQuery,
-        rangeAdjacent: noopQuery,
-        overlaps: noopQuery,
-        match: noopQuery,
-        not: noopQuery,
-        or: noopQuery,
-        filter: noopQuery,
-        order: noopQuery,
-        limit: noopQuery,
-        range: noopQuery,
-        single: () => Promise.resolve({ data: null, error: null }),
-        maybeSingle: () => Promise.resolve({ data: null, error: null }),
-        csv: noopQuery,
-        then: (cb: any) => Promise.resolve({ data: [], error: null }).then(cb),
-      });
-      return noopQuery;
+
+        if (prop === 'from') {
+          return (tableName: string) => createMockQuery(tableName);
+        }
+        return createMockQuery();
       }
     }
     return Reflect.get(target, prop, receiver);

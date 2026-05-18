@@ -54,6 +54,10 @@ import { z } from "zod";
 import { useLearners } from "@/hooks/useLearners";
 import { UserActions } from "@/components/users/UserActions";
 import { cn } from "@/lib/utils";
+import { useRealtime } from "@/hooks/useRealtime";
+import { DataTable } from "@/components/ui/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
+import { Link as LinkIcon } from "lucide-react";
 
 type AppRole = "admin" | "teacher" | "parent" | "staff" | "security" | "accountant" | "head_teacher";
 
@@ -78,7 +82,6 @@ const createUserSchema = z.object({
 type CreateUserFormValues = z.infer<typeof createUserSchema>;
 
 const UserManagement = () => {
-  const [searchQuery, setSearchQuery] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
@@ -110,6 +113,11 @@ const UserManagement = () => {
     },
   });
 
+  // Real-time updates
+  useRealtime("profiles", [["all-users"]]);
+  useRealtime("user_roles", [["all-users"]]);
+  useRealtime("parent_learner_links", [["parent-links"]]);
+
   const { data: learners = [] } = useLearners();
 
   // Fetch parent-learner links
@@ -124,11 +132,79 @@ const UserManagement = () => {
     },
   });
 
-  const filteredUsers = users.filter(
-    (user) =>
-      user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const columns: ColumnDef<any>[] = [
+    {
+      accessorKey: "full_name",
+      header: "User",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          <div className={cn(
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-bold text-xs",
+            row.original.role ? roleConfig[row.original.role as AppRole]?.color : "bg-muted"
+          )}>
+            {row.original.full_name?.split(" ").map((n: string) => n[0]).join("").slice(0, 2) || "?"}
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-bold text-xs truncate">{row.original.full_name}</h3>
+            <p className="text-[10px] text-muted-foreground truncate italic">{row.original.email}</p>
+          </div>
+        </div>
+      )
+    },
+    {
+      accessorKey: "role",
+      header: "Access Role",
+      cell: ({ row }) => {
+        const config = row.original.role ? roleConfig[row.original.role as AppRole] : null;
+        return config ? (
+          <Badge className={cn("text-[9px] h-5 uppercase tracking-widest font-black", config.color)}>
+            {config.label}
+          </Badge>
+        ) : null;
+      }
+    },
+    {
+      accessorKey: "phone",
+      header: "Contact",
+      cell: ({ row }) => <span className="text-xs font-medium">{row.original.phone || "—"}</span>
+    },
+    {
+      id: "links",
+      header: "Learner Links",
+      cell: ({ row }) => {
+        if (row.original.role !== "parent") return null;
+        const linked = getLinkedLearners(row.original.id);
+        return (
+          <div className="flex flex-wrap gap-1">
+            {linked.map((name, i) => (
+              <Badge key={i} variant="outline" className="text-[9px] h-4 px-1.5 border-primary/20 bg-primary/5 text-primary">
+                {name}
+              </Badge>
+            ))}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 w-5 p-0 rounded-full"
+              onClick={() => {
+                setSelectedParentId(row.original.id);
+                setLinkDialogOpen(true);
+              }}
+            >
+              <LinkIcon className="h-3 w-3" />
+            </Button>
+          </div>
+        );
+      }
+    },
+    {
+      id: "actions",
+      cell: ({ row }) => (
+        <div className="text-right">
+          <UserActions user={row.original} />
+        </div>
+      )
+    }
+  ];
 
   const form = useForm<CreateUserFormValues>({
     resolver: zodResolver(createUserSchema),
@@ -260,17 +336,7 @@ const UserManagement = () => {
       </div>
 
       {/* Actions */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search users..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
         <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button size="sm">
@@ -371,92 +437,19 @@ const UserManagement = () => {
         </Dialog>
       </div>
 
-      {/* Users Grid */}
-      <div className="mt-6">
+      {/* Users DataTable */}
+      <div className="mt-8 border-none shadow-xl bg-slate-50/50 rounded-xl overflow-hidden p-6">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredUsers.map((user) => {
-              const config = user.role ? roleConfig[user.role] : null;
-              const linkedLearners = user.role === "parent" ? getLinkedLearners(user.id) : [];
-
-              return (
-                <div 
-                  key={user.id} 
-                  className="group relative rounded-xl border border-border bg-card p-4 hover:shadow-md transition-all"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full font-bold ${config?.color || "bg-muted"}`}>
-                        {user.full_name?.split(" ").map((n) => n[0]).join("").slice(0, 2) || "?"}
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="font-semibold text-sm truncate pr-6">{user.full_name}</h3>
-                        <p className="text-[10px] text-muted-foreground truncate italic">{user.email}</p>
-                      </div>
-                    </div>
-                     <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <UserActions user={user} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 mb-4">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Access Role:</span>
-                      {config && (
-                        <Badge className={cn("text-[10px] h-5", config.color)}>{config.label}</Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Contact:</span>
-                      <span className="font-medium">{user.phone || "—"}</span>
-                    </div>
-                  </div>
-
-                  {user.role === "parent" && (
-                    <div className="mt-4 pt-4 border-t space-y-2">
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Linked Learners</p>
-                      {linkedLearners.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {linkedLearners.map((name, i) => (
-                            <Badge key={i} variant="outline" className="text-[9px] h-4 px-1.5 border-primary/20 bg-primary/5 text-primary">
-                              {name}
-                            </Badge>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground italic">No learners linked</p>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full h-7 mt-2 text-[10px] border-dashed"
-                        onClick={() => {
-                          setSelectedParentId(user.id);
-                          setLinkDialogOpen(true);
-                        }}
-                      >
-                        <LinkIcon className="mr-1 h-3 w-3" />
-                        Link Learner
-                      </Button>
-                    </div>
-                  )}
-
-                  {user.role !== "parent" && (
-                    <div className="mt-4 pt-4 border-t flex items-center justify-between">
-                      <span className="text-[10px] text-muted-foreground">
-                        Account Active
-                      </span>
-                      <div className="flex h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          <DataTable 
+            columns={columns} 
+            data={users} 
+            searchKey="full_name"
+            searchPlaceholder="Search users by name..."
+          />
         )}
       </div>
 

@@ -19,6 +19,11 @@ import { useLearners } from "@/hooks/useLearners";
 import { RegisterLearnerDialog } from "@/components/students/RegisterLearnerDialog";
 import { LearnerActions } from "@/components/students/LearnerActions";
 import { LearnerFolderCard } from "@/components/students/LearnerFolderCard";
+import { DataTable } from "@/components/ui/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
+import { useRealtime } from "@/hooks/useRealtime";
+import { LayoutGrid, List } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +41,7 @@ const Students = () => {
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [selectedFacility, setSelectedFacility] = useState<string | null>(null);
   const [selectedPupilStatus, setSelectedPupilStatus] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"shelf" | "table">("shelf");
 
   useEffect(() => {
     const classParam = searchParams.get("class");
@@ -43,6 +49,68 @@ const Students = () => {
   }, [searchParams]);
   
   const { data: learners = [], isLoading, error } = useLearners();
+
+  // Real-time updates
+  useRealtime("learners", [["learners"]]);
+
+  const columns: ColumnDef<any>[] = [
+    {
+      accessorKey: "admission_number",
+      header: "ADM",
+      cell: ({ row }) => <span className="font-mono text-xs font-bold text-slate-500">{row.original.admission_number || "—"}</span>
+    },
+    {
+      accessorKey: "full_name",
+      header: "Learner",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center font-black text-[10px] text-slate-500">
+            {row.original.full_name?.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+          </div>
+          <div className="min-w-0">
+            <div className="font-black text-slate-900 uppercase tracking-tight text-xs">{row.original.full_name}</div>
+            <div className="text-[10px] text-slate-500 font-bold">{row.original.class_name}</div>
+          </div>
+        </div>
+      )
+    },
+    {
+      accessorKey: "gender",
+      header: "Gender",
+      cell: ({ row }) => (
+        <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest h-5 px-1.5 border-slate-200">
+          {row.original.gender}
+        </Badge>
+      )
+    },
+    {
+      accessorKey: "boarding_status",
+      header: "Facility",
+      cell: ({ row }) => (
+        <Badge variant="secondary" className="text-[9px] font-black uppercase tracking-widest h-5 px-1.5 bg-slate-100">
+          {row.original.boarding_status}
+        </Badge>
+      )
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1.5">
+          <div className={cn("h-1.5 w-1.5 rounded-full", row.original.status === "active" ? "bg-emerald-500" : "bg-slate-300")} />
+          <span className="text-[10px] font-bold text-slate-600 capitalize">{row.original.status}</span>
+        </div>
+      )
+    },
+    {
+      id: "actions",
+      cell: ({ row }) => (
+        <div className="text-right">
+          <LearnerActions student={row.original} />
+        </div>
+      )
+    }
+  ];
 
   const filteredStudents = learners.filter((student) => {
     const matchesSearch = student.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -229,16 +297,35 @@ const Students = () => {
             </DropdownMenuContent>
           </DropdownMenu>
           
-          <RegisterLearnerDialog>
-            <Button id="register-pupil-btn" size="sm" className="flex-1 sm:flex-none">
-              <UserPlus className="mr-2 h-4 w-4" />
-              <span className="sm:inline">Register</span>
-            </Button>
-          </RegisterLearnerDialog>
+              <RegisterLearnerDialog>
+                <Button id="register-pupil-btn" size="sm" className="flex-1 sm:flex-none">
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  <span className="sm:inline">Register</span>
+                </Button>
+              </RegisterLearnerDialog>
+
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
+                <Button 
+                  variant={viewMode === "shelf" ? "secondary" : "ghost"} 
+                  size="sm" 
+                  className={cn("h-7 px-2", viewMode === "shelf" && "bg-white shadow-sm")}
+                  onClick={() => setViewMode("shelf")}
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                </Button>
+                <Button 
+                  variant={viewMode === "table" ? "secondary" : "ghost"} 
+                  size="sm" 
+                  className={cn("h-7 px-2", viewMode === "table" && "bg-white shadow-sm")}
+                  onClick={() => setViewMode("table")}
+                >
+                  <List className="h-3.5 w-3.5" />
+                </Button>
+              </div>
         </div>
       </div>
 
-      {/* Students Grid - Shelf Look */}
+      {/* Students Registry Container */}
       <div id="student-registry-container" className="mt-8 sm:mt-12 animate-slide-up">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
@@ -253,7 +340,7 @@ const Students = () => {
             <p>No learners found</p>
             <p className="text-sm">Register your first learner to get started</p>
           </div>
-        ) : (
+        ) : viewMode === "shelf" ? (
           <div className="relative">
             {/* Shelf Lines Background */}
             <div className="absolute inset-0 z-0 pointer-events-none opacity-20" 
@@ -269,6 +356,10 @@ const Students = () => {
               </div>
             ))}
             </div>
+          </div>
+        ) : (
+          <div className="rounded-xl border-none shadow-xl bg-slate-50/50 p-6">
+            <DataTable columns={columns} data={filteredStudents} />
           </div>
         )}
       </div>

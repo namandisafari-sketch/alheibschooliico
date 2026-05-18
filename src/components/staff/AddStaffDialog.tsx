@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { LocationSelector } from "@/components/common/LocationSelector";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 const formSchema = z.object({
   full_name: z.string().trim().min(2, "Name must be at least 2 characters").max(100),
@@ -150,12 +151,15 @@ export function AddStaffDialog({ children, defaultRole }: AddStaffDialogProps) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs font-bold uppercase text-slate-500 tracking-wider">Role *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Select role" /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          {availableRoles.map((role) => (<SelectItem key={role.value} value={role.value}>{role.label}</SelectItem>))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        options={availableRoles.map((role) => ({
+                          value: role.value,
+                          label: role.label
+                        }))}
+                        placeholder="Select role"
+                      />
                       <FormMessage />
                     </FormItem>
                   )}

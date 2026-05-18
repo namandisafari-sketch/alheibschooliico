@@ -13,6 +13,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { navSections, NavItem } from "@/config/navigation";
+import { isWhitelistedAdmin } from "@/config/admins";
 
 export function GlobalSearch() {
   const [open, setOpen] = React.useState(false);
@@ -20,16 +21,7 @@ export function GlobalSearch() {
   const { user, role, roleFetched } = useAuth();
   const { isGlobalAdmin } = useIsAdmin();
 
-  const adminEmails = [
-    "muslim.ummahlink@gmail.com",
-    "admin@ummahlink.app",
-    "admin@alhebi.com",
-    "info.kabejjasystems@gmail.com",
-    "papa@alheib.teacher",
-    "admin@alheib.com",
-    "alhebiadmin@gmail.com"
-  ];
-  const isWhitelisted = user?.email && adminEmails.includes(user.email.toLowerCase().trim());
+  const isWhitelisted = isWhitelistedAdmin(user?.email);
 
   // Flattens the nested navigation sections for easier searching
   const allPages = React.useMemo(() => {

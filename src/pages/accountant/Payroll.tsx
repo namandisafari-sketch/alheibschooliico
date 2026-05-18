@@ -3,17 +3,6 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  CreditCard, 
-  UserPlus, 
-  Clock, 
-  TrendingDown, 
-  Plus, 
-  Search, 
-  Loader2, 
-  CheckCircle2, 
-  History as HistoryIcon, 
-  AlertCircle, 
-  Coins, 
   Landmark, 
   Edit2, 
   Trash2,
@@ -27,8 +16,13 @@ import {
   Mail,
   Phone,
   BookOpen,
-  UserCheck,
-  Printer
+  Printer,
+  Coins,
+  Search,
+  Plus,
+  Clock,
+  Loader2,
+  CheckCircle2
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useState } from "react";
@@ -69,7 +63,6 @@ const roleColors: Record<string, string> = {
 };
 
 const WorkforceHub = () => {
-  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("directory");
   const [searchQuery, setSearchQuery] = useState("");
@@ -78,10 +71,8 @@ const WorkforceHub = () => {
   // Dialog States
   const [isAddingEmployee, setIsAddingEmployee] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<any>(null);
-  const [isAddingAdvance, setIsAddingAdvance] = useState(false);
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const [selectedAdvance, setSelectedAdvance] = useState<any>(null);
-  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [isIssuingAdvance, setIsIssuingAdvance] = useState(false);
   const [advanceProjectId, setAdvanceProjectId] = useState<string>("");
   const [advanceDuration, setAdvanceDuration] = useState<string>("15 days");
@@ -98,7 +89,6 @@ const WorkforceHub = () => {
   const [empQual, setEmpQual] = useState("");
   const [empClass, setEmpClass] = useState("");
   const [empSubjects, setEmpSubjects] = useState("");
-  const [advanceSearch, setAdvanceSearch] = useState("");
 
   const { user, profile: currentUserProfile } = useAuth();
 
@@ -201,12 +191,33 @@ const WorkforceHub = () => {
   });
 
 
-  const { data: advances } = useQuery({
+  const { data: advances, isLoading: loadingAdvances } = useQuery({
     queryKey: ["employee_advances"],
     queryFn: async () => {
-      const { data } = await supabase.from("employee_advances").select("*, employees(full_name)").order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("employee_advances")
+        .select("*, employees(full_name)")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
       return data || [];
     }
+  });
+
+  const advanceStageMutation = useMutation({
+    mutationFn: async ({ id, action, reason }: { id: string, action: "approve" | "reject", reason?: string }) => {
+      const { data, error } = await supabase.rpc("advance_custody_request", {
+        _id: id,
+        _action: action,
+        _reason: reason
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employee_advances"] });
+      toast.success("Workflow stage updated");
+    },
+    onError: (err: any) => toast.error(err.message)
   });
 
   const { data: payrollRuns } = useQuery({
@@ -607,15 +618,20 @@ const WorkforceHub = () => {
                  <thead className="bg-slate-50/50 text-[10px] font-black uppercase tracking-widest text-slate-400">
                     <tr>
                        <th className="px-10 py-8">Beneficiary</th>
-                       <th className="px-10 py-8">Issuance Date</th>
+                       <th className="px-10 py-8">Date</th>
+                       <th className="px-10 py-8">Duration</th>
                        <th className="px-10 py-8">Purpose</th>
-                       <th className="px-10 py-8 text-right">Outstanding</th>
-                       <th className="px-10 py-8 text-center">Lifecycle</th>
-                       <th className="px-10 py-8"></th>
+                       <th className="px-10 py-8 text-right">Amount</th>
+                       <th className="px-10 py-8 text-center">Stage</th>
+                       <th className="px-10 py-8 text-right">Actions</th>
                     </tr>
                  </thead>
                  <tbody className="divide-y divide-slate-50">
-                    {advances?.map(adv => (
+                    {loadingAdvances ? (
+                      <tr><td colSpan={6} className="text-center py-10"><Loader2 className="animate-spin inline mr-2" /> Loading advances...</td></tr>
+                    ) : advances?.length === 0 ? (
+                      <tr><td colSpan={6} className="text-center py-10 text-slate-400">No advance records found.</td></tr>
+                    ) : advances?.map(adv => (
                       <tr key={adv.id} className="text-sm hover:bg-slate-50 transition-colors">
                          <td className="px-10 py-8">
                             <div className="flex items-center gap-3">
@@ -624,15 +640,46 @@ const WorkforceHub = () => {
                             </div>
                          </td>
                          <td className="px-10 py-8 text-slate-500 font-medium">{format(new Date(adv.created_at), 'MMM dd, yyyy')}</td>
-                         <td className="px-10 py-8 text-slate-400 text-xs italic">{adv.reason || 'Personal / General'}</td>
+                         <td className="px-10 py-8 text-slate-500 font-bold">{adv.duration_text}</td>
+                         <td className="px-10 py-8 text-slate-400 text-xs italic">{adv.purpose_details || 'Personal / General'}</td>
                          <td className="px-10 py-8 text-right font-black text-slate-900 font-mono">{(adv.amount || 0).toLocaleString()}</td>
                          <td className="px-10 py-8 text-center">
-                            <Badge className="bg-amber-100 text-amber-700 text-[9px] font-black border-none uppercase px-3 py-1">Active</Badge>
+                            <Badge className={cn(
+                              "text-[9px] font-black border-none uppercase px-3 py-1",
+                              adv.stage === 'submitted' ? "bg-amber-100 text-amber-700" :
+                              adv.stage === 'accountant_verified' ? "bg-blue-100 text-blue-700" :
+                              adv.stage === 'final_approved' ? "bg-emerald-100 text-emerald-700" :
+                              "bg-slate-100 text-slate-700"
+                            )}>{adv.stage?.replace('_', ' ')}</Badge>
                          </td>
-                         <td className="px-4 py-8">
-                             <Button variant="ghost" size="sm" onClick={() => showPrintForm(adv)} className="h-8 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">
-                                <Printer className="h-3.5 w-3.5 mr-2" /> Print Form
-                             </Button>
+                         <td className="px-10 py-8 text-right">
+                            <div className="flex justify-end gap-2">
+                               {adv.stage === 'submitted' && (
+                                 <>
+                                   <Button 
+                                     size="sm" 
+                                     onClick={() => advanceStageMutation.mutate({ id: adv.id, action: 'approve' })}
+                                     className="h-8 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                                   >
+                                     Verify
+                                   </Button>
+                                   <Button 
+                                     size="sm" 
+                                     variant="outline"
+                                     onClick={() => {
+                                       const reason = prompt("Reason for rejection?");
+                                       if(reason) advanceStageMutation.mutate({ id: adv.id, action: 'reject', reason });
+                                     }}
+                                     className="h-8 px-4 rounded-xl text-red-600 border-red-200 hover:bg-red-50 font-bold"
+                                   >
+                                     Reject
+                                   </Button>
+                                 </>
+                               )}
+                               <Button variant="ghost" size="sm" onClick={() => showPrintForm(adv)} className="h-8 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">
+                                  <Printer className="h-3.5 w-3.5 mr-2" /> Print
+                               </Button>
+                            </div>
                          </td>
                       </tr>
                     ))}

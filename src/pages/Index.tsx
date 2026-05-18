@@ -28,6 +28,7 @@ import { DynamicAcademicProgress } from "@/components/dashboard/DynamicAcademicP
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageGuide } from "@/components/common/PageGuide";
+import { DatabaseHealthCheck } from "@/components/dashboard/DatabaseHealthCheck";
 
 const useAttendanceStats = () => {
   return useQuery({
@@ -256,6 +257,12 @@ const Index = () => {
           </Card>
         </div>
       </div>
+      
+      {role === "admin" && (
+        <div className="mt-8 pt-8 border-t border-dashed border-slate-200">
+          <DatabaseHealthCheck />
+        </div>
+      )}
     </DashboardLayout>
   );
 };

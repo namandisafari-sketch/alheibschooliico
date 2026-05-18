@@ -62,6 +62,7 @@ import { toPng } from "html-to-image";
 import JSZip from "jszip";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 const termLabel: Record<string, string> = { term1: "Term 1", term2: "Term 2", term3: "Term 3" };
 
@@ -460,33 +461,39 @@ const Reports = () => {
           <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
             <div className="space-y-1.5">
               <Label className="text-xs">Class</Label>
-              <Select value={selectedClass} onValueChange={setSelectedClass}>
-                <SelectTrigger className="h-9"><SelectValue placeholder="Select class" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Entire School (All Classes)</SelectItem>
-                  {classes.map((c) => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={selectedClass}
+                onValueChange={setSelectedClass}
+                options={[
+                  { value: "all", label: "Entire School (All Classes)" },
+                  ...classes.map((c) => ({ value: c.id, label: c.name }))
+                ]}
+                placeholder="Select class"
+                className="h-9"
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Term</Label>
-              <Select value={selectedTerm} onValueChange={(v) => setSelectedTerm(v as TermType)}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {terms.map((t) => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={selectedTerm}
+                onValueChange={(v) => setSelectedTerm(v as TermType)}
+                options={terms}
+                placeholder="Select term"
+                className="h-9"
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Year</Label>
-              <Select value={String(academicYear)} onValueChange={(v) => setAcademicYear(parseInt(v))}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {[currentYear, currentYear - 1, currentYear - 2].map((y) => (
-                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={String(academicYear)}
+                onValueChange={(v) => setAcademicYear(parseInt(v))}
+                options={[currentYear, currentYear - 1, currentYear - 2].map((y) => ({
+                  value: String(y),
+                  label: String(y)
+                }))}
+                placeholder="Select year"
+                className="h-9"
+              />
             </div>
             <div className="flex items-end">
               <Badge variant="secondary" className="h-9 w-full justify-center">

@@ -3,20 +3,40 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Wallet, Download, Calendar, ArrowUpRight, TrendingUp, Receipt, HardHat } from "lucide-react";
+import { Wallet, Download, Calendar, ArrowUpRight, TrendingUp, Receipt, HardHat, Clock, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ApplyAdvanceDialog } from "@/components/finance/ApplyAdvanceDialog";
+import { useQuery } from "@tanstack/react-query";
 
 const TeacherFinance = () => {
   const { user } = useAuth();
   const [rows, setRows] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingSalaries, setLoadingSalaries] = useState(true);
+  const [isApplyOpen, setIsApplyOpen] = useState(false);
+
+  const { data: advances = [], isLoading: loadingAdvances } = useQuery({
+    queryKey: ["my-advances", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data: emp } = await supabase.from("employees").select("id").eq("profile_id", user.id).maybeSingle();
+      if (!emp) return [];
+      const { data, error } = await supabase
+        .from("employee_advances")
+        .select("*")
+        .eq("employee_id", emp.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id
+  });
 
   useEffect(() => {
     if (!user?.id) return;
     const fetchSalaries = async () => {
-      setLoading(true);
+      setLoadingSalaries(true);
       try {
         const { data, error } = await supabase
           .from("salaries" as any)
@@ -28,7 +48,7 @@ const TeacherFinance = () => {
       } catch (err) {
         console.error("Error fetching salaries:", err);
       } finally {
-        setLoading(false);
+        setLoadingSalaries(false);
       }
     };
     fetchSalaries();
@@ -36,6 +56,17 @@ const TeacherFinance = () => {
 
   const totalYTD = rows.reduce((s, r) => s + Number(r.net_pay || 0), 0);
   const lastPayslip = rows[0];
+
+  const getStatusBadge = (stage: string) => {
+    switch (stage) {
+      case "submitted": return <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 gap-1"><Clock className="h-3 w-3" /> Submitted</Badge>;
+      case "director_approved": return <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200 gap-1"><CheckCircle2 className="h-3 w-3" /> Director Approved</Badge>;
+      case "accountant_verified": return <Badge variant="outline" className="bg-indigo-50 text-indigo-600 border-indigo-200 gap-1"><CheckCircle2 className="h-3 w-3" /> Verified</Badge>;
+      case "final_approved": return <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-200 gap-1"><CheckCircle2 className="h-3 w-3" /> Approved</Badge>;
+      case "rejected": return <Badge variant="outline" className="bg-rose-50 text-rose-600 border-rose-200 gap-1"><XCircle className="h-3 w-3" /> Rejected</Badge>;
+      default: return <Badge variant="secondary">{stage}</Badge>;
+    }
+  };
 
   return (
     <DashboardLayout title="My Finance" subtitle="Electronic Payslips & Earnings History">
@@ -125,8 +156,8 @@ const TeacherFinance = () => {
                         <th className="px-6 py-3 text-right">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y">
-                      {loading ? (
+                    <tbody className="divide-y text-[11px] sm:text-sm">
+                      {loadingSalaries ? (
                         Array.from({ length: 3 }).map((_, i) => (
                           <tr key={i}>
                             <td className="px-6 py-4"><Skeleton className="h-4 w-24" /></td>
@@ -178,12 +209,32 @@ const TeacherFinance = () => {
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
                   Apply for a salary advance or view existing repayment schedules directly from your account.
                 </p>
-                <Button className="w-full h-8 text-[11px] font-bold" variant="outline">
+                <Button className="w-full h-8 text-[11px] font-bold" variant="outline" onClick={() => setIsApplyOpen(true)}>
                   Apply for Advance
                 </Button>
-                <Button className="w-full h-8 text-[11px] font-bold" variant="outline">
-                  View Repayments
-                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold">Advance Status</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 pb-6">
+                {loadingAdvances ? (
+                  <Skeleton className="h-12 w-full" />
+                ) : advances.length === 0 ? (
+                  <p className="text-[10px] text-muted-foreground italic">No active requests.</p>
+                ) : (
+                  advances.slice(0, 3).map((adv: any) => (
+                    <div key={adv.id} className="p-3 bg-white border border-slate-100 rounded-xl space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-bold">UGX {(adv.amount || 0).toLocaleString()}</span>
+                        {getStatusBadge(adv.stage)}
+                      </div>
+                      <p className="text-[9px] text-muted-foreground line-clamp-1">{adv.purpose_details || "Personal advance"}</p>
+                    </div>
+                  ))
+                )}
               </CardContent>
             </Card>
 
@@ -208,6 +259,7 @@ const TeacherFinance = () => {
           </div>
         </div>
       </div>
+      <ApplyAdvanceDialog open={isApplyOpen} onOpenChange={setIsApplyOpen} />
     </DashboardLayout>
   );
 };

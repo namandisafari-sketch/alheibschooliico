@@ -18,10 +18,6 @@ AS $$
     SELECT 1 
     FROM public.profiles 
     WHERE id = _user_id 
-    AND (
-      (role = 'admin' AND _role = 'admin'::public.app_role) OR
-      (role = 'teacher' AND _role = 'teacher'::public.app_role) OR
-      (role = 'accountant' AND _role = 'accountant'::public.app_role)
-    )
+    AND role::text = _role::text
   )
 $$;

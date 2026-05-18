@@ -305,10 +305,15 @@ export function RegisterLearnerDialog({ children }: { children: React.ReactNode 
                   <FormField control={form.control} name="gender" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Gender *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent><SelectItem value="male">Male</SelectItem><SelectItem value="female">Female</SelectItem></SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        options={[
+                          { value: "male", label: "Male" },
+                          { value: "female", label: "Female" }
+                        ]}
+                        placeholder="Select gender"
+                      />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="date_of_birth" render={({ field }) => (
@@ -323,39 +328,49 @@ export function RegisterLearnerDialog({ children }: { children: React.ReactNode 
                   <FormField control={form.control} name="religion" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Religion</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent><SelectItem value="Islam">Islam</SelectItem><SelectItem value="Christianity">Christianity</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        options={[
+                          { value: "Islam", label: "Islam" },
+                          { value: "Christianity", label: "Christianity" },
+                          { value: "Other", label: "Other" }
+                        ]}
+                        placeholder="Select religion"
+                      />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="boarding_status" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Facility Type (Boarding/Day)</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          <SelectItem value="day">Day</SelectItem>
-                          <SelectItem value="boarding">Boarding</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        options={[
+                          { value: "day", label: "Day" },
+                          { value: "boarding", label: "Boarding" }
+                        ]}
+                        placeholder="Select type"
+                      />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="pupil_status" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Pupil Status</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          <SelectItem value="Paying">Paying Pupil</SelectItem>
-                          <SelectItem value="Bait Zakat">Buytuzaka (Bait Zakat)</SelectItem>
-                          <SelectItem value="IICO">IICO</SelectItem>
-                          <SelectItem value="Community">Community</SelectItem>
-                          <SelectItem value="Teacher's Child">Teacher's Child</SelectItem>
-                          <SelectItem value="Orphan">Orphan Scholarship</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        options={[
+                          { value: "Paying", label: "Paying Pupil" },
+                          { value: "Bait Zakat", label: "Buytuzaka (Bait Zakat)" },
+                          { value: "IICO", label: "IICO" },
+                          { value: "Community", label: "Community" },
+                          { value: "Teacher's Child", label: "Teacher's Child" },
+                          { value: "Orphan", label: "Orphan Scholarship" },
+                          { value: "Other", label: "Other" }
+                        ]}
+                        placeholder="Select status"
+                      />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="house" render={({ field }) => (

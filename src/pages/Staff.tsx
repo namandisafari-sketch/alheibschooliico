@@ -36,9 +36,13 @@ import { AddStaffDialog } from "@/components/staff/AddStaffDialog";
 import { StaffActions } from "@/components/staff/StaffActions";
 import { StaffPerformanceTab } from "@/components/staff/StaffPerformanceTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, List } from "lucide-react";
+import { BarChart3, List, LayoutGrid } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { useRealtime } from "@/hooks/useRealtime";
+import { DataTable } from "@/components/ui/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
 
 const roleIcons: Record<string, React.ReactNode> = {
   admin: <Shield className="h-4 w-4" />,
@@ -61,7 +65,48 @@ const roleColors: Record<string, string> = {
 const Staff = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const { data: staff = [], isLoading, error } = useAllStaff();
+
+  // Real-time updates
+  useRealtime("profiles", [["staff"]]);
+
+  const columns: ColumnDef<any>[] = [
+    {
+      accessorKey: "full_name",
+      header: "Staff Name",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold", roleColors[row.original.role || ""] || "bg-primary/10 text-primary")}>
+            {row.original.full_name?.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+          </div>
+          <div>
+            <div className="font-bold text-xs uppercase tracking-tight">{row.original.full_name}</div>
+            <div className="text-[10px] text-muted-foreground font-medium uppercase">{row.original.role}</div>
+          </div>
+        </div>
+      )
+    },
+    {
+      accessorKey: "email",
+      header: "Email",
+      cell: ({ row }) => <span className="text-xs">{row.original.email || "—"}</span>
+    },
+    {
+      accessorKey: "phone",
+      header: "Phone",
+      cell: ({ row }) => <span className="text-xs">{row.original.phone || "—"}</span>
+    },
+    {
+      id: "actions",
+      header: () => <div className="text-right">Action</div>,
+      cell: ({ row }) => (
+        <div className="text-right">
+          <StaffActions member={row.original} />
+        </div>
+      )
+    }
+  ];
 
   // Filter out teachers (they have their own page)
   const nonTeacherStaff = staff.filter((s) => s.role !== "teacher");
@@ -126,26 +171,46 @@ const Staff = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <Select value={roleFilter} onValueChange={setRoleFilter}>
-                <SelectTrigger className="w-full sm:w-[160px]">
-                  <SelectValue placeholder="Filter by role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Roles</SelectItem>
-                  {STAFF_ROLES.filter((r) => r.value !== "teacher").map((role) => (
-                    <SelectItem key={role.value} value={role.value}>
-                      {role.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <SearchableSelect
+                  value={roleFilter}
+                  onValueChange={setRoleFilter}
+                  options={[
+                    { value: "all", label: "All Roles" },
+                    ...STAFF_ROLES.filter((r) => r.value !== "teacher").map((role) => ({
+                      value: role.value,
+                      label: role.label
+                    }))
+                  ]}
+                  placeholder="Filter by role"
+                  className="w-full sm:w-[200px]"
+                />
             </div>
-            <AddStaffDialog>
-              <Button id="add-staff-btn" size="sm" className="w-full sm:w-auto">
-                <UserPlus className="mr-2 h-4 w-4" />
-                Add Staff
-              </Button>
-            </AddStaffDialog>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
+                <Button 
+                  variant={viewMode === "grid" ? "secondary" : "ghost"} 
+                  size="sm" 
+                  className={cn("h-8 px-2", viewMode === "grid" && "bg-white shadow-sm")}
+                  onClick={() => setViewMode("grid")}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant={viewMode === "table" ? "secondary" : "ghost"} 
+                  size="sm" 
+                  className={cn("h-8 px-2", viewMode === "table" && "bg-white shadow-sm")}
+                  onClick={() => setViewMode("table")}
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+              </div>
+              <AddStaffDialog>
+                <Button id="add-staff-btn" size="sm" className="w-full sm:w-auto font-bold uppercase tracking-widest text-[10px]">
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Add Staff
+                </Button>
+              </AddStaffDialog>
+            </div>
           </div>
 
           {/* Staff Grid */}
@@ -164,7 +229,7 @@ const Staff = () => {
                 <p>No staff members found</p>
                 <p className="text-sm">Add your first staff member to get started</p>
               </div>
-            ) : (
+            ) : viewMode === "grid" ? (
               <div id="staff-directory-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {filteredStaff.map((member) => (
                   <div 
@@ -222,6 +287,10 @@ const Staff = () => {
                     </div>
                   </div>
                 ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border shadow-xl bg-slate-50/50 p-6">
+                <DataTable columns={columns} data={filteredStaff} />
               </div>
             )}
           </div>
