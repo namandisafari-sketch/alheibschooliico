@@ -427,30 +427,51 @@ export function RegisterLearnerDialog({ children }: { children: React.ReactNode 
                     <FormField control={form.control} name="home_region" render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-[10px]">Region</FormLabel>
-                        <FormControl>
-                          <Input {...field} className="h-8 bg-slate-100 font-semibold" readOnly placeholder="Auto-populated" />
-                        </FormControl>
-                      </FormItem>
-                    )} />
-
-                    <FormField control={form.control} name="home_district" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-[10px]">District</FormLabel>
                         <SearchableSelect
                           value={field.value}
                           onValueChange={(val) => {
                             field.onChange(val);
-                            form.setValue("home_region", getRegion(val));
+                            form.setValue("home_district", "");
                             form.setValue("home_sub_county", "");
                             form.setValue("home_parish", "");
                             form.setValue("home_village", "");
                           }}
-                          options={districts.map((d) => ({ value: d, label: d }))}
-                          placeholder={locationsLoading ? "Loading..." : "Select District"}
+                          options={[
+                            { value: "CENTRAL", label: "CENTRAL" },
+                            { value: "EASTERN", label: "EASTERN" },
+                            { value: "NORTHERN", label: "NORTHERN" },
+                            { value: "WESTERN", label: "WESTERN" }
+                          ]}
+                          placeholder={locationsLoading ? "Loading..." : "Select Region"}
                           disabled={locationsLoading}
                         />
                       </FormItem>
                     )} />
+
+                    <FormField control={form.control} name="home_district" render={({ field }) => {
+                      const selectedRegion = form.watch("home_region");
+                      const filteredDistricts = selectedRegion
+                        ? districts.filter(d => getRegion(d) === selectedRegion.toUpperCase().trim())
+                        : districts;
+                      return (
+                        <FormItem>
+                          <FormLabel className="text-[10px]">District</FormLabel>
+                          <SearchableSelect
+                            value={field.value}
+                            onValueChange={(val) => {
+                              field.onChange(val);
+                              form.setValue("home_region", getRegion(val));
+                              form.setValue("home_sub_county", "");
+                              form.setValue("home_parish", "");
+                              form.setValue("home_village", "");
+                            }}
+                            options={filteredDistricts.map((d) => ({ value: d, label: d }))}
+                            placeholder={locationsLoading ? "Loading..." : "Select District"}
+                            disabled={locationsLoading}
+                          />
+                        </FormItem>
+                      );
+                    }} />
 
                     <FormField control={form.control} name="home_sub_county" render={({ field }) => {
                       const selectedDistrict = form.watch("home_district");

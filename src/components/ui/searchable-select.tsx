@@ -51,13 +51,15 @@ export function SearchableSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={cn("w-full justify-between font-normal", className)}
+          className={cn("w-full justify-between font-normal h-8 px-2 text-xs", className)}
           disabled={disabled}
         >
-          {value
-            ? options.find((option) => option.value === value)?.label || placeholder
-            : placeholder}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <span className="truncate mr-1 text-left flex-1 min-w-0">
+            {value
+              ? options.find((option) => option.value === value)?.label || placeholder
+              : placeholder}
+          </span>
+          <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0" align="start">
