@@ -14,7 +14,6 @@ import { useStaff } from "@/hooks/useStaff";
 import { useRealtime } from "@/hooks/useRealtime";
 import { DataTable } from "@/components/ui/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
-import { useGeoDistricts } from "@/hooks/useGeoNames";
 import { LocationSelector } from "@/components/common/LocationSelector";
 import { useSchools } from "@/hooks/useSchools";
 import { supabase } from "@/integrations/supabase/client";
