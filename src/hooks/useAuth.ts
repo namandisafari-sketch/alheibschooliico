@@ -262,10 +262,22 @@ export const useAuthState = () => {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setRole(null);
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error("Auth: Error during Supabase remote signOut, clearing local state anyway:", err);
+    } finally {
+      // Always clear local memory/storage states to prevent stuck UI
+      setUser(null);
+      setSession(null);
+      setRole(null);
+      setProfile(null);
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // Force direct clean redirection to /auth to guarantee page transitions
+      window.location.href = "/auth";
+    }
   };
 
   return {
