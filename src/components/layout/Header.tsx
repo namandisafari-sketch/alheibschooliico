@@ -6,6 +6,7 @@ import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { GlobalSearch } from "./GlobalSearch";
 import { useAuth } from "@/hooks/useAuth";
 import { ROLE_LABEL } from "@/lib/roleConfig";
+import { HistoricalArchiveExplorer } from "@/components/common/HistoricalArchiveExplorer";
 
 interface HeaderProps {
   title: string;
@@ -66,6 +67,7 @@ export const Header = ({ title, subtitle, hideBorder }: HeaderProps) => {
           </button>
 
           <div className="flex items-center gap-1 sm:gap-2">
+            <HistoricalArchiveExplorer />
             <LanguageToggle />
             <NotificationBell />
 

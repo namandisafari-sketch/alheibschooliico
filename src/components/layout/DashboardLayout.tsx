@@ -8,6 +8,7 @@ import { Menu, PanelLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
+import { TeacherTimetableReminder } from "../dashboard/TeacherTimetableReminder";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -99,7 +100,10 @@ export const DashboardLayout = ({ children, title, subtitle }: DashboardLayoutPr
           </div>
         </div>
 
-        <main id="dashboard-main-content" className="flex-1 p-4 lg:p-6">{children}</main>
+        <main id="dashboard-main-content" className="flex-1 p-4 lg:p-6">
+          <TeacherTimetableReminder />
+          {children}
+        </main>
         <PoweredBy />
         <PoweredBy variant="print" />
       </div>

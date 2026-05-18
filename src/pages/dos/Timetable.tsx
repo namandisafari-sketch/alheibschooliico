@@ -24,6 +24,8 @@ const Timetable = () => {
     const [term, setTerm] = useState("term_1");
     
     const { data: slots = [], isLoading } = useClassTimetable(selectedClassId, term);
+    
+    const selectedClass = classes.find(c => c.id === selectedClassId)?.name || "selected class";
 
     const getSlot = (dayValue: number, time: string) => {
         return slots.find(s => s.day_of_week === dayValue && s.start_time.startsWith(time));
