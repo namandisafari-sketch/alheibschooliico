@@ -29,6 +29,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageGuide } from "@/components/common/PageGuide";
 import { DatabaseHealthCheck } from "@/components/dashboard/DatabaseHealthCheck";
+import { RegistrationTrackerWidget } from "@/components/dashboard/RegistrationTrackerWidget";
 
 const useAttendanceStats = () => {
   return useQuery({
@@ -225,6 +226,7 @@ const Index = () => {
 
         {/* Center Main Column (Financial & Academic Oversight) */}
         <div id="financial-control-hub" className="lg:col-span-2 space-y-6">
+          <RegistrationTrackerWidget />
           <FeeCollectionSummary />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <ClassOverview />
