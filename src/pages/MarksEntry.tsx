@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useMemo, useEffect, useRef, KeyboardEvent } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";

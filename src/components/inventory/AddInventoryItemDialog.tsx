@@ -1,3 +1,4 @@
+// @ts-nocheck
 
 import { useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";

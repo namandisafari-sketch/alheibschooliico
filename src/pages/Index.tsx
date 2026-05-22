@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";

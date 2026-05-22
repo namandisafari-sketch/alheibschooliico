@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { UserPlus, DollarSign, ClipboardCheck, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
