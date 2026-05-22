@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useRef, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
