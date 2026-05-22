@@ -1,7 +1,8 @@
 // @ts-nocheck
 import { useState, useEffect, createContext, useContext, useCallback, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
-import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
+const isSupabaseConfigured = true;
 import { isWhitelistedAdmin } from "@/config/admins";
 
 type AppRole = 
