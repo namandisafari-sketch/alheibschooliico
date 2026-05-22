@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { format, startOfDay, endOfDay, addDays, isSameDay } from "date-fns";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";

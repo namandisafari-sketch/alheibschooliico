@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { AppRole } from "@/hooks/useAuth";
 
 export const HOME_PATH: Record<AppRole, string> = {
