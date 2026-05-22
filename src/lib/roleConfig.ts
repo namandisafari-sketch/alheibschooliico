@@ -17,6 +17,7 @@ export const HOME_PATH: Record<AppRole, string> = {
   nurse: "/nurse",
   dos: "/dos",
   deputy_head_teacher: "/headteacher",
+  secretary: "/office",
 };
 
 export const ROLE_LABEL: Record<AppRole, string> = {
@@ -35,6 +36,7 @@ export const ROLE_LABEL: Record<AppRole, string> = {
   center_director: "Center Director",
   nurse: "School Nurse",
   dos: "Director of Studies",
+  secretary: "School Secretary",
 };
 
 export const homeFor = (role: AppRole | null | undefined): string =>
@@ -71,4 +73,5 @@ export const DEFAULT_PERMISSIONS: Partial<Record<AppRole, PermissionKey[]>> = {
   deputy_head_teacher: ["view_finance", "request_leave", "write_letters", "view_own_attendance", "message_director", "approve_lessons"],
   staff: ["view_finance", "request_leave", "write_letters", "view_own_attendance"],
   security: ["view_finance", "request_leave", "view_own_attendance"],
+  secretary: ["view_finance", "request_leave", "write_letters", "view_own_attendance", "message_director"],
 };
