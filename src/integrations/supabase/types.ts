@@ -25,6 +25,7 @@ export type Database = {
           reason: string
           severity: string | null
           status: string | null
+          teacher_id: string | null
           term: Database["public"]["Enums"]["term_type"] | null
         }
         Insert: {
@@ -37,6 +38,7 @@ export type Database = {
           reason: string
           severity?: string | null
           status?: string | null
+          teacher_id?: string | null
           term?: Database["public"]["Enums"]["term_type"] | null
         }
         Update: {
@@ -49,6 +51,7 @@ export type Database = {
           reason?: string
           severity?: string | null
           status?: string | null
+          teacher_id?: string | null
           term?: Database["public"]["Enums"]["term_type"] | null
         }
         Relationships: [
@@ -66,13 +69,23 @@ export type Database = {
             referencedRelation: "learners"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "academic_warnings_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       account_appeals: {
         Row: {
           created_at: string | null
           id: string
+          message: string | null
           reason: string
+          response: string | null
+          reviewed_at: string | null
           reviewed_by: string | null
           status: string | null
           type: string
@@ -81,7 +94,10 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id?: string
+          message?: string | null
           reason: string
+          response?: string | null
+          reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string | null
           type: string
@@ -90,7 +106,10 @@ export type Database = {
         Update: {
           created_at?: string | null
           id?: string
+          message?: string | null
           reason?: string
+          response?: string | null
+          reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string | null
           type?: string
@@ -116,33 +135,45 @@ export type Database = {
       advance_requests: {
         Row: {
           amount: number
+          approved_at: string | null
           approved_by: string | null
           created_at: string | null
+          decision_note: string | null
           id: string
           reason: string | null
+          repayment_plan: string | null
           requested_date: string | null
           staff_id: string | null
           status: string | null
+          user_id: string | null
         }
         Insert: {
           amount: number
+          approved_at?: string | null
           approved_by?: string | null
           created_at?: string | null
+          decision_note?: string | null
           id?: string
           reason?: string | null
+          repayment_plan?: string | null
           requested_date?: string | null
           staff_id?: string | null
           status?: string | null
+          user_id?: string | null
         }
         Update: {
           amount?: number
+          approved_at?: string | null
           approved_by?: string | null
           created_at?: string | null
+          decision_note?: string | null
           id?: string
           reason?: string | null
+          repayment_plan?: string | null
           requested_date?: string | null
           staff_id?: string | null
           status?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -992,6 +1023,36 @@ export type Database = {
           },
         ]
       }
+      direct_messages: {
+        Row: {
+          body: string
+          created_at: string
+          from_user: string
+          id: string
+          read_at: string | null
+          to_user: string
+          urgent: boolean
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          from_user: string
+          id?: string
+          read_at?: string | null
+          to_user: string
+          urgent?: boolean
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          from_user?: string
+          id?: string
+          read_at?: string | null
+          to_user?: string
+          urgent?: boolean
+        }
+        Relationships: []
+      }
       discipline_cases: {
         Row: {
           action_taken: string | null
@@ -1354,43 +1415,85 @@ export type Database = {
       }
       employee_advances: {
         Row: {
+          accountant_approval_by: string | null
+          accountant_approval_date: string | null
           amount: number
+          budget_available: boolean | null
+          compliance_checked: boolean | null
           created_at: string | null
           currency: string | null
+          director_approval_by: string | null
+          director_approval_date: string | null
           disbursed_date: string
+          duration_text: string | null
           employee_id: string | null
           id: string
           notes: string | null
+          office_approval_by: string | null
+          office_approval_date: string | null
           outstanding_balance: number
+          previous_advances_settled: boolean | null
+          project_id: string | null
+          purpose_details: string | null
+          rejection_reason: string | null
           repayment_schedule:
             | Database["public"]["Enums"]["repayment_plan"]
             | null
+          stage: Database["public"]["Enums"]["approval_stage"] | null
         }
         Insert: {
+          accountant_approval_by?: string | null
+          accountant_approval_date?: string | null
           amount: number
+          budget_available?: boolean | null
+          compliance_checked?: boolean | null
           created_at?: string | null
           currency?: string | null
+          director_approval_by?: string | null
+          director_approval_date?: string | null
           disbursed_date?: string
+          duration_text?: string | null
           employee_id?: string | null
           id?: string
           notes?: string | null
+          office_approval_by?: string | null
+          office_approval_date?: string | null
           outstanding_balance: number
+          previous_advances_settled?: boolean | null
+          project_id?: string | null
+          purpose_details?: string | null
+          rejection_reason?: string | null
           repayment_schedule?:
             | Database["public"]["Enums"]["repayment_plan"]
             | null
+          stage?: Database["public"]["Enums"]["approval_stage"] | null
         }
         Update: {
+          accountant_approval_by?: string | null
+          accountant_approval_date?: string | null
           amount?: number
+          budget_available?: boolean | null
+          compliance_checked?: boolean | null
           created_at?: string | null
           currency?: string | null
+          director_approval_by?: string | null
+          director_approval_date?: string | null
           disbursed_date?: string
+          duration_text?: string | null
           employee_id?: string | null
           id?: string
           notes?: string | null
+          office_approval_by?: string | null
+          office_approval_date?: string | null
           outstanding_balance?: number
+          previous_advances_settled?: boolean | null
+          project_id?: string | null
+          purpose_details?: string | null
+          rejection_reason?: string | null
           repayment_schedule?:
             | Database["public"]["Enums"]["repayment_plan"]
             | null
+          stage?: Database["public"]["Enums"]["approval_stage"] | null
         }
         Relationships: [
           {
@@ -1398,6 +1501,13 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_advances_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "finance_projects"
             referencedColumns: ["id"]
           },
         ]
@@ -1473,6 +1583,7 @@ export type Database = {
           is_published: boolean | null
           name: string
           start_date: string | null
+          status: string | null
           term: Database["public"]["Enums"]["term_type"] | null
         }
         Insert: {
@@ -1483,6 +1594,7 @@ export type Database = {
           is_published?: boolean | null
           name: string
           start_date?: string | null
+          status?: string | null
           term?: Database["public"]["Enums"]["term_type"] | null
         }
         Update: {
@@ -1493,6 +1605,7 @@ export type Database = {
           is_published?: boolean | null
           name?: string
           start_date?: string | null
+          status?: string | null
           term?: Database["public"]["Enums"]["term_type"] | null
         }
         Relationships: []
@@ -1920,6 +2033,30 @@ export type Database = {
           },
         ]
       }
+      finance_projects: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+        }
+        Relationships: []
+      }
       gate_handovers: {
         Row: {
           created_at: string | null
@@ -2229,6 +2366,165 @@ export type Database = {
             columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      homework: {
+        Row: {
+          class_id: string | null
+          created_at: string | null
+          deadline: string | null
+          description: string | null
+          id: string
+          status: string | null
+          subject_id: string | null
+          teacher_id: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string | null
+          deadline?: string | null
+          description?: string | null
+          id?: string
+          status?: string | null
+          subject_id?: string | null
+          teacher_id?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string | null
+          deadline?: string | null
+          description?: string | null
+          id?: string
+          status?: string | null
+          subject_id?: string | null
+          teacher_id?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "homework_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "homework_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "homework_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      homework_resources: {
+        Row: {
+          created_at: string | null
+          id: string
+          size: string | null
+          source: string | null
+          subject_id: string | null
+          title: string
+          type: string | null
+          url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          size?: string | null
+          source?: string | null
+          subject_id?: string | null
+          title: string
+          type?: string | null
+          url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          size?: string | null
+          source?: string | null
+          subject_id?: string | null
+          title?: string
+          type?: string | null
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "homework_resources_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      homework_submissions: {
+        Row: {
+          ai_analysis: Json | null
+          created_at: string | null
+          feedback: string | null
+          file_url: string | null
+          grade: string | null
+          homework_id: string | null
+          id: string
+          learner_id: string | null
+          status: string | null
+          submission_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ai_analysis?: Json | null
+          created_at?: string | null
+          feedback?: string | null
+          file_url?: string | null
+          grade?: string | null
+          homework_id?: string | null
+          id?: string
+          learner_id?: string | null
+          status?: string | null
+          submission_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ai_analysis?: Json | null
+          created_at?: string | null
+          feedback?: string | null
+          file_url?: string | null
+          grade?: string | null
+          homework_id?: string | null
+          id?: string
+          learner_id?: string | null
+          status?: string | null
+          submission_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "homework_submissions_homework_id_fkey"
+            columns: ["homework_id"]
+            isOneToOne: false
+            referencedRelation: "homework"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "homework_submissions_learner_id_fkey"
+            columns: ["learner_id"]
+            isOneToOne: false
+            referencedRelation: "learners"
             referencedColumns: ["id"]
           },
         ]
@@ -2554,10 +2850,19 @@ export type Database = {
       }
       inventory_transactions: {
         Row: {
+          accountant_approval_by: string | null
+          accountant_approval_date: string | null
           approval_date: string | null
           approved_by: string | null
+          approved_quantity: number | null
+          available_quantity: number | null
+          direction: string | null
+          director_approval_by: string | null
           director_approval_date: string | null
           director_id: string | null
+          dispatched_at: string | null
+          final_approval_by: string | null
+          final_approval_date: string | null
           gate_notes: string | null
           gate_pass_id: string | null
           gate_verified_at: string | null
@@ -2566,22 +2871,35 @@ export type Database = {
           issued_by: string | null
           item_id: string | null
           learner_id: string | null
+          manager_approval_by: string | null
           manager_approval_date: string | null
           manager_id: string | null
           notes: string | null
+          num_days: number | null
           qr_verification_code: string | null
           quantity: number
+          rejection_reason: string | null
           staff_id: string | null
+          stage: Database["public"]["Enums"]["approval_stage"] | null
           status: string | null
           tracking_number: string | null
           transaction_date: string | null
           type: Database["public"]["Enums"]["inventory_transaction_type"]
         }
         Insert: {
+          accountant_approval_by?: string | null
+          accountant_approval_date?: string | null
           approval_date?: string | null
           approved_by?: string | null
+          approved_quantity?: number | null
+          available_quantity?: number | null
+          direction?: string | null
+          director_approval_by?: string | null
           director_approval_date?: string | null
           director_id?: string | null
+          dispatched_at?: string | null
+          final_approval_by?: string | null
+          final_approval_date?: string | null
           gate_notes?: string | null
           gate_pass_id?: string | null
           gate_verified_at?: string | null
@@ -2590,22 +2908,35 @@ export type Database = {
           issued_by?: string | null
           item_id?: string | null
           learner_id?: string | null
+          manager_approval_by?: string | null
           manager_approval_date?: string | null
           manager_id?: string | null
           notes?: string | null
+          num_days?: number | null
           qr_verification_code?: string | null
           quantity: number
+          rejection_reason?: string | null
           staff_id?: string | null
+          stage?: Database["public"]["Enums"]["approval_stage"] | null
           status?: string | null
           tracking_number?: string | null
           transaction_date?: string | null
           type: Database["public"]["Enums"]["inventory_transaction_type"]
         }
         Update: {
+          accountant_approval_by?: string | null
+          accountant_approval_date?: string | null
           approval_date?: string | null
           approved_by?: string | null
+          approved_quantity?: number | null
+          available_quantity?: number | null
+          direction?: string | null
+          director_approval_by?: string | null
           director_approval_date?: string | null
           director_id?: string | null
+          dispatched_at?: string | null
+          final_approval_by?: string | null
+          final_approval_date?: string | null
           gate_notes?: string | null
           gate_pass_id?: string | null
           gate_verified_at?: string | null
@@ -2614,12 +2945,16 @@ export type Database = {
           issued_by?: string | null
           item_id?: string | null
           learner_id?: string | null
+          manager_approval_by?: string | null
           manager_approval_date?: string | null
           manager_id?: string | null
           notes?: string | null
+          num_days?: number | null
           qr_verification_code?: string | null
           quantity?: number
+          rejection_reason?: string | null
           staff_id?: string | null
+          stage?: Database["public"]["Enums"]["approval_stage"] | null
           status?: string | null
           tracking_number?: string | null
           transaction_date?: string | null
@@ -2761,70 +3096,270 @@ export type Database = {
           },
         ]
       }
+      learner_medical: {
+        Row: {
+          allergies: string[] | null
+          blood_group: string | null
+          chronic_conditions: string[] | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          id: string
+          immunization_status: string | null
+          learner_id: string | null
+          medical_notes: string | null
+          special_needs: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          allergies?: string[] | null
+          blood_group?: string | null
+          chronic_conditions?: string[] | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          id?: string
+          immunization_status?: string | null
+          learner_id?: string | null
+          medical_notes?: string | null
+          special_needs?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          allergies?: string[] | null
+          blood_group?: string | null
+          chronic_conditions?: string[] | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          id?: string
+          immunization_status?: string | null
+          learner_id?: string | null
+          medical_notes?: string | null
+          special_needs?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learner_medical_learner_id_fkey"
+            columns: ["learner_id"]
+            isOneToOne: true
+            referencedRelation: "learners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learners: {
         Row: {
+          admission_date: string | null
           admission_number: string | null
+          age_years: number | null
+          allergies: string | null
+          application_date: string | null
+          authorized_pick_up: Json | null
+          blood_group: string | null
+          chronic_diseases: string | null
           class_id: string | null
           created_at: string | null
+          current_residence_street: string | null
+          current_residence_town: string | null
+          date_of_application: string | null
           date_of_birth: string | null
           district: string | null
           enrollment_date: string | null
+          father_email: string | null
+          father_name: string | null
+          father_nin: string | null
+          father_occupation: string | null
+          father_phone: string | null
+          first_name: string | null
+          former_school_class: string | null
+          former_school_name: string | null
+          former_school_year: string | null
           full_name: string
           gender: Database["public"]["Enums"]["gender_type"]
           guardian_id: string | null
+          has_asthma: boolean | null
+          has_diabetes: boolean | null
+          has_epilepsy: boolean | null
+          has_eye_defects: boolean | null
+          has_hearing_impairment: boolean | null
+          has_heart_problems: boolean | null
+          has_sickle_cell: boolean | null
           home_county: string | null
           home_district: string | null
           home_parish: string | null
           home_region: string | null
           home_sub_county: string | null
           home_village: string | null
+          house: string | null
           id: string
+          immunization_complete: boolean | null
+          immunization_status: Json | null
+          last_name: string | null
+          lin: string | null
+          medical_conditions: Json | null
+          medication_details: string | null
+          mother_email: string | null
+          mother_name: string | null
+          mother_nin: string | null
+          mother_occupation: string | null
+          mother_phone: string | null
+          nationality: string | null
+          next_of_kin: Json | null
+          nin: string | null
+          parent_name: string | null
+          parent_nin: string | null
+          parent_phone: string | null
           photo_url: string | null
+          pupil_status: string | null
           religion: string | null
+          residence_email: string | null
+          residence_phone: string | null
+          siblings_in_school: Json | null
+          special_needs_category: string | null
+          special_needs_description: string | null
           status: string | null
           updated_at: string | null
         }
         Insert: {
+          admission_date?: string | null
           admission_number?: string | null
+          age_years?: number | null
+          allergies?: string | null
+          application_date?: string | null
+          authorized_pick_up?: Json | null
+          blood_group?: string | null
+          chronic_diseases?: string | null
           class_id?: string | null
           created_at?: string | null
+          current_residence_street?: string | null
+          current_residence_town?: string | null
+          date_of_application?: string | null
           date_of_birth?: string | null
           district?: string | null
           enrollment_date?: string | null
+          father_email?: string | null
+          father_name?: string | null
+          father_nin?: string | null
+          father_occupation?: string | null
+          father_phone?: string | null
+          first_name?: string | null
+          former_school_class?: string | null
+          former_school_name?: string | null
+          former_school_year?: string | null
           full_name: string
           gender: Database["public"]["Enums"]["gender_type"]
           guardian_id?: string | null
+          has_asthma?: boolean | null
+          has_diabetes?: boolean | null
+          has_epilepsy?: boolean | null
+          has_eye_defects?: boolean | null
+          has_hearing_impairment?: boolean | null
+          has_heart_problems?: boolean | null
+          has_sickle_cell?: boolean | null
           home_county?: string | null
           home_district?: string | null
           home_parish?: string | null
           home_region?: string | null
           home_sub_county?: string | null
           home_village?: string | null
+          house?: string | null
           id?: string
+          immunization_complete?: boolean | null
+          immunization_status?: Json | null
+          last_name?: string | null
+          lin?: string | null
+          medical_conditions?: Json | null
+          medication_details?: string | null
+          mother_email?: string | null
+          mother_name?: string | null
+          mother_nin?: string | null
+          mother_occupation?: string | null
+          mother_phone?: string | null
+          nationality?: string | null
+          next_of_kin?: Json | null
+          nin?: string | null
+          parent_name?: string | null
+          parent_nin?: string | null
+          parent_phone?: string | null
           photo_url?: string | null
+          pupil_status?: string | null
           religion?: string | null
+          residence_email?: string | null
+          residence_phone?: string | null
+          siblings_in_school?: Json | null
+          special_needs_category?: string | null
+          special_needs_description?: string | null
           status?: string | null
           updated_at?: string | null
         }
         Update: {
+          admission_date?: string | null
           admission_number?: string | null
+          age_years?: number | null
+          allergies?: string | null
+          application_date?: string | null
+          authorized_pick_up?: Json | null
+          blood_group?: string | null
+          chronic_diseases?: string | null
           class_id?: string | null
           created_at?: string | null
+          current_residence_street?: string | null
+          current_residence_town?: string | null
+          date_of_application?: string | null
           date_of_birth?: string | null
           district?: string | null
           enrollment_date?: string | null
+          father_email?: string | null
+          father_name?: string | null
+          father_nin?: string | null
+          father_occupation?: string | null
+          father_phone?: string | null
+          first_name?: string | null
+          former_school_class?: string | null
+          former_school_name?: string | null
+          former_school_year?: string | null
           full_name?: string
           gender?: Database["public"]["Enums"]["gender_type"]
           guardian_id?: string | null
+          has_asthma?: boolean | null
+          has_diabetes?: boolean | null
+          has_epilepsy?: boolean | null
+          has_eye_defects?: boolean | null
+          has_hearing_impairment?: boolean | null
+          has_heart_problems?: boolean | null
+          has_sickle_cell?: boolean | null
           home_county?: string | null
           home_district?: string | null
           home_parish?: string | null
           home_region?: string | null
           home_sub_county?: string | null
           home_village?: string | null
+          house?: string | null
           id?: string
+          immunization_complete?: boolean | null
+          immunization_status?: Json | null
+          last_name?: string | null
+          lin?: string | null
+          medical_conditions?: Json | null
+          medication_details?: string | null
+          mother_email?: string | null
+          mother_name?: string | null
+          mother_nin?: string | null
+          mother_occupation?: string | null
+          mother_phone?: string | null
+          nationality?: string | null
+          next_of_kin?: Json | null
+          nin?: string | null
+          parent_name?: string | null
+          parent_nin?: string | null
+          parent_phone?: string | null
           photo_url?: string | null
+          pupil_status?: string | null
           religion?: string | null
+          residence_email?: string | null
+          residence_phone?: string | null
+          siblings_in_school?: Json | null
+          special_needs_category?: string | null
+          special_needs_description?: string | null
           status?: string | null
           updated_at?: string | null
         }
@@ -2847,37 +3382,121 @@ export type Database = {
       }
       leave_requests: {
         Row: {
+          admin_comments: string | null
+          admin_decision: string | null
+          admin_name: string | null
+          admin_signed_at: string | null
+          admin_user_id: string | null
+          approved_at: string | null
           approved_by: string | null
+          covering_staff_department: string | null
+          covering_staff_job_title: string | null
+          covering_staff_name: string | null
+          covering_staff_position: string | null
+          covering_staff_signature_name: string | null
+          covering_staff_signed_at: string | null
           created_at: string | null
+          days_count: number | null
+          decision_note: string | null
+          employee_department: string | null
+          employee_full_name: string | null
+          employee_phone: string | null
+          employee_position: string | null
+          employee_signature_name: string | null
+          employee_signed_at: string | null
           end_date: string
+          form_ref: string | null
           id: string
           leave_type: string
+          leave_type_other: string | null
           reason: string | null
+          responsibilities_summary: string | null
           staff_id: string | null
           start_date: string
           status: string | null
+          supervisor_decision: string | null
+          supervisor_name: string | null
+          supervisor_signed_at: string | null
+          supervisor_user_id: string | null
+          user_id: string | null
         }
         Insert: {
+          admin_comments?: string | null
+          admin_decision?: string | null
+          admin_name?: string | null
+          admin_signed_at?: string | null
+          admin_user_id?: string | null
+          approved_at?: string | null
           approved_by?: string | null
+          covering_staff_department?: string | null
+          covering_staff_job_title?: string | null
+          covering_staff_name?: string | null
+          covering_staff_position?: string | null
+          covering_staff_signature_name?: string | null
+          covering_staff_signed_at?: string | null
           created_at?: string | null
+          days_count?: number | null
+          decision_note?: string | null
+          employee_department?: string | null
+          employee_full_name?: string | null
+          employee_phone?: string | null
+          employee_position?: string | null
+          employee_signature_name?: string | null
+          employee_signed_at?: string | null
           end_date: string
+          form_ref?: string | null
           id?: string
           leave_type: string
+          leave_type_other?: string | null
           reason?: string | null
+          responsibilities_summary?: string | null
           staff_id?: string | null
           start_date: string
           status?: string | null
+          supervisor_decision?: string | null
+          supervisor_name?: string | null
+          supervisor_signed_at?: string | null
+          supervisor_user_id?: string | null
+          user_id?: string | null
         }
         Update: {
+          admin_comments?: string | null
+          admin_decision?: string | null
+          admin_name?: string | null
+          admin_signed_at?: string | null
+          admin_user_id?: string | null
+          approved_at?: string | null
           approved_by?: string | null
+          covering_staff_department?: string | null
+          covering_staff_job_title?: string | null
+          covering_staff_name?: string | null
+          covering_staff_position?: string | null
+          covering_staff_signature_name?: string | null
+          covering_staff_signed_at?: string | null
           created_at?: string | null
+          days_count?: number | null
+          decision_note?: string | null
+          employee_department?: string | null
+          employee_full_name?: string | null
+          employee_phone?: string | null
+          employee_position?: string | null
+          employee_signature_name?: string | null
+          employee_signed_at?: string | null
           end_date?: string
+          form_ref?: string | null
           id?: string
           leave_type?: string
+          leave_type_other?: string | null
           reason?: string | null
+          responsibilities_summary?: string | null
           staff_id?: string | null
           start_date?: string
           status?: string | null
+          supervisor_decision?: string | null
+          supervisor_name?: string | null
+          supervisor_signed_at?: string | null
+          supervisor_user_id?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -3046,6 +3665,116 @@ export type Database = {
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      liquidity_requests: {
+        Row: {
+          awards_balance: number | null
+          bills_value: number | null
+          created_at: string | null
+          custody_balance: number | null
+          director_approval_by: string | null
+          director_approval_date: string | null
+          id: string
+          office_approval_by: string | null
+          office_approval_date: string | null
+          other_balance: number | null
+          payables_due: number | null
+          purpose: string | null
+          receivables_balance: number | null
+          rejection_reason: string | null
+          requested_amount: number
+          requested_by: string | null
+          stage: Database["public"]["Enums"]["approval_stage"] | null
+          status: string | null
+        }
+        Insert: {
+          awards_balance?: number | null
+          bills_value?: number | null
+          created_at?: string | null
+          custody_balance?: number | null
+          director_approval_by?: string | null
+          director_approval_date?: string | null
+          id?: string
+          office_approval_by?: string | null
+          office_approval_date?: string | null
+          other_balance?: number | null
+          payables_due?: number | null
+          purpose?: string | null
+          receivables_balance?: number | null
+          rejection_reason?: string | null
+          requested_amount?: number
+          requested_by?: string | null
+          stage?: Database["public"]["Enums"]["approval_stage"] | null
+          status?: string | null
+        }
+        Update: {
+          awards_balance?: number | null
+          bills_value?: number | null
+          created_at?: string | null
+          custody_balance?: number | null
+          director_approval_by?: string | null
+          director_approval_date?: string | null
+          id?: string
+          office_approval_by?: string | null
+          office_approval_date?: string | null
+          other_balance?: number | null
+          payables_due?: number | null
+          purpose?: string | null
+          receivables_balance?: number | null
+          rejection_reason?: string | null
+          requested_amount?: number
+          requested_by?: string | null
+          stage?: Database["public"]["Enums"]["approval_stage"] | null
+          status?: string | null
+        }
+        Relationships: []
+      }
+      medical_incidents: {
+        Row: {
+          action_taken: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          learner_id: string | null
+          recorded_by: string | null
+          severity: string | null
+          status: string | null
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          action_taken?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          learner_id?: string | null
+          recorded_by?: string | null
+          severity?: string | null
+          status?: string | null
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          action_taken?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          learner_id?: string | null
+          recorded_by?: string | null
+          severity?: string | null
+          status?: string | null
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medical_incidents_learner_id_fkey"
+            columns: ["learner_id"]
+            isOneToOne: false
+            referencedRelation: "learners"
             referencedColumns: ["id"]
           },
         ]
@@ -3269,21 +3998,27 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
+          is_primary_contact: boolean | null
           learner_id: string
+          parent_id: string | null
           parent_user_id: string
           relationship: string | null
         }
         Insert: {
           created_at?: string | null
           id?: string
+          is_primary_contact?: boolean | null
           learner_id: string
+          parent_id?: string | null
           parent_user_id: string
           relationship?: string | null
         }
         Update: {
           created_at?: string | null
           id?: string
+          is_primary_contact?: boolean | null
           learner_id?: string
+          parent_id?: string | null
           parent_user_id?: string
           relationship?: string | null
         }
@@ -3605,6 +4340,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_status: Database["public"]["Enums"]["account_status"]
           avatar_url: string | null
           county: string | null
           created_at: string | null
@@ -3612,18 +4348,27 @@ export type Database = {
           email: string | null
           full_name: string
           id: string
+          nin: string | null
+          nssf_number: string | null
           parish: string | null
           phone: string | null
           qualification: string | null
           region: string | null
+          registration_number: string | null
           role: string | null
           school_id: string | null
           scope: string | null
           sub_county: string | null
+          suspended_at: string | null
+          suspended_by: string | null
+          suspended_until: string | null
+          suspension_reason: string | null
+          tin: string | null
           updated_at: string | null
           village: string | null
         }
         Insert: {
+          account_status?: Database["public"]["Enums"]["account_status"]
           avatar_url?: string | null
           county?: string | null
           created_at?: string | null
@@ -3631,18 +4376,27 @@ export type Database = {
           email?: string | null
           full_name: string
           id: string
+          nin?: string | null
+          nssf_number?: string | null
           parish?: string | null
           phone?: string | null
           qualification?: string | null
           region?: string | null
+          registration_number?: string | null
           role?: string | null
           school_id?: string | null
           scope?: string | null
           sub_county?: string | null
+          suspended_at?: string | null
+          suspended_by?: string | null
+          suspended_until?: string | null
+          suspension_reason?: string | null
+          tin?: string | null
           updated_at?: string | null
           village?: string | null
         }
         Update: {
+          account_status?: Database["public"]["Enums"]["account_status"]
           avatar_url?: string | null
           county?: string | null
           created_at?: string | null
@@ -3650,14 +4404,22 @@ export type Database = {
           email?: string | null
           full_name?: string
           id?: string
+          nin?: string | null
+          nssf_number?: string | null
           parish?: string | null
           phone?: string | null
           qualification?: string | null
           region?: string | null
+          registration_number?: string | null
           role?: string | null
           school_id?: string | null
           scope?: string | null
           sub_county?: string | null
+          suspended_at?: string | null
+          suspended_by?: string | null
+          suspended_until?: string | null
+          suspension_reason?: string | null
+          tin?: string | null
           updated_at?: string | null
           village?: string | null
         }
@@ -3967,6 +4729,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      salaries: {
+        Row: {
+          base_salary: number | null
+          bonuses: number | null
+          created_at: string | null
+          deductions: number | null
+          id: string
+          month: string
+          net_pay: number | null
+          user_id: string | null
+        }
+        Insert: {
+          base_salary?: number | null
+          bonuses?: number | null
+          created_at?: string | null
+          deductions?: number | null
+          id?: string
+          month: string
+          net_pay?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          base_salary?: number | null
+          bonuses?: number | null
+          created_at?: string | null
+          deductions?: number | null
+          id?: string
+          month?: string
+          net_pay?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       salary_payments: {
         Row: {
@@ -4377,32 +5172,83 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_attendance: {
+        Row: {
+          check_in: string | null
+          check_out: string | null
+          created_at: string | null
+          date: string | null
+          id: string
+          notes: string | null
+          status: string | null
+          user_id: string | null
+        }
+        Insert: {
+          check_in?: string | null
+          check_out?: string | null
+          created_at?: string | null
+          date?: string | null
+          id?: string
+          notes?: string | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          check_in?: string | null
+          check_out?: string | null
+          created_at?: string | null
+          date?: string | null
+          id?: string
+          notes?: string | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       staff_letters: {
         Row: {
+          body: string | null
           content: string
           created_at: string | null
+          from_user: string | null
           id: string
           issued_by: string | null
+          read_at: string | null
           staff_id: string | null
           status: string | null
+          subject: string | null
+          to_role: string | null
+          to_user: string | null
           type: string
         }
         Insert: {
+          body?: string | null
           content: string
           created_at?: string | null
+          from_user?: string | null
           id?: string
           issued_by?: string | null
+          read_at?: string | null
           staff_id?: string | null
           status?: string | null
+          subject?: string | null
+          to_role?: string | null
+          to_user?: string | null
           type: string
         }
         Update: {
+          body?: string | null
           content?: string
           created_at?: string | null
+          from_user?: string | null
           id?: string
           issued_by?: string | null
+          read_at?: string | null
           staff_id?: string | null
           status?: string | null
+          subject?: string | null
+          to_role?: string | null
+          to_user?: string | null
           type?: string
         }
         Relationships: [
@@ -4465,10 +5311,16 @@ export type Database = {
       }
       store_orders: {
         Row: {
+          accountant_approval_by: string | null
+          approved_quantity: number | null
+          available_quantity: number | null
           category: Database["public"]["Enums"]["store_order_category"]
           created_at: string | null
           description: string
+          director_approval_by: string | null
           id: string
+          manager_approval_by: string | null
+          num_days: number | null
           project_id: string | null
           quantity: number
           requested_by: string | null
@@ -4476,10 +5328,16 @@ export type Database = {
           unit: string | null
         }
         Insert: {
+          accountant_approval_by?: string | null
+          approved_quantity?: number | null
+          available_quantity?: number | null
           category: Database["public"]["Enums"]["store_order_category"]
           created_at?: string | null
           description: string
+          director_approval_by?: string | null
           id?: string
+          manager_approval_by?: string | null
+          num_days?: number | null
           project_id?: string | null
           quantity: number
           requested_by?: string | null
@@ -4487,10 +5345,16 @@ export type Database = {
           unit?: string | null
         }
         Update: {
+          accountant_approval_by?: string | null
+          approved_quantity?: number | null
+          available_quantity?: number | null
           category?: Database["public"]["Enums"]["store_order_category"]
           created_at?: string | null
           description?: string
+          director_approval_by?: string | null
           id?: string
+          manager_approval_by?: string | null
+          num_days?: number | null
           project_id?: string | null
           quantity?: number
           requested_by?: string | null
@@ -4666,6 +5530,45 @@ export type Database = {
           },
         ]
       }
+      tasks: {
+        Row: {
+          assigned_to: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          priority: string | null
+          status: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       teacher_assignments: {
         Row: {
           academic_year: number | null
@@ -4800,6 +5703,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_permissions: {
+        Row: {
+          allowed: boolean
+          granted_at: string
+          granted_by: string | null
+          id: string
+          permission_key: string
+          user_id: string
+        }
+        Insert: {
+          allowed?: boolean
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          permission_key: string
+          user_id: string
+        }
+        Update: {
+          allowed?: boolean
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          permission_key?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
