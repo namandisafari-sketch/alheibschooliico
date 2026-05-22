@@ -298,3 +298,9 @@ export const useAuthState = () => {
 
 export { AuthContext };
 export type { AuthContextType, AppRole };
+
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const authState = useAuthState();
+  return <AuthContext.Provider value={authState as any}>{children}</AuthContext.Provider>;
+};
+
