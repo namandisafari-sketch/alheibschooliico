@@ -5191,6 +5191,7 @@ export type Database = {
       }
     }
     Enums: {
+      account_status: "active" | "suspended" | "disconnected"
       account_type: "asset" | "liability" | "equity" | "income" | "expense"
       app_role:
         | "admin"
@@ -5202,6 +5203,24 @@ export type Database = {
         | "security"
         | "director"
         | "deputy_head_teacher"
+        | "storekeeper"
+        | "gateman"
+        | "center_director"
+        | "direct_manager"
+        | "office_manager"
+        | "nurse"
+        | "dos"
+        | "manager"
+      approval_stage:
+        | "submitted"
+        | "manager_approved"
+        | "director_approved"
+        | "accountant_verified"
+        | "final_approved"
+        | "dispatched"
+        | "gate_verified"
+        | "completed"
+        | "rejected"
       approval_step_type: "committee" | "head_office" | "kuwait"
       asset_category_type: "furniture" | "equipment" | "other"
       attendance_status: "present" | "absent" | "late" | "excused"
@@ -5366,6 +5385,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      account_status: ["active", "suspended", "disconnected"],
       account_type: ["asset", "liability", "equity", "income", "expense"],
       app_role: [
         "admin",
@@ -5377,6 +5397,25 @@ export const Constants = {
         "security",
         "director",
         "deputy_head_teacher",
+        "storekeeper",
+        "gateman",
+        "center_director",
+        "direct_manager",
+        "office_manager",
+        "nurse",
+        "dos",
+        "manager",
+      ],
+      approval_stage: [
+        "submitted",
+        "manager_approved",
+        "director_approved",
+        "accountant_verified",
+        "final_approved",
+        "dispatched",
+        "gate_verified",
+        "completed",
+        "rejected",
       ],
       approval_step_type: ["committee", "head_office", "kuwait"],
       asset_category_type: ["furniture", "equipment", "other"],
