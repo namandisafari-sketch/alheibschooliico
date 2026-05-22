@@ -6141,6 +6141,7 @@ export type Database = {
         | "nurse"
         | "dos"
         | "manager"
+        | "secretary"
       approval_stage:
         | "submitted"
         | "manager_approved"
@@ -6335,6 +6336,7 @@ export const Constants = {
         "nurse",
         "dos",
         "manager",
+        "secretary",
       ],
       approval_stage: [
         "submitted",
