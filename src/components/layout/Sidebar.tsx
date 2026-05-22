@@ -39,7 +39,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth, AppRole } from "@/hooks/useAuth";
 import { navSections, bottomNavItems, NavItem } from "@/config/navigation";
-import { isSupabaseConfigured } from "@/integrations/supabase/client";
+const isSupabaseConfigured = true;
 import { isWhitelistedAdmin } from "@/config/admins";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
