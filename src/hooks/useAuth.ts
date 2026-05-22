@@ -18,7 +18,10 @@ type AppRole =
   | "office_manager" 
   | "direct_manager" 
   | "center_director"
-  | "deputy_head_teacher";
+  | "deputy_head_teacher"
+  | "director"
+  | "bursar"
+  | "store_manager";
 
 interface AuthContextType {
   user: User | null;
