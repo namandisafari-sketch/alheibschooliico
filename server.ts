@@ -4,7 +4,12 @@ import { createServer as createViteServer } from "vite";
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const portArgIdx = process.argv.indexOf("--port");
+  const PORT = Number(
+    (portArgIdx !== -1 && process.argv[portArgIdx + 1]) ||
+      process.env.PORT ||
+      8080
+  );
 
   app.use(express.json());
 
