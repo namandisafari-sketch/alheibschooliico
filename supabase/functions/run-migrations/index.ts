@@ -1,5 +1,4 @@
-// One-shot migration runner. Reads bundled migrations.sql and executes it
-// against the project DB using the elevated SUPABASE_DB_URL.
+// Migration runner. Accepts SQL in body and executes as one batch.
 import { Client } from "https://deno.land/x/postgres@v0.19.3/mod.ts";
 
 const corsHeaders = {
@@ -13,116 +12,31 @@ Deno.serve(async (req) => {
   const dbUrl = Deno.env.get("SUPABASE_DB_URL");
   if (!dbUrl) {
     return new Response(JSON.stringify({ error: "SUPABASE_DB_URL not set" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  // Load SQL from request body
   const sql = await req.text();
-  if (!sql || sql.length < 10) {
+  if (!sql || sql.length < 5) {
     return new Response(JSON.stringify({ error: "Empty SQL body" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
   const client = new Client(dbUrl);
   await client.connect();
 
-  const results: { ok: number; failed: { stmt: string; error: string }[] } = {
-    ok: 0,
-    failed: [],
-  };
-
-  // Split on semicolons that end lines. This is naive but works for our migrations.
-  // Better: split on statement boundaries while respecting $$ dollar-quoted blocks.
-  const stmts = splitSqlStatements(sql);
-
-  for (const stmt of stmts) {
-    const trimmed = stmt.trim();
-    if (!trimmed || trimmed.startsWith("--")) continue;
-    try {
-      await client.queryArray(trimmed);
-      results.ok++;
-    } catch (err) {
-      results.failed.push({
-        stmt: trimmed.slice(0, 200),
-        error: (err as Error).message,
-      });
-    }
+  // Run the whole body as a single multi-statement query (simple query protocol)
+  try {
+    await client.queryArray(sql);
+    await client.end();
+    return new Response(JSON.stringify({ ok: true, length: sql.length }), {
+      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    await client.end();
+    return new Response(JSON.stringify({ ok: false, error: (err as Error).message }), {
+      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
-
-  await client.end();
-
-  return new Response(JSON.stringify(results, null, 2), {
-    status: 200,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
 });
-
-// Splits SQL on semicolons, respecting $$...$$ dollar-quoted strings (incl. tagged like $tag$...$tag$).
-function splitSqlStatements(sql: string): string[] {
-  const out: string[] = [];
-  let cur = "";
-  let i = 0;
-  let dollarTag: string | null = null;
-  while (i < sql.length) {
-    const ch = sql[i];
-    if (dollarTag) {
-      // inside dollar-quoted block
-      if (sql.startsWith(dollarTag, i)) {
-        cur += dollarTag;
-        i += dollarTag.length;
-        dollarTag = null;
-        continue;
-      }
-      cur += ch;
-      i++;
-      continue;
-    }
-    if (ch === "$") {
-      // detect $...$ tag
-      const m = sql.slice(i).match(/^\$[A-Za-z0-9_]*\$/);
-      if (m) {
-        dollarTag = m[0];
-        cur += dollarTag;
-        i += dollarTag.length;
-        continue;
-      }
-    }
-    if (ch === "'" || ch === '"') {
-      // skip string literals
-      const quote = ch;
-      cur += ch;
-      i++;
-      while (i < sql.length) {
-        cur += sql[i];
-        if (sql[i] === quote && sql[i - 1] !== "\\") {
-          i++;
-          break;
-        }
-        i++;
-      }
-      continue;
-    }
-    if (ch === "-" && sql[i + 1] === "-") {
-      // line comment
-      while (i < sql.length && sql[i] !== "\n") {
-        cur += sql[i];
-        i++;
-      }
-      continue;
-    }
-    if (ch === ";") {
-      out.push(cur);
-      cur = "";
-      i++;
-      continue;
-    }
-    cur += ch;
-    i++;
-  }
-  if (cur.trim()) out.push(cur);
-  return out;
-}
