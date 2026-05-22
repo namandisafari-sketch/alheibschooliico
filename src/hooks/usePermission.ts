@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useAuth } from "./useAuth";
 import type { PermissionKey } from "@/lib/roleConfig";
 

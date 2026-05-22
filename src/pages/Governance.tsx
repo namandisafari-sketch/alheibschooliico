@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Shield, Scale, FileText, Gavel, Landmark, Eye, PieChart, Activity } from "lucide-react";

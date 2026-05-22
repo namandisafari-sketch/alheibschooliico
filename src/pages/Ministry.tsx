@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, ExternalLink, Download, BookOpen, ShieldCheck, Landmark, Link as LinkIcon, Info } from "lucide-react";

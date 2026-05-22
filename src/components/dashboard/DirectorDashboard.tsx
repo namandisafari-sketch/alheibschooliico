@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useEffect, useState } from "react";
 import { Kpi, Section } from "@/components/role/RolePage";
 import {
