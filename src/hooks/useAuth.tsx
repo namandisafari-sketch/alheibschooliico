@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext, useCallback } from "react";
+import { useState, useEffect, createContext, useContext, useCallback, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { isWhitelistedAdmin } from "@/config/admins";
@@ -298,3 +298,9 @@ export const useAuthState = () => {
 
 export { AuthContext };
 export type { AuthContextType, AppRole };
+
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const authState = useAuthState();
+  return <AuthContext.Provider value={authState as any}>{children}</AuthContext.Provider>;
+};
+
