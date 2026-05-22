@@ -18,13 +18,11 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Load bundled SQL
-  let sql: string;
-  try {
-    sql = await Deno.readTextFile(new URL("./migrations.sql", import.meta.url));
-  } catch (e) {
-    return new Response(JSON.stringify({ error: `Could not read migrations.sql: ${e}` }), {
-      status: 500,
+  // Load SQL from request body
+  const sql = await req.text();
+  if (!sql || sql.length < 10) {
+    return new Response(JSON.stringify({ error: "Empty SQL body" }), {
+      status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
