@@ -410,16 +410,20 @@ export function LearnerDetailsDialog({ student: basicStudent, open, onOpenChange
              Property of Alheib Mixed Day & Boarding School
            </p>
            <div className="flex gap-2">
-             <Button variant="outline" size="sm" className="h-8 text-[10px] font-black uppercase tracking-widest border-slate-200">
-               Print Dossier
+             <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-[10px] font-black uppercase tracking-widest border-slate-200 gap-1.5">
+               <Printer className="h-3 w-3" /> Print Dossier
              </Button>
-             <Button size="sm" className="h-8 text-[10px] font-black uppercase tracking-widest bg-slate-900">
-               Edit Learner
+             <Button size="sm" onClick={() => setShowEdit(true)} className="h-8 text-[10px] font-black uppercase tracking-widest bg-slate-900 gap-1.5">
+               <Pencil className="h-3 w-3" /> Edit Learner
              </Button>
            </div>
         </div>
       </DialogContent>
     </Dialog>
+    {student?.id && (
+      <EditLearnerDialog learner={student} open={showEdit} onOpenChange={setShowEdit} />
+    )}
+    </>
   );
 }
 
