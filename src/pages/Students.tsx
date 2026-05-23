@@ -158,7 +158,7 @@ const Students = () => {
         <p className="text-xs sm:text-sm text-muted-foreground">
           <span className="font-medium text-foreground">Current Term:</span> Term 3, 2024 | 
           <span className="font-medium text-foreground ml-1 sm:ml-2">Total:</span> {learners.length} learners
-          {(selectedClass || selectedGender || selectedStatus || selectedFacility || selectedPupilStatus) && (
+          {(selectedClass || selectedGender || selectedStatus || selectedFacility || selectedHouse || selectedPupilStatus) && (
             <span className="ml-2 text-primary">| Filtered: {filteredStudents.length}</span>
           )}
         </p>
@@ -182,7 +182,7 @@ const Students = () => {
               <Button variant="outline" size="sm" className="flex items-center gap-2">
                 <Filter className="h-4 w-4" />
                 <span>Filter</span>
-                {(selectedClass || selectedGender || selectedStatus || selectedFacility || selectedPupilStatus) && (
+                {(selectedClass || selectedGender || selectedStatus || selectedFacility || selectedHouse || selectedPupilStatus) && (
                   <Badge variant="secondary" className="ml-1 px-1 h-4 min-w-4 flex items-center justify-center">
                     !
                   </Badge>
@@ -295,7 +295,7 @@ const Students = () => {
               </DropdownMenuCheckboxItem>
               
               {/* Clear Filters */}
-              {(selectedClass || selectedGender || selectedStatus || selectedFacility || selectedPupilStatus) && (
+              {(selectedClass || selectedGender || selectedStatus || selectedFacility || selectedHouse || selectedPupilStatus) && (
                 <>
                   <DropdownMenuSeparator />
                   <Button 
