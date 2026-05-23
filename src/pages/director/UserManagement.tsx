@@ -30,8 +30,12 @@ const UserManagement = () => {
   const [warnUser, setWarnUser] = useState<any>(null);
   const [dmUser, setDmUser] = useState<any>(null);
 
+  const { role: myRole, loading: authLoading } = useAuth() as any;
+  const allowed = ["admin", "director", "center_director"].includes(myRole);
+
   const { data: users = [], refetch } = useQuery({
     queryKey: ["dir-users"],
+    enabled: allowed,
     queryFn: async () => {
       const { data: profiles } = await supabase.from("profiles").select("*").order("full_name");
       const { data: roles } = await supabase.from("user_roles").select("user_id, role");
