@@ -34,6 +34,8 @@ export const LearnerActions = ({ learner }: LearnerActionsProps) => {
   const [showCircularDialog, setShowCircularDialog] = useState(false);
   const deleteLearner = useDeleteLearner();
 
+  if (!learner) return null;
+
   const handleDelete = async () => {
     try {
       await deleteLearner.mutateAsync(learner.id);
