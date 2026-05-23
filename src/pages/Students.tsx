@@ -110,7 +110,7 @@ const Students = () => {
       id: "actions",
       cell: ({ row }) => (
         <div className="text-right">
-          <LearnerActions student={row.original} />
+          <LearnerActions learner={row.original} />
         </div>
       )
     }
