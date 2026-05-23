@@ -52,7 +52,22 @@ const UserManagement = () => {
   );
 
   return (
+  if (!authLoading && !allowed) {
+    return (
+      <DashboardLayout title="Access Restricted" subtitle="">
+        <Card className="max-w-xl mx-auto mt-12">
+          <CardHeader><CardTitle className="flex items-center gap-2"><Shield className="h-5 w-5 text-destructive" />Restricted Area</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">User management is only available to administrators and directors. Please contact the school director if you believe you should have access.</p>
+          </CardContent>
+        </Card>
+      </DashboardLayout>
+    );
+  }
+
+  return (
     <DashboardLayout title="Director • User Control" subtitle="Create, restrict, suspend, message and kick any user in real-time">
+
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <Input placeholder="Search by name, email, role…" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-md" />
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
