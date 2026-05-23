@@ -146,6 +146,7 @@ const Students = () => {
     setSelectedGender(null);
     setSelectedStatus(null);
     setSelectedFacility(null);
+    setSelectedHouse(null);
     setSelectedPupilStatus(null);
     setSearchQuery("");
   };
