@@ -29,6 +29,17 @@ const Notifications = () => {
   const broadcast = useBroadcastNotification();
   const { data: myNotifs = [] } = useInAppNotifications();
   const markRead = useMarkNotificationRead();
+  const queryClient = useQueryClient();
+
+  const toggleTemplate = async (id: string, next: boolean) => {
+    const { error } = await supabase.from("notification_templates").update({ is_active: next }).eq("id", id);
+    if (error) {
+      toast({ title: "Failed to update template", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: next ? "Template activated" : "Template deactivated" });
+    queryClient.invalidateQueries({ queryKey: ["notification-templates"] });
+  };
 
   const [form, setForm] = useState({
     title: "", message: "", type: "info" as "info" | "success" | "warning" | "error",
