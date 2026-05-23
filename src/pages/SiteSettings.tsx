@@ -50,6 +50,8 @@ import {
 } from "@/hooks/useEmisCompliance";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Droplets, Warehouse, PlusCircle, Trash2 } from "lucide-react";
+import { DataExportCard } from "@/components/settings/DataExportCard";
+
 
 const DEFAULT_ID_CARD: IdCardSettings = {
   director_name: "",
