@@ -96,6 +96,7 @@ export function LearnerDetailsDialog({ student: basicStudent, open, onOpenChange
 
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl h-[85vh] p-0 overflow-hidden flex flex-col">
         <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
