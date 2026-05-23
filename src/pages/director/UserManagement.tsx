@@ -51,7 +51,6 @@ const UserManagement = () => {
     (u.role || "").toLowerCase().includes(search.toLowerCase())
   );
 
-  return (
   if (!authLoading && !allowed) {
     return (
       <DashboardLayout title="Access Restricted" subtitle="">
