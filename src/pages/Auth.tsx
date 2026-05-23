@@ -47,7 +47,7 @@ const Auth = () => {
   const blockReason = params.get("reason") || "Your account has been disconnected by the director.";
 
   useEffect(() => {
-    if (user && !blocked && !isLoading) {
+    if (user && !isLoading && !appealSubmitting) {
       // If we have a user but no role yet, we might still be fetching the role
       // after a fresh sign in. Let's wait a moment for the role to be populated.
       if (role) {
@@ -60,7 +60,7 @@ const Auth = () => {
         // we don't redirect immediately to account-settings to avoid flickering.
       }
     }
-  }, [user, role, navigate, blocked, isLoading]);
+  }, [user, role, navigate, isLoading, appealSubmitting]);
 
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
