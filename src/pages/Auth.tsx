@@ -38,6 +38,7 @@ const Auth = () => {
   const [appealEmail, setAppealEmail] = useState("");
   const [appealPassword, setAppealPassword] = useState("");
   const [appealSubmitting, setAppealSubmitting] = useState(false);
+  const { user, role, signIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
