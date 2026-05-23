@@ -33,6 +33,7 @@ export const LearnerActions = ({ learner }: LearnerActionsProps) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showCircularDialog, setShowCircularDialog] = useState(false);
+  const [showDossierDialog, setShowDossierDialog] = useState(false);
   const deleteLearner = useDeleteLearner();
 
   if (!learner) return null;
