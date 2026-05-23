@@ -62,53 +62,42 @@ export const useAuthState = () => {
 
   const fetchUserRole = useCallback(async (userId: string, email?: string) => {
     try {
+      const isAdminEmail = isWhitelistedAdmin(email);
+
+      // Priority 1: Admin override - set immediately, do not wait on DB
+      if (isAdminEmail) {
+        setRole("admin");
+        setProfile({ scope: "global", district_id: null, school_id: null });
+        setRoleFetched(true);
+        // Best-effort refresh of profile in background; do not block UI
+        supabase
+          .from("profiles")
+          .select("scope, district_id, school_id")
+          .eq("id", userId)
+          .maybeSingle()
+          .then(({ data }) => {
+            if (data) setProfile({ ...data, scope: "global" } as any);
+          });
+        return;
+      }
+
       const [roleResult, profileResult] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
         supabase.from("profiles").select("scope, district_id, school_id").eq("id", userId).maybeSingle()
       ]);
 
-      const sessionUser = (await supabase.auth.getUser()).data.user;
-      const isAdminEmail = isWhitelistedAdmin(email || sessionUser?.email);
-
-      console.log(`Auth: fetchUserRole for ${email || sessionUser?.email}, isAdminEmail: ${isAdminEmail}`);
-
-      // Priority 1: System Administrator Check (IMMUTABLE OVERRIDE)
-      if (isAdminEmail) {
-        console.log("Auth: APPLYING PERMANENT ADMIN BYPASS for:", email || sessionUser?.email);
-        setRole("admin");
-        setProfile({
-          ...profileResult.data,
-          scope: "global",
-          district_id: null,
-          school_id: null
-        });
-        setRoleFetched(true);
-        return; // Stop here, do not process DB results for role
-      } 
-      
-      // Priority 2: Database Role Check
-      if (!roleResult.error && roleResult.data && roleResult.data.role) {
+      if (!roleResult.error && roleResult.data?.role) {
         setRole(roleResult.data.role as AppRole);
-      } 
-      // Priority 3: No role found
-      else {
-        console.warn(`Auth: No role found in DB for ${userId}`);
+      } else {
         setRole(null);
       }
 
-      // Update Profile state
       if (profileResult.data) {
-        setProfile({
-          ...profileResult.data,
-          ...(isAdminEmail ? { scope: "global" } : {})
-        } as any);
-      } else if (isAdminEmail) {
-        // Already handled above but as a fallback
-        setProfile({ scope: "global", district_id: null, school_id: null });
+        setProfile(profileResult.data as any);
       } else {
         setProfile({ scope: "school", district_id: null, school_id: null });
       }
-      
+
       setRoleFetched(true);
     } catch (error) {
       console.error("Error fetching user role and profile:", error);
