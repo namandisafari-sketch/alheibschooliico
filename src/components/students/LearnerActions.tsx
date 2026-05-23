@@ -8,9 +8,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Trash2, User, ArrowUpCircle, FileText } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, User, ArrowUpCircle, FileText, Printer } from "lucide-react";
 import { useDeleteLearner, Learner } from "@/hooks/useLearners";
 import { EditLearnerDialog } from "./EditLearnerDialog";
+import { LearnerDetailsDialog } from "./LearnerDetailsDialog";
 import { CircularDialog } from "@/components/reports/CircularDialog";
 import {
   AlertDialog,
@@ -32,6 +33,7 @@ export const LearnerActions = ({ learner }: LearnerActionsProps) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showCircularDialog, setShowCircularDialog] = useState(false);
+  const [showDossierDialog, setShowDossierDialog] = useState(false);
   const deleteLearner = useDeleteLearner();
 
   if (!learner) return null;
@@ -56,8 +58,11 @@ export const LearnerActions = ({ learner }: LearnerActionsProps) => {
         <DropdownMenuContent align="end" className="w-48">
           <DropdownMenuLabel>Actions</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => toast({ title: "Profile coming soon", description: "Learner profile page is under development." })}>
+          <DropdownMenuItem onClick={() => setShowDossierDialog(true)}>
             <User className="mr-2 h-4 w-4" /> View Profile
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setShowDossierDialog(true)}>
+            <Printer className="mr-2 h-4 w-4" /> Print Dossier
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
             <Pencil className="mr-2 h-4 w-4" /> Edit Details
@@ -109,6 +114,12 @@ export const LearnerActions = ({ learner }: LearnerActionsProps) => {
         learner={learner} 
         open={showCircularDialog} 
         onOpenChange={setShowCircularDialog} 
+      />
+
+      <LearnerDetailsDialog
+        student={learner}
+        open={showDossierDialog}
+        onOpenChange={setShowDossierDialog}
       />
     </>
   );

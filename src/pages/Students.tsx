@@ -41,8 +41,11 @@ const Students = () => {
   const [selectedGender, setSelectedGender] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [selectedFacility, setSelectedFacility] = useState<string | null>(null);
+  const [selectedHouse, setSelectedHouse] = useState<string | null>(null);
   const [selectedPupilStatus, setSelectedPupilStatus] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"shelf" | "table">("shelf");
+
+  const NON_DORM_VALUES = ["BOARDING", "DAY", "OUT", ""];
 
   useEffect(() => {
     const classParam = searchParams.get("class");
@@ -107,7 +110,7 @@ const Students = () => {
       id: "actions",
       cell: ({ row }) => (
         <div className="text-right">
-          <LearnerActions student={row.original} />
+          <LearnerActions learner={row.original} />
         </div>
       )
     }
@@ -122,10 +125,19 @@ const Students = () => {
     const matchesGender = !selectedGender || student.gender === selectedGender;
     const matchesStatus = !selectedStatus || student.status === selectedStatus;
     const matchesFacility = !selectedFacility || student.boarding_status === selectedFacility;
+    const matchesHouse = !selectedHouse || (student.house || "").toUpperCase() === selectedHouse;
     const matchesPupilStatus = !selectedPupilStatus || student.pupil_status === selectedPupilStatus;
     
-    return matchesSearch && matchesClass && matchesGender && matchesStatus && matchesFacility && matchesPupilStatus;
+    return matchesSearch && matchesClass && matchesGender && matchesStatus && matchesFacility && matchesHouse && matchesPupilStatus;
   });
+
+  const dormitories = Array.from(
+    new Set(
+      learners
+        .map((l: any) => (l.house || "").toUpperCase().trim())
+        .filter((h: string) => h && !NON_DORM_VALUES.includes(h))
+    )
+  ).sort();
 
   const classes = Array.from(new Set(learners.map(l => l.class_name).filter(Boolean)));
 
@@ -134,6 +146,7 @@ const Students = () => {
     setSelectedGender(null);
     setSelectedStatus(null);
     setSelectedFacility(null);
+    setSelectedHouse(null);
     setSelectedPupilStatus(null);
     setSearchQuery("");
   };
@@ -145,7 +158,7 @@ const Students = () => {
         <p className="text-xs sm:text-sm text-muted-foreground">
           <span className="font-medium text-foreground">Current Term:</span> Term 3, 2024 | 
           <span className="font-medium text-foreground ml-1 sm:ml-2">Total:</span> {learners.length} learners
-          {(selectedClass || selectedGender || selectedStatus || selectedFacility || selectedPupilStatus) && (
+          {(selectedClass || selectedGender || selectedStatus || selectedFacility || selectedHouse || selectedPupilStatus) && (
             <span className="ml-2 text-primary">| Filtered: {filteredStudents.length}</span>
           )}
         </p>
@@ -169,7 +182,7 @@ const Students = () => {
               <Button variant="outline" size="sm" className="flex items-center gap-2">
                 <Filter className="h-4 w-4" />
                 <span>Filter</span>
-                {(selectedClass || selectedGender || selectedStatus || selectedFacility || selectedPupilStatus) && (
+                {(selectedClass || selectedGender || selectedStatus || selectedFacility || selectedHouse || selectedPupilStatus) && (
                   <Badge variant="secondary" className="ml-1 px-1 h-4 min-w-4 flex items-center justify-center">
                     !
                   </Badge>
@@ -205,6 +218,28 @@ const Students = () => {
               >
                 Day
               </DropdownMenuCheckboxItem>
+
+              {selectedFacility === "boarding" && dormitories.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-[10px] font-normal text-muted-foreground uppercase">
+                    Dormitory
+                  </DropdownMenuLabel>
+                  <div className="max-h-48 overflow-y-auto">
+                    {dormitories.map((d) => (
+                      <DropdownMenuCheckboxItem
+                        key={d}
+                        checked={selectedHouse === d}
+                        onCheckedChange={() =>
+                          setSelectedHouse(selectedHouse === d ? null : d)
+                        }
+                      >
+                        {d}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </div>
+                </>
+              )}
 
               <DropdownMenuSeparator />
               <DropdownMenuLabel className="text-[10px] font-normal text-muted-foreground uppercase">By Pupil Status</DropdownMenuLabel>
@@ -282,7 +317,7 @@ const Students = () => {
               </DropdownMenuCheckboxItem>
               
               {/* Clear Filters */}
-              {(selectedClass || selectedGender || selectedStatus || selectedFacility || selectedPupilStatus) && (
+              {(selectedClass || selectedGender || selectedStatus || selectedFacility || selectedHouse || selectedPupilStatus) && (
                 <>
                   <DropdownMenuSeparator />
                   <Button 
