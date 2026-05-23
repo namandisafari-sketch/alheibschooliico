@@ -124,5 +124,3 @@ export const LearnerActions = ({ learner }: LearnerActionsProps) => {
     </>
   );
 };
-  );
-};
