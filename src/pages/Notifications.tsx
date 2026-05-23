@@ -208,10 +208,24 @@ const Notifications = () => {
                 <div className="space-y-2">
                   {templates.map((t: any) => (
                     <div key={t.id} className="rounded-lg border border-border p-3">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">{t.name}</p>
-                        <Badge variant="outline">{t.channel}</Badge>
-                        {!t.is_active && <Badge variant="secondary">Inactive</Badge>}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{t.name}</p>
+                          <Badge variant="outline">{t.channel}</Badge>
+                          <Badge variant={t.is_active ? "default" : "secondary"}>
+                            {t.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor={`tpl-${t.id}`} className="text-xs text-muted-foreground">
+                            {t.is_active ? "On" : "Off"}
+                          </Label>
+                          <Switch
+                            id={`tpl-${t.id}`}
+                            checked={!!t.is_active}
+                            onCheckedChange={(v) => toggleTemplate(t.id, v)}
+                          />
+                        </div>
                       </div>
                       {t.description && <p className="text-sm text-muted-foreground mt-1">{t.description}</p>}
                       <p className="text-xs font-mono bg-muted px-2 py-1 rounded mt-2">{t.message_body.slice(0, 200)}</p>
