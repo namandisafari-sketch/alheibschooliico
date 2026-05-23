@@ -177,14 +177,63 @@ const Auth = () => {
             <div className="mb-6 rounded-xl border-2 border-destructive bg-destructive/10 p-5 text-sm">
               <p className="font-bold text-destructive uppercase tracking-wider text-xs mb-2">Account Disconnected</p>
               <p className="text-foreground mb-3">{blockReason}</p>
-              <p className="text-xs text-muted-foreground">
-                To appeal this decision, contact the director directly or write to{" "}
-                <a className="underline font-semibold" href={`mailto:director@alheib.test?subject=Account Appeal&body=${encodeURIComponent(blockReason)}`}>
-                  director@alheib.test
-                </a>.
-              </p>
+              <div className="flex flex-col gap-2">
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => { setAppealEmail(""); setAppealOpen(true); }}
+                >
+                  Submit an Appeal
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Or email{" "}
+                  <a className="underline font-semibold" href={`mailto:director@alheib.test?subject=Account Appeal&body=${encodeURIComponent(blockReason)}`}>
+                    director@alheib.test
+                  </a>.
+                </p>
+              </div>
             </div>
           )}
+
+          <Dialog open={appealOpen} onOpenChange={setAppealOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Appeal Account Block</DialogTitle>
+                <DialogDescription>
+                  Confirm your credentials and explain why your account should be reinstated. The director will review your appeal.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
+                <Input
+                  type="email"
+                  placeholder="Your email"
+                  value={appealEmail}
+                  onChange={(e) => setAppealEmail(e.target.value)}
+                />
+                <Input
+                  type="password"
+                  placeholder="Your password"
+                  value={appealPassword}
+                  onChange={(e) => setAppealPassword(e.target.value)}
+                />
+                <Textarea
+                  placeholder="Explain your appeal (minimum 10 characters)..."
+                  rows={5}
+                  value={appealReason}
+                  onChange={(e) => setAppealReason(e.target.value)}
+                />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setAppealOpen(false)} disabled={appealSubmitting}>
+                  Cancel
+                </Button>
+                <Button onClick={submitAppeal} disabled={appealSubmitting}>
+                  {appealSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Submit Appeal
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <div className="text-center mb-8">
             <h2 className="font-display text-2xl font-bold text-foreground">
               Welcome Back
