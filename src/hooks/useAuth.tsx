@@ -199,8 +199,8 @@ export const useAuthState = () => {
     });
     if (error) return { error };
 
-    // Block disconnected/suspended accounts
-    if (data?.user) {
+    // Block disconnected/suspended accounts — but never block whitelisted admins
+    if (data?.user && !isWhitelistedAdmin(data.user.email)) {
       const { data: prof } = await supabase
         .from("profiles")
         .select("account_status, suspension_reason, suspended_until")
