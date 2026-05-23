@@ -41,8 +41,11 @@ const Students = () => {
   const [selectedGender, setSelectedGender] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [selectedFacility, setSelectedFacility] = useState<string | null>(null);
+  const [selectedHouse, setSelectedHouse] = useState<string | null>(null);
   const [selectedPupilStatus, setSelectedPupilStatus] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"shelf" | "table">("shelf");
+
+  const NON_DORM_VALUES = ["BOARDING", "DAY", "OUT", ""];
 
   useEffect(() => {
     const classParam = searchParams.get("class");
