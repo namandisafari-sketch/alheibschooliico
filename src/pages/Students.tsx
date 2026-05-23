@@ -125,10 +125,19 @@ const Students = () => {
     const matchesGender = !selectedGender || student.gender === selectedGender;
     const matchesStatus = !selectedStatus || student.status === selectedStatus;
     const matchesFacility = !selectedFacility || student.boarding_status === selectedFacility;
+    const matchesHouse = !selectedHouse || (student.house || "").toUpperCase() === selectedHouse;
     const matchesPupilStatus = !selectedPupilStatus || student.pupil_status === selectedPupilStatus;
     
-    return matchesSearch && matchesClass && matchesGender && matchesStatus && matchesFacility && matchesPupilStatus;
+    return matchesSearch && matchesClass && matchesGender && matchesStatus && matchesFacility && matchesHouse && matchesPupilStatus;
   });
+
+  const dormitories = Array.from(
+    new Set(
+      learners
+        .map((l: any) => (l.house || "").toUpperCase().trim())
+        .filter((h: string) => h && !NON_DORM_VALUES.includes(h))
+    )
+  ).sort();
 
   const classes = Array.from(new Set(learners.map(l => l.class_name).filter(Boolean)));
 
