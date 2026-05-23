@@ -183,7 +183,7 @@ const CreateUserDialog = ({ onClose }: { onClose: () => void }) => {
           </Select>
         </div>
         <div><Label>Password</Label><Input value={password} onChange={(e) => setPassword(e.target.value)} /></div>
-        <p className="text-xs text-muted-foreground">Email will be: <span className="font-mono text-primary">{(name.trim().toLowerCase().replace(/\s+/g, "") || "name")}@alheib.{role}</span></p>
+        <p className="text-xs text-muted-foreground">Email will be: <span className="font-mono text-primary">{email}</span></p>
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>Cancel</Button>
