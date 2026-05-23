@@ -30,8 +30,9 @@ import { format } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useLearnerDossier } from "@/hooks/useLearnerDossier";
-import { PackageOpen, Clock, AlertCircle, History as HistoryIcon, Loader2, Scale } from "lucide-react";
+import { PackageOpen, Clock, AlertCircle, History as HistoryIcon, Loader2, Scale, Printer, Pencil } from "lucide-react";
 import { formatUGX } from "@/hooks/useFees";
+import { EditLearnerDialog } from "./EditLearnerDialog";
 
 interface LearnerDetailsDialogProps {
   student: any;
@@ -41,11 +42,61 @@ interface LearnerDetailsDialogProps {
 
 export function LearnerDetailsDialog({ student: basicStudent, open, onOpenChange }: LearnerDetailsDialogProps) {
   const { data: dossier, isLoading } = useLearnerDossier(basicStudent?.id);
-  
+  const [showEdit, setShowEdit] = useState(false);
+
   if (!basicStudent) return null;
   const student = dossier?.learner || basicStudent;
 
+  const handlePrint = () => {
+    const w = window.open("", "_blank", "width=900,height=700");
+    if (!w) return;
+    const fmt = (d: any) => d && !isNaN(new Date(d).getTime()) ? format(new Date(d), "PPP") : "—";
+    w.document.write(`<html><head><title>Dossier - ${student.full_name}</title>
+      <style>
+        body{font-family:system-ui,sans-serif;padding:32px;color:#0f172a;}
+        h1{font-size:22px;margin:0 0 4px;text-transform:uppercase;}
+        h2{font-size:11px;text-transform:uppercase;letter-spacing:2px;color:#64748b;margin:24px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:4px;}
+        .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;}
+        .row{font-size:13px;}
+        .label{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#94a3b8;font-weight:700;}
+        .val{font-weight:600;}
+        .header{border-bottom:2px solid #0f172a;padding-bottom:12px;margin-bottom:8px;}
+        .meta{font-size:11px;color:#64748b;margin-top:4px;}
+        .footer{margin-top:32px;font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0;padding-top:12px;}
+      </style></head><body>
+      <div class="header">
+        <h1>${student.full_name}${student.arabic_name ? ' — ' + student.arabic_name : ''}</h1>
+        <div class="meta">ADM: ${student.admission_number || 'PENDING'} • ${student.class_name || 'Unassigned'} • ${student.religion || 'Islam'} • Status: ${student.status || 'Active'}</div>
+      </div>
+      <h2>Personal Information</h2>
+      <div class="grid">
+        <div class="row"><div class="label">Gender</div><div class="val">${student.gender || '—'}</div></div>
+        <div class="row"><div class="label">Date of Birth</div><div class="val">${fmt(student.date_of_birth)}</div></div>
+        <div class="row"><div class="label">Enrollment Date</div><div class="val">${fmt(student.enrollment_date)}</div></div>
+        <div class="row"><div class="label">Dormitory / House</div><div class="val">${student.house || '—'}</div></div>
+        <div class="row"><div class="label">District</div><div class="val">${student.district || '—'}</div></div>
+        <div class="row"><div class="label">Pupil Status</div><div class="val">${student.pupil_status || '—'}</div></div>
+      </div>
+      <h2>Guardian / Parental Info</h2>
+      <div class="grid">
+        <div class="row"><div class="label">Guardian Name</div><div class="val">${student.guardian_name || '—'}</div></div>
+        <div class="row"><div class="label">Phone</div><div class="val">${student.guardian_phone || '—'}</div></div>
+      </div>
+      <h2>Finance Summary</h2>
+      <div class="grid">
+        <div class="row"><div class="label">Total Fees</div><div class="val">${formatUGX(dossier?.financials?.totalFees || 0)}</div></div>
+        <div class="row"><div class="label">Total Paid</div><div class="val">${formatUGX(dossier?.financials?.totalPaid || 0)}</div></div>
+        <div class="row"><div class="label">Balance</div><div class="val">${formatUGX(dossier?.financials?.balance || 0)}</div></div>
+      </div>
+      <div class="footer">Property of Alheib Mixed Day & Boarding School • Generated ${format(new Date(), "PPP p")}</div>
+      </body></html>`);
+    w.document.close();
+    setTimeout(() => { w.focus(); w.print(); }, 300);
+  };
+
+
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl h-[85vh] p-0 overflow-hidden flex flex-col">
         <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
@@ -360,16 +411,20 @@ export function LearnerDetailsDialog({ student: basicStudent, open, onOpenChange
              Property of Alheib Mixed Day & Boarding School
            </p>
            <div className="flex gap-2">
-             <Button variant="outline" size="sm" className="h-8 text-[10px] font-black uppercase tracking-widest border-slate-200">
-               Print Dossier
+             <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-[10px] font-black uppercase tracking-widest border-slate-200 gap-1.5">
+               <Printer className="h-3 w-3" /> Print Dossier
              </Button>
-             <Button size="sm" className="h-8 text-[10px] font-black uppercase tracking-widest bg-slate-900">
-               Edit Learner
+             <Button size="sm" onClick={() => setShowEdit(true)} className="h-8 text-[10px] font-black uppercase tracking-widest bg-slate-900 gap-1.5">
+               <Pencil className="h-3 w-3" /> Edit Learner
              </Button>
            </div>
         </div>
       </DialogContent>
     </Dialog>
+    {student?.id && (
+      <EditLearnerDialog learner={student} open={showEdit} onOpenChange={setShowEdit} />
+    )}
+    </>
   );
 }
 
