@@ -142,20 +142,21 @@ const CreateUserDialog = ({ onClose }: { onClose: () => void }) => {
   const [password, setPassword] = useState("1234school.com");
   const [busy, setBusy] = useState(false);
 
+  const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const email = `${slug || "user"}.${role}@alheib.com`;
+
   const submit = async () => {
     if (!name.trim()) return;
     setBusy(true);
-    const slug = name.trim().toLowerCase().replace(/\s+/g, "");
-    const email = `${slug}@alheib.${role}`;
-    const { data, error } = await supabase.auth.signUp({
-      email, password,
-      options: { data: { full_name: name, phone } },
+    const { data, error } = await supabase.functions.invoke("create-user", {
+      body: { email, password, fullName: name, phone, role },
     });
-    if (error) { toast({ title: "Failed", description: error.message, variant: "destructive" }); setBusy(false); return; }
-    const uid = data.user?.id;
+    if (error || (data as any)?.error) {
+      toast({ title: "Failed", description: (data as any)?.error || error?.message, variant: "destructive" });
+      setBusy(false); return;
+    }
+    const uid = (data as any)?.user_id;
     if (uid) {
-      await supabase.from("user_roles").upsert({ user_id: uid, role } as any);
-      await supabase.from("profiles").update({ phone, full_name: name } as any).eq("id", uid);
       const defaults = (DEFAULT_PERMISSIONS as any)[role] || [];
       if (defaults.length) {
         await supabase.from("user_permissions" as any).insert(
@@ -166,6 +167,7 @@ const CreateUserDialog = ({ onClose }: { onClose: () => void }) => {
     toast({ title: "Created", description: `${email} • password: ${password}` });
     setBusy(false); onClose();
   };
+
 
   return (
     <DialogContent>
