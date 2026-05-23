@@ -219,6 +219,28 @@ const Students = () => {
                 Day
               </DropdownMenuCheckboxItem>
 
+              {selectedFacility === "boarding" && dormitories.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-[10px] font-normal text-muted-foreground uppercase">
+                    Dormitory
+                  </DropdownMenuLabel>
+                  <div className="max-h-48 overflow-y-auto">
+                    {dormitories.map((d) => (
+                      <DropdownMenuCheckboxItem
+                        key={d}
+                        checked={selectedHouse === d}
+                        onCheckedChange={() =>
+                          setSelectedHouse(selectedHouse === d ? null : d)
+                        }
+                      >
+                        {d}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </div>
+                </>
+              )}
+
               <DropdownMenuSeparator />
               <DropdownMenuLabel className="text-[10px] font-normal text-muted-foreground uppercase">By Pupil Status</DropdownMenuLabel>
               <DropdownMenuCheckboxItem
