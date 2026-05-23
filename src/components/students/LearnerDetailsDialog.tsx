@@ -47,6 +47,7 @@ export function LearnerDetailsDialog({ student: basicStudent, open, onOpenChange
   if (!basicStudent) return null;
   const student = dossier?.learner || basicStudent;
 
+  const handlePrint = () => {
     const w = window.open("", "_blank", "width=900,height=700");
     if (!w) return;
     const fmt = (d: any) => d && !isNaN(new Date(d).getTime()) ? format(new Date(d), "PPP") : "—";
