@@ -774,7 +774,10 @@ const SiteSettings = () => {
             )}
           </CardContent>
         </Card>
+
+        <DataExportCard />
       </div>
+
     </DashboardLayout>
   );
 };
