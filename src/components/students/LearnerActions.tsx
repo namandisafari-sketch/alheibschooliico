@@ -8,9 +8,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Trash2, User, ArrowUpCircle, FileText } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, User, ArrowUpCircle, FileText, Printer } from "lucide-react";
 import { useDeleteLearner, Learner } from "@/hooks/useLearners";
 import { EditLearnerDialog } from "./EditLearnerDialog";
+import { LearnerDetailsDialog } from "./LearnerDetailsDialog";
 import { CircularDialog } from "@/components/reports/CircularDialog";
 import {
   AlertDialog,
