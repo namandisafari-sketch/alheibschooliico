@@ -30,8 +30,9 @@ import { format } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useLearnerDossier } from "@/hooks/useLearnerDossier";
-import { PackageOpen, Clock, AlertCircle, History as HistoryIcon, Loader2, Scale } from "lucide-react";
+import { PackageOpen, Clock, AlertCircle, History as HistoryIcon, Loader2, Scale, Printer, Pencil } from "lucide-react";
 import { formatUGX } from "@/hooks/useFees";
+import { EditLearnerDialog } from "./EditLearnerDialog";
 
 interface LearnerDetailsDialogProps {
   student: any;
