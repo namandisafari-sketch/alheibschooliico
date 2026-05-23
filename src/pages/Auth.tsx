@@ -2,12 +2,17 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { homeFor } from "@/lib/roleConfig";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Mail, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import alheibLogo from "@/assets/alheib-logo.png";
 import {
   Form,
@@ -28,6 +33,11 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [appealOpen, setAppealOpen] = useState(false);
+  const [appealReason, setAppealReason] = useState("");
+  const [appealEmail, setAppealEmail] = useState("");
+  const [appealPassword, setAppealPassword] = useState("");
+  const [appealSubmitting, setAppealSubmitting] = useState(false);
   const { user, role, signIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -74,6 +84,43 @@ const Auth = () => {
           : result.error.message,
         variant: "destructive",
       });
+    }
+  };
+
+  const submitAppeal = async () => {
+    if (!appealEmail || !appealPassword || appealReason.trim().length < 10) {
+      toast({ title: "Missing info", description: "Email, password and a reason (10+ chars) are required.", variant: "destructive" });
+      return;
+    }
+    setAppealSubmitting(true);
+    try {
+      // Re-authenticate temporarily to satisfy RLS (user_id = auth.uid())
+      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+        email: appealEmail,
+        password: appealPassword,
+      });
+      if (signInErr || !signInData?.user) {
+        throw new Error(signInErr?.message || "Invalid credentials");
+      }
+      const uid = signInData.user.id;
+      const { error: insertErr } = await supabase.from("account_appeals").insert({
+        user_id: uid,
+        type: "account_block",
+        reason: appealReason.trim(),
+        message: blockReason,
+        status: "pending",
+      } as any);
+      // Always sign back out so blocked user cannot access the app
+      await supabase.auth.signOut();
+      if (insertErr) throw insertErr;
+      toast({ title: "Appeal submitted", description: "The director will review your appeal shortly." });
+      setAppealOpen(false);
+      setAppealReason("");
+      setAppealPassword("");
+    } catch (e: any) {
+      toast({ title: "Could not submit appeal", description: e.message, variant: "destructive" });
+    } finally {
+      setAppealSubmitting(false);
     }
   };
 
@@ -130,14 +177,63 @@ const Auth = () => {
             <div className="mb-6 rounded-xl border-2 border-destructive bg-destructive/10 p-5 text-sm">
               <p className="font-bold text-destructive uppercase tracking-wider text-xs mb-2">Account Disconnected</p>
               <p className="text-foreground mb-3">{blockReason}</p>
-              <p className="text-xs text-muted-foreground">
-                To appeal this decision, contact the director directly or write to{" "}
-                <a className="underline font-semibold" href={`mailto:director@alheib.test?subject=Account Appeal&body=${encodeURIComponent(blockReason)}`}>
-                  director@alheib.test
-                </a>.
-              </p>
+              <div className="flex flex-col gap-2">
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => { setAppealEmail(""); setAppealOpen(true); }}
+                >
+                  Submit an Appeal
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Or email{" "}
+                  <a className="underline font-semibold" href={`mailto:director@alheib.test?subject=Account Appeal&body=${encodeURIComponent(blockReason)}`}>
+                    director@alheib.test
+                  </a>.
+                </p>
+              </div>
             </div>
           )}
+
+          <Dialog open={appealOpen} onOpenChange={setAppealOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Appeal Account Block</DialogTitle>
+                <DialogDescription>
+                  Confirm your credentials and explain why your account should be reinstated. The director will review your appeal.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
+                <Input
+                  type="email"
+                  placeholder="Your email"
+                  value={appealEmail}
+                  onChange={(e) => setAppealEmail(e.target.value)}
+                />
+                <Input
+                  type="password"
+                  placeholder="Your password"
+                  value={appealPassword}
+                  onChange={(e) => setAppealPassword(e.target.value)}
+                />
+                <Textarea
+                  placeholder="Explain your appeal (minimum 10 characters)..."
+                  rows={5}
+                  value={appealReason}
+                  onChange={(e) => setAppealReason(e.target.value)}
+                />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setAppealOpen(false)} disabled={appealSubmitting}>
+                  Cancel
+                </Button>
+                <Button onClick={submitAppeal} disabled={appealSubmitting}>
+                  {appealSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Submit Appeal
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <div className="text-center mb-8">
             <h2 className="font-display text-2xl font-bold text-foreground">
               Welcome Back
