@@ -3153,6 +3153,7 @@ export type Database = {
           age_years: number | null
           allergies: string | null
           application_date: string | null
+          arabic_name: string | null
           authorized_pick_up: Json | null
           blood_group: string | null
           chronic_diseases: string | null
@@ -3225,6 +3226,7 @@ export type Database = {
           age_years?: number | null
           allergies?: string | null
           application_date?: string | null
+          arabic_name?: string | null
           authorized_pick_up?: Json | null
           blood_group?: string | null
           chronic_diseases?: string | null
@@ -3297,6 +3299,7 @@ export type Database = {
           age_years?: number | null
           allergies?: string | null
           application_date?: string | null
+          arabic_name?: string | null
           authorized_pick_up?: Json | null
           blood_group?: string | null
           chronic_diseases?: string | null
