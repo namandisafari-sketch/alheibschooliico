@@ -58,7 +58,53 @@ export function LearnerDetailsDialog({ student: basicStudent, open, onOpenChange
       </head><body>${content}</body></html>`);
     w.document.close();
     setTimeout(() => { w.print(); }, 500);
+  const handlePrint = () => {
+    const w = window.open("", "_blank", "width=900,height=700");
+    if (!w) return;
+    const fmt = (d: any) => d && !isNaN(new Date(d).getTime()) ? format(new Date(d), "PPP") : "—";
+    w.document.write(`<html><head><title>Dossier - ${student.full_name}</title>
+      <style>
+        body{font-family:system-ui,sans-serif;padding:32px;color:#0f172a;}
+        h1{font-size:22px;margin:0 0 4px;text-transform:uppercase;}
+        h2{font-size:11px;text-transform:uppercase;letter-spacing:2px;color:#64748b;margin:24px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:4px;}
+        .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;}
+        .row{font-size:13px;}
+        .label{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#94a3b8;font-weight:700;}
+        .val{font-weight:600;}
+        .header{border-bottom:2px solid #0f172a;padding-bottom:12px;margin-bottom:8px;}
+        .meta{font-size:11px;color:#64748b;margin-top:4px;}
+        .footer{margin-top:32px;font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0;padding-top:12px;}
+      </style></head><body>
+      <div class="header">
+        <h1>${student.full_name}${student.arabic_name ? ' — ' + student.arabic_name : ''}</h1>
+        <div class="meta">ADM: ${student.admission_number || 'PENDING'} • ${student.class_name || 'Unassigned'} • ${student.religion || 'Islam'} • Status: ${student.status || 'Active'}</div>
+      </div>
+      <h2>Personal Information</h2>
+      <div class="grid">
+        <div class="row"><div class="label">Gender</div><div class="val">${student.gender || '—'}</div></div>
+        <div class="row"><div class="label">Date of Birth</div><div class="val">${fmt(student.date_of_birth)}</div></div>
+        <div class="row"><div class="label">Enrollment Date</div><div class="val">${fmt(student.enrollment_date)}</div></div>
+        <div class="row"><div class="label">Dormitory / House</div><div class="val">${student.house || '—'}</div></div>
+        <div class="row"><div class="label">District</div><div class="val">${student.district || '—'}</div></div>
+        <div class="row"><div class="label">Pupil Status</div><div class="val">${student.pupil_status || '—'}</div></div>
+      </div>
+      <h2>Guardian / Parental Info</h2>
+      <div class="grid">
+        <div class="row"><div class="label">Guardian Name</div><div class="val">${student.guardian_name || '—'}</div></div>
+        <div class="row"><div class="label">Phone</div><div class="val">${student.guardian_phone || '—'}</div></div>
+      </div>
+      <h2>Finance Summary</h2>
+      <div class="grid">
+        <div class="row"><div class="label">Total Fees</div><div class="val">${formatUGX(dossier?.financials?.totalFees || 0)}</div></div>
+        <div class="row"><div class="label">Total Paid</div><div class="val">${formatUGX(dossier?.financials?.totalPaid || 0)}</div></div>
+        <div class="row"><div class="label">Balance</div><div class="val">${formatUGX(dossier?.financials?.balance || 0)}</div></div>
+      </div>
+      <div class="footer">Property of Alheib Mixed Day & Boarding School • Generated ${format(new Date(), "PPP p")}</div>
+      </body></html>`);
+    w.document.close();
+    setTimeout(() => { w.focus(); w.print(); }, 300);
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
