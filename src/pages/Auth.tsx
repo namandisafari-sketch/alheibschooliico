@@ -33,7 +33,11 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { user, role, signIn } = useAuth();
+  const [appealOpen, setAppealOpen] = useState(false);
+  const [appealReason, setAppealReason] = useState("");
+  const [appealEmail, setAppealEmail] = useState("");
+  const [appealPassword, setAppealPassword] = useState("");
+  const [appealSubmitting, setAppealSubmitting] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
