@@ -115,6 +115,14 @@ export const LearnerActions = ({ learner }: LearnerActionsProps) => {
         open={showCircularDialog} 
         onOpenChange={setShowCircularDialog} 
       />
+
+      <LearnerDetailsDialog
+        student={learner}
+        open={showDossierDialog}
+        onOpenChange={setShowDossierDialog}
+      />
     </>
+  );
+};
   );
 };
