@@ -87,6 +87,43 @@ const Auth = () => {
     }
   };
 
+  const submitAppeal = async () => {
+    if (!appealEmail || !appealPassword || appealReason.trim().length < 10) {
+      toast({ title: "Missing info", description: "Email, password and a reason (10+ chars) are required.", variant: "destructive" });
+      return;
+    }
+    setAppealSubmitting(true);
+    try {
+      // Re-authenticate temporarily to satisfy RLS (user_id = auth.uid())
+      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+        email: appealEmail,
+        password: appealPassword,
+      });
+      if (signInErr || !signInData?.user) {
+        throw new Error(signInErr?.message || "Invalid credentials");
+      }
+      const uid = signInData.user.id;
+      const { error: insertErr } = await supabase.from("account_appeals").insert({
+        user_id: uid,
+        type: "account_block",
+        reason: appealReason.trim(),
+        message: blockReason,
+        status: "pending",
+      } as any);
+      // Always sign back out so blocked user cannot access the app
+      await supabase.auth.signOut();
+      if (insertErr) throw insertErr;
+      toast({ title: "Appeal submitted", description: "The director will review your appeal shortly." });
+      setAppealOpen(false);
+      setAppealReason("");
+      setAppealPassword("");
+    } catch (e: any) {
+      toast({ title: "Could not submit appeal", description: e.message, variant: "destructive" });
+    } finally {
+      setAppealSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex">
       {/* Left Side - Branding */}
