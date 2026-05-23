@@ -218,39 +218,21 @@ const UserManagement = () => {
     },
   });
 
-  // Create staff/admin user mutation
+  // Create staff/admin user mutation (auto-confirmed via edge function)
   const createUserMutation = useMutation({
     mutationFn: async (values: CreateUserFormValues) => {
-      // Create auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: values.email || "",
-        password: values.password,
-        options: {
-          data: {
-            full_name: values.fullName,
-            phone: values.phone,
-          },
+      const { data, error } = await supabase.functions.invoke("create-user", {
+        body: {
+          email: values.email,
+          password: values.password,
+          fullName: values.fullName,
+          phone: values.phone,
+          role: values.role,
         },
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error("Failed to create user");
-
-      // Update role (the trigger creates 'parent' by default, we need to update it)
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .update({ role: values.role })
-        .eq("user_id", authData.user.id);
-
-      if (roleError) throw roleError;
-
-      // Update profile with phone
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({ phone: values.phone })
-        .eq("id", authData.user.id);
-
-      if (profileError) throw profileError;
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
       toast({ title: "Success", description: "User account created successfully" });
