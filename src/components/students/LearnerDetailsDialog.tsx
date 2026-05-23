@@ -42,9 +42,23 @@ interface LearnerDetailsDialogProps {
 
 export function LearnerDetailsDialog({ student: basicStudent, open, onOpenChange }: LearnerDetailsDialogProps) {
   const { data: dossier, isLoading } = useLearnerDossier(basicStudent?.id);
-  
+  const [showEdit, setShowEdit] = useState(false);
+
   if (!basicStudent) return null;
   const student = dossier?.learner || basicStudent;
+
+  const handlePrint = () => {
+    const content = document.getElementById("learner-dossier-print")?.innerHTML;
+    if (!content) { window.print(); return; }
+    const w = window.open("", "_blank", "width=900,height=700");
+    if (!w) { window.print(); return; }
+    w.document.write(`<html><head><title>Dossier - ${student.full_name}</title>
+      <script src="https://cdn.tailwindcss.com"></script>
+      <style>body{font-family:system-ui;padding:24px;}</style>
+      </head><body>${content}</body></html>`);
+    w.document.close();
+    setTimeout(() => { w.print(); }, 500);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
