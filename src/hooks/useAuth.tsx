@@ -193,11 +193,40 @@ export const useAuthState = () => {
   }, [fetchUserRole]);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    return { error };
+    if (error) return { error };
+
+    // Block disconnected/suspended accounts
+    if (data?.user) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("account_status, suspension_reason, suspended_until")
+        .eq("id", data.user.id)
+        .maybeSingle();
+
+      const status = (prof as any)?.account_status;
+      if (status === "disconnected" || status === "suspended") {
+        const until = (prof as any)?.suspended_until;
+        const stillSuspended =
+          status === "suspended" && until ? new Date(until) > new Date() : true;
+        if (status === "disconnected" || stillSuspended) {
+          await supabase.auth.signOut();
+          return {
+            error: null,
+            status: "disconnected",
+            reason:
+              (prof as any)?.suspension_reason ||
+              (status === "disconnected"
+                ? "Your account has been disconnected by the director."
+                : "Your account is currently suspended."),
+          } as any;
+        }
+      }
+    }
+    return { error: null };
   };
 
   const signUp = async (email: string, password: string, fullName: string, phone?: string) => {
