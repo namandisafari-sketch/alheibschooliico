@@ -84,6 +84,11 @@ const Auth = () => {
           : result.error.message,
         variant: "destructive",
       });
+      return;
+    }
+
+    if (blocked) {
+      navigate("/auth", { replace: true });
     }
   };
 
