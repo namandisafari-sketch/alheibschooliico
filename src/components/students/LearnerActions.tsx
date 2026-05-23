@@ -58,8 +58,11 @@ export const LearnerActions = ({ learner }: LearnerActionsProps) => {
         <DropdownMenuContent align="end" className="w-48">
           <DropdownMenuLabel>Actions</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => toast({ title: "Profile coming soon", description: "Learner profile page is under development." })}>
+          <DropdownMenuItem onClick={() => setShowDossierDialog(true)}>
             <User className="mr-2 h-4 w-4" /> View Profile
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setShowDossierDialog(true)}>
+            <Printer className="mr-2 h-4 w-4" /> Print Dossier
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
             <Pencil className="mr-2 h-4 w-4" /> Edit Details
