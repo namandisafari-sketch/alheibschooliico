@@ -49,6 +49,7 @@ const Budget = lazy(() => import("./pages/Budget"));
 const Homework = lazy(() => import("./pages/Homework"));
 const StaffManagement = lazy(() => import("./pages/StaffManagement"));
 const Discipline = lazy(() => import("./pages/Discipline"));
+const Library = lazy(() => import("./pages/Library"));
 const AccountantAccounts = lazy(() => import("./pages/accountant/Accounts"));
 const AccountantProcurement = lazy(() => import("./pages/accountant/Procurement"));
 const AccountantPettyCash = lazy(() => import("./pages/accountant/PettyCash"));
