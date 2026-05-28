@@ -828,6 +828,15 @@ const App = () => (
               }
             />
 
+            <Route
+              path="/library"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "teacher", "staff", "head_teacher", "deputy_head_teacher", "secretary", "office_manager", "director", "center_director", "dos", "nurse", "accountant", "storekeeper"]}>
+                  <Library />
+                </ProtectedRoute>
+              }
+            />
+
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
