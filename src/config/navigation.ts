@@ -116,6 +116,7 @@ export const navSections: NavSection[] = [
       { icon: Stethoscope, labelKey: "Health Records", path: "/health", roles: ["admin", "nurse", "deputy_head_teacher", "head_teacher", "center_director", "director"] },
       { icon: Bed, labelKey: "Residential Hostels", path: "/hostel", roles: ["admin", "staff", "head_teacher", "deputy_head_teacher", "center_director", "director"] },
       { icon: Scale, labelKey: "Discipline & Conduct", path: "/discipline", roles: ["admin", "head_teacher", "deputy_head_teacher", "dos", "center_director", "director"] },
+      { icon: BookOpen, labelKey: "Library", path: "/library", roles: ["admin", "teacher", "staff", "head_teacher", "deputy_head_teacher", "secretary", "office_manager", "director", "center_director", "dos", "nurse", "accountant", "storekeeper"] },
     ],
   },
   {
