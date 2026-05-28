@@ -49,6 +49,7 @@ const Budget = lazy(() => import("./pages/Budget"));
 const Homework = lazy(() => import("./pages/Homework"));
 const StaffManagement = lazy(() => import("./pages/StaffManagement"));
 const Discipline = lazy(() => import("./pages/Discipline"));
+const Library = lazy(() => import("./pages/Library"));
 const AccountantAccounts = lazy(() => import("./pages/accountant/Accounts"));
 const AccountantProcurement = lazy(() => import("./pages/accountant/Procurement"));
 const AccountantPettyCash = lazy(() => import("./pages/accountant/PettyCash"));
@@ -823,6 +824,15 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={["admin", "head_teacher", "deputy_head_teacher", "center_director"]}>
                   <Ministry />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/library"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "teacher", "staff", "head_teacher", "deputy_head_teacher", "secretary", "office_manager", "director", "center_director", "dos", "nurse", "accountant", "storekeeper"]}>
+                  <Library />
                 </ProtectedRoute>
               }
             />
