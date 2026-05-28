@@ -3672,6 +3672,116 @@ export type Database = {
           },
         ]
       }
+      library_books: {
+        Row: {
+          author: string | null
+          available_copies: number
+          category: string | null
+          cover_url: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          isbn: string | null
+          language: string | null
+          publication_year: number | null
+          publisher: string | null
+          shelf_location: string | null
+          title: string
+          total_copies: number
+          updated_at: string
+        }
+        Insert: {
+          author?: string | null
+          available_copies?: number
+          category?: string | null
+          cover_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          isbn?: string | null
+          language?: string | null
+          publication_year?: number | null
+          publisher?: string | null
+          shelf_location?: string | null
+          title: string
+          total_copies?: number
+          updated_at?: string
+        }
+        Update: {
+          author?: string | null
+          available_copies?: number
+          category?: string | null
+          cover_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          isbn?: string | null
+          language?: string | null
+          publication_year?: number | null
+          publisher?: string | null
+          shelf_location?: string | null
+          title?: string
+          total_copies?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      library_loans: {
+        Row: {
+          book_id: string
+          borrower_id: string
+          borrower_name: string | null
+          created_at: string
+          due_at: string
+          id: string
+          issued_at: string
+          issued_by: string | null
+          notes: string | null
+          returned_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          book_id: string
+          borrower_id: string
+          borrower_name?: string | null
+          created_at?: string
+          due_at: string
+          id?: string
+          issued_at?: string
+          issued_by?: string | null
+          notes?: string | null
+          returned_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          book_id?: string
+          borrower_id?: string
+          borrower_name?: string | null
+          created_at?: string
+          due_at?: string
+          id?: string
+          issued_at?: string
+          issued_by?: string | null
+          notes?: string | null
+          returned_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_loans_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "library_books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       liquidity_requests: {
         Row: {
           awards_balance: number | null
