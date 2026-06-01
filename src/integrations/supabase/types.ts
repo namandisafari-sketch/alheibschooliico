@@ -3675,39 +3675,39 @@ export type Database = {
       library_books: {
         Row: {
           author: string
+          available_copies: number | null
           category: string | null
           class_level: string | null
-          copies_available: number | null
-          copies_total: number | null
           created_at: string
           id: string
           isbn: string | null
           status: string | null
           title: string
+          total_copies: number | null
         }
         Insert: {
           author: string
+          available_copies?: number | null
           category?: string | null
           class_level?: string | null
-          copies_available?: number | null
-          copies_total?: number | null
           created_at?: string
           id?: string
           isbn?: string | null
           status?: string | null
           title: string
+          total_copies?: number | null
         }
         Update: {
           author?: string
+          available_copies?: number | null
           category?: string | null
           class_level?: string | null
-          copies_available?: number | null
-          copies_total?: number | null
           created_at?: string
           id?: string
           isbn?: string | null
           status?: string | null
           title?: string
+          total_copies?: number | null
         }
         Relationships: []
       }
