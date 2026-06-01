@@ -3674,103 +3674,76 @@ export type Database = {
       }
       library_books: {
         Row: {
-          author: string | null
-          available_copies: number
+          author: string
+          available_copies: number | null
           category: string | null
-          cover_url: string | null
+          class_level: string | null
           created_at: string
-          created_by: string | null
-          description: string | null
           id: string
           isbn: string | null
-          language: string | null
-          publication_year: number | null
-          publisher: string | null
-          shelf_location: string | null
+          status: string | null
           title: string
-          total_copies: number
-          updated_at: string
+          total_copies: number | null
         }
         Insert: {
-          author?: string | null
-          available_copies?: number
+          author: string
+          available_copies?: number | null
           category?: string | null
-          cover_url?: string | null
+          class_level?: string | null
           created_at?: string
-          created_by?: string | null
-          description?: string | null
           id?: string
           isbn?: string | null
-          language?: string | null
-          publication_year?: number | null
-          publisher?: string | null
-          shelf_location?: string | null
+          status?: string | null
           title: string
-          total_copies?: number
-          updated_at?: string
+          total_copies?: number | null
         }
         Update: {
-          author?: string | null
-          available_copies?: number
+          author?: string
+          available_copies?: number | null
           category?: string | null
-          cover_url?: string | null
+          class_level?: string | null
           created_at?: string
-          created_by?: string | null
-          description?: string | null
           id?: string
           isbn?: string | null
-          language?: string | null
-          publication_year?: number | null
-          publisher?: string | null
-          shelf_location?: string | null
+          status?: string | null
           title?: string
-          total_copies?: number
-          updated_at?: string
+          total_copies?: number | null
         }
         Relationships: []
       }
       library_loans: {
         Row: {
-          book_id: string
-          borrower_id: string
-          borrower_name: string | null
+          book_id: string | null
           created_at: string
-          due_at: string
+          due_date: string
+          fine_amount: number | null
           id: string
-          issued_at: string
-          issued_by: string | null
-          notes: string | null
-          returned_at: string | null
+          issue_date: string
+          member_id: string | null
+          return_date: string | null
           status: string
-          updated_at: string
         }
         Insert: {
-          book_id: string
-          borrower_id: string
-          borrower_name?: string | null
+          book_id?: string | null
           created_at?: string
-          due_at: string
+          due_date: string
+          fine_amount?: number | null
           id?: string
-          issued_at?: string
-          issued_by?: string | null
-          notes?: string | null
-          returned_at?: string | null
+          issue_date?: string
+          member_id?: string | null
+          return_date?: string | null
           status?: string
-          updated_at?: string
         }
         Update: {
-          book_id?: string
-          borrower_id?: string
-          borrower_name?: string | null
+          book_id?: string | null
           created_at?: string
-          due_at?: string
+          due_date?: string
+          fine_amount?: number | null
           id?: string
-          issued_at?: string
-          issued_by?: string | null
-          notes?: string | null
-          returned_at?: string | null
+          issue_date?: string
+          member_id?: string | null
+          return_date?: string | null
           status?: string
-          updated_at?: string
         }
         Relationships: [
           {
@@ -3778,6 +3751,64 @@ export type Database = {
             columns: ["book_id"]
             isOneToOne: false
             referencedRelation: "library_books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_loans_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "library_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_members: {
+        Row: {
+          active_loans: number | null
+          created_at: string
+          id: string
+          id_card_number: string
+          learner_id: string | null
+          member_type: string
+          profile_id: string | null
+          status: string | null
+          total_fines: number | null
+        }
+        Insert: {
+          active_loans?: number | null
+          created_at?: string
+          id?: string
+          id_card_number: string
+          learner_id?: string | null
+          member_type: string
+          profile_id?: string | null
+          status?: string | null
+          total_fines?: number | null
+        }
+        Update: {
+          active_loans?: number | null
+          created_at?: string
+          id?: string
+          id_card_number?: string
+          learner_id?: string | null
+          member_type?: string
+          profile_id?: string | null
+          status?: string | null
+          total_fines?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_members_learner_id_fkey"
+            columns: ["learner_id"]
+            isOneToOne: false
+            referencedRelation: "learners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_members_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
