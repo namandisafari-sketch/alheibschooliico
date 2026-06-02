@@ -111,7 +111,7 @@
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: hsl(var(--border));
   }
 
   body {
@@ -152,6 +152,9 @@
 }
 
 @layer utilities {
+  /* Provide fallback utility used by @apply in base layer */
+  .border-border { border-color: hsl(var(--border)); }
+
   /* Hide scrollbars but keep scroll functionality */
   .no-scrollbar {
     -ms-overflow-style: none;
