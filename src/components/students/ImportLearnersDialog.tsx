@@ -406,13 +406,21 @@ export const ImportLearnersDialog = ({ children }: { children: React.ReactNode }
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden flex flex-col gap-3">
-          <div className="flex items-center gap-3 border rounded-lg p-3 bg-muted/30">
+          <div className="flex items-center justify-between gap-3 border rounded-lg p-3 bg-muted/30">
             <input
               type="file"
               accept=".xlsx,.xls"
               onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
               className="text-sm"
             />
+            <a
+              href="/students_import_template.xlsx"
+              download="students_import_template.xlsx"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline shrink-0"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Download template
+            </a>
             {parsing && <Loader2 className="h-4 w-4 animate-spin" />}
             {fileName && !parsing && (
               <span className="text-xs text-muted-foreground">{fileName}</span>
