@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { useLearners } from "@/hooks/useLearners";
 import { RegisterLearnerDialog } from "@/components/students/RegisterLearnerDialog";
+import { ImportLearnersDialog } from "@/components/students/ImportLearnersDialog";
+import { Upload } from "lucide-react";
 import { LearnerActions } from "@/components/students/LearnerActions";
 import { LearnerFolderCard } from "@/components/students/LearnerFolderCard";
 import { DataTable } from "@/components/ui/DataTable";
@@ -339,6 +341,13 @@ const Students = () => {
                   <span className="sm:inline">Register</span>
                 </Button>
               </RegisterLearnerDialog>
+
+              <ImportLearnersDialog>
+                <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
+                  <Upload className="mr-2 h-4 w-4" />
+                  <span className="sm:inline">Import</span>
+                </Button>
+              </ImportLearnersDialog>
 
               <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
                 <Button 
