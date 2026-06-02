@@ -74,9 +74,20 @@ const useGuardian = (guardianId?: string | null) =>
     },
   });
 
-const CardPreviewWrapper = ({ children }: { children: React.ReactNode }) => (
-  <div className="w-full flex items-center justify-center overflow-hidden p-1 sm:p-0 min-h-[220px] sm:min-h-[360px]">
-    <div className="scale-[0.55] xs:scale-[0.65] sm:scale-[0.8] md:scale-100 origin-center transition-transform duration-500 ease-out flex-shrink-0">
+const CardPreviewWrapper = ({ 
+  children, 
+  width = 540, 
+  height = 340 
+}: { 
+  children: React.ReactNode; 
+  width?: number; 
+  height?: number;
+}) => (
+  <div className="w-full flex items-center justify-center overflow-visible py-4 block relative">
+    <div 
+      className="scale-[0.55] xs:scale-[0.65] sm:scale-[0.8] md:scale-100 origin-center transition-transform duration-500 ease-out flex-shrink-0 select-none" 
+      style={{ width, height }}
+    >
       {children}
     </div>
   </div>
@@ -152,11 +163,44 @@ const IDCards = () => {
     const baseName = subject.full_name.replace(/[^a-z0-9]/gi, "_");
     setExporting(true);
     try {
-      if (which === "front" || which === "both") {
-        await exportNode(frontRef.current, `${baseName}_ID_FRONT.png`);
-      }
-      if (which === "back" || which === "both") {
-        await exportNode(backRef.current, `${baseName}_ID_BACK.png`);
+      if (activeTab === "students") {
+        if (which === "front" || which === "both") {
+          const url = await renderCardToPng(
+            <StudentIDCard student={selectedStudentMember!} schoolName={schoolName} isRTL={isRTL} side="front" settings={previewSettings} />
+          );
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${baseName}_ID_FRONT.png`;
+          a.click();
+        }
+        if (which === "back" || which === "both") {
+          const url = await renderCardToPng(
+            <StudentIDCard student={selectedStudentMember!} schoolName={schoolName} isRTL={isRTL} side="back" settings={previewSettings} />
+          );
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${baseName}_ID_BACK.png`;
+          a.click();
+        }
+      } else {
+        if (which === "front" || which === "both") {
+          const url = await renderCardToPng(
+            <StaffIDCard staff={selectedStaffMember!} schoolName={schoolName} isRTL={isRTL} side="front" settings={previewSettings} />
+          );
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${baseName}_ID_FRONT.png`;
+          a.click();
+        }
+        if (which === "back" || which === "both") {
+          const url = await renderCardToPng(
+            <StaffIDCard staff={selectedStaffMember!} schoolName={schoolName} isRTL={isRTL} side="back" settings={previewSettings} />
+          );
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${baseName}_ID_BACK.png`;
+          a.click();
+        }
       }
       toast({ title: t("exported"), description: t("cardDownloaded") });
     } catch (e) {
@@ -467,10 +511,10 @@ const IDCards = () => {
                   
                   {activeTab === "students" && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 items-start justify-items-center">
-                      <div className="space-y-4 w-full max-w-full lg:max-w-[400px]">
+                      <div className="space-y-4 w-full max-w-full lg:max-w-[580px]">
                         <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] px-4 py-1.5 bg-primary/10 rounded-full border border-primary/20 block text-center">Front Facing Surface</span>
                         <div className="p-1 sm:p-1.5 bg-white/5 rounded-[2rem] sm:rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden">
-                          <div ref={frontRef} className="rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden shadow-2xl bg-white">
+                          <div ref={frontRef} className="overflow-visible">
                             {selectedStudentMember ? (
                               <CardPreviewWrapper>
                                 <StudentIDCard student={selectedStudentMember} schoolName={schoolName} isRTL={isRTL} side="front" settings={previewSettings} />
@@ -481,10 +525,10 @@ const IDCards = () => {
                           </div>
                         </div>
                       </div>
-                      <div className="space-y-4 w-full max-w-full lg:max-w-[400px]">
+                      <div className="space-y-4 w-full max-w-full lg:max-w-[580px]">
                         <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] px-4 py-1.5 bg-white/5 rounded-full border border-white/10 block text-center">Rear Security Surface</span>
                         <div className="p-1 sm:p-1.5 bg-white/5 rounded-[2rem] sm:rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden">
-                          <div ref={backRef} className="rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden shadow-2xl bg-white">
+                          <div ref={backRef} className="overflow-visible">
                             {selectedStudentMember ? (
                               <CardPreviewWrapper>
                                 <StudentIDCard student={selectedStudentMember} schoolName={schoolName} isRTL={isRTL} side="back" settings={previewSettings} />
@@ -500,10 +544,10 @@ const IDCards = () => {
 
                   {activeTab === "staff" && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 items-start justify-items-center">
-                      <div className="space-y-4 w-full max-w-full lg:max-w-[400px]">
+                      <div className="space-y-4 w-full max-w-full lg:max-w-[580px]">
                         <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] px-4 py-1.5 bg-primary/10 rounded-full border border-primary/20 block text-center">Faculty Front Surface</span>
                         <div className="p-1 sm:p-1.5 bg-white/5 rounded-[2rem] sm:rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden">
-                          <div ref={frontRef} className="rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden shadow-2xl bg-white">
+                          <div ref={frontRef} className="overflow-visible">
                             {selectedStaffMember ? (
                               <CardPreviewWrapper>
                                 <StaffIDCard staff={selectedStaffMember} schoolName={schoolName} isRTL={isRTL} side="front" settings={previewSettings} />
@@ -514,10 +558,10 @@ const IDCards = () => {
                           </div>
                         </div>
                       </div>
-                      <div className="space-y-4 w-full max-w-full lg:max-w-[400px]">
+                      <div className="space-y-4 w-full max-w-full lg:max-w-[580px]">
                         <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] px-4 py-1.5 bg-white/5 rounded-full border border-white/10 block text-center">Staff Security Matrix</span>
                         <div className="p-1 sm:p-1.5 bg-white/5 rounded-[2rem] sm:rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden">
-                          <div ref={backRef} className="rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden shadow-2xl bg-white">
+                          <div ref={backRef} className="overflow-visible">
                             {selectedStaffMember ? (
                               <CardPreviewWrapper>
                                 <StaffIDCard staff={selectedStaffMember} schoolName={schoolName} isRTL={isRTL} side="back" settings={previewSettings} />
@@ -672,11 +716,11 @@ const VisitorStationSection = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 justify-items-center bg-black/40 p-8 rounded-2xl border border-white/5">
-            <div className="space-y-3 w-full max-w-full md:max-w-[340px]">
+            <div className="space-y-3 w-full max-w-full md:max-w-[620px]">
               <span className="text-[10px] font-bold text-zinc-500 uppercase block text-center">Pass Front</span>
-              <div ref={pickupRef} className="rounded-xl overflow-hidden shadow-2xl bg-white">
+              <div ref={pickupRef} className="overflow-visible">
                 {pickupLearner ? (
-                  <CardPreviewWrapper>
+                  <CardPreviewWrapper width={580} height={365}>
                     <VisitorIDCard visitor={guardianVisitor} learner={pickupLearner} schoolName={schoolName} schoolLogoUrl={schoolLogoUrl} isRTL={isRTL} variant="guardian-pickup" side="front" />
                   </CardPreviewWrapper>
                 ) : (
@@ -684,11 +728,11 @@ const VisitorStationSection = ({
                 )}
               </div>
             </div>
-            <div className="space-y-3 w-full max-w-full md:max-w-[340px]">
+            <div className="space-y-3 w-full max-w-full md:max-w-[620px]">
               <span className="text-[10px] font-bold text-zinc-500 uppercase block text-center">Pass Back</span>
-              <div ref={pickupBackRef} className="rounded-xl overflow-hidden shadow-2xl bg-white">
+              <div ref={pickupBackRef} className="overflow-visible">
                 {pickupLearner ? (
-                  <CardPreviewWrapper>
+                  <CardPreviewWrapper width={580} height={365}>
                     <VisitorIDCard visitor={guardianVisitor} learner={pickupLearner} schoolName={schoolName} schoolLogoUrl={schoolLogoUrl} isRTL={isRTL} variant="guardian-pickup" side="back" />
                   </CardPreviewWrapper>
                 ) : (
@@ -732,11 +776,11 @@ const VisitorStationSection = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 justify-items-center bg-black/40 p-8 rounded-2xl border border-white/5">
-             <div className="space-y-3 w-full max-w-full md:max-w-[340px]">
+             <div className="space-y-3 w-full max-w-full md:max-w-[620px]">
               <span className="text-[10px] font-bold text-zinc-500 uppercase block text-center">Day Pass Front</span>
-              <div ref={dayRef} className="rounded-xl overflow-hidden shadow-2xl bg-white">
+              <div ref={dayRef} className="overflow-visible">
                 {visit ? (
-                  <CardPreviewWrapper>
+                  <CardPreviewWrapper width={580} height={365}>
                     <VisitorIDCard visit={visit} schoolName={schoolName} schoolLogoUrl={schoolLogoUrl} isRTL={isRTL} variant="day-pass" side="front" />
                   </CardPreviewWrapper>
                 ) : (
@@ -744,11 +788,11 @@ const VisitorStationSection = ({
                 )}
               </div>
             </div>
-            <div className="space-y-3 w-full max-w-full md:max-w-[340px]">
+            <div className="space-y-3 w-full max-w-full md:max-w-[620px]">
               <span className="text-[10px] font-bold text-zinc-500 uppercase block text-center">Day Pass Back</span>
-              <div ref={dayBackRef} className="rounded-xl overflow-hidden shadow-2xl bg-white">
+              <div ref={dayBackRef} className="overflow-visible">
                 {visit ? (
-                  <CardPreviewWrapper>
+                  <CardPreviewWrapper width={580} height={365}>
                     <VisitorIDCard visit={visit} schoolName={schoolName} schoolLogoUrl={schoolLogoUrl} isRTL={isRTL} variant="day-pass" side="back" />
                   </CardPreviewWrapper>
                 ) : (

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, ShieldAlert, Check } from "lucide-react";
-import { useBursarRules, useToggleBursarRule, useDeleteBursarRule, useOverrideRequests, formatUGX } from "@/hooks/useFees";
+import { useBursarRules, useToggleBursarRule, useDeleteBursarRule, useOverrideRequests, formatUGX, useResolveOverrideRequest } from "@/hooks/useFees";
 import { AddBursarRuleDialog } from "./AddBursarRuleDialog";
 
 export const BursarRulesTab = () => {
@@ -11,6 +11,7 @@ export const BursarRulesTab = () => {
   const { data: requests } = useOverrideRequests();
   const toggle = useToggleBursarRule();
   const del = useDeleteBursarRule();
+  const resolve = useResolveOverrideRequest();
 
   return (
     <div className="space-y-4">
@@ -94,8 +95,24 @@ export const BursarRulesTab = () => {
                   <p className="text-xs text-muted-foreground">Balance: {formatUGX(r.outstanding_balance || 0)} • {r.reason}</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline">Approve</Button>
-                  <Button size="sm" variant="ghost">Deny</Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                    disabled={resolve.isPending}
+                    onClick={() => resolve.mutate({ id: r.id, status: "approved" })}
+                  >
+                    Approve
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="text-rose-600 hover:bg-rose-50"
+                    disabled={resolve.isPending}
+                    onClick={() => resolve.mutate({ id: r.id, status: "denied" })}
+                  >
+                    Deny
+                  </Button>
                 </div>
               </div>
             ))}

@@ -222,6 +222,26 @@ const SiteSettings = () => {
                     />
                     {academic.is_automatic && <p className="text-[10px] text-primary font-bold italic">Term auto-switched based on today's date</p>}
                   </div>
+                  <div className="space-y-2">
+                    <Label>Current Active Week</Label>
+                    <Input 
+                      type="number"
+                      min={1}
+                      max={52}
+                      value={academic.current_week ?? 8}
+                      onChange={(e) => setAcademic({...academic, current_week: parseInt(e.target.value) || 1})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Total Term Weeks</Label>
+                    <Input 
+                      type="number"
+                      min={1}
+                      max={52}
+                      value={academic.total_weeks ?? 14}
+                      onChange={(e) => setAcademic({...academic, total_weeks: parseInt(e.target.value) || 14})}
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-4">

@@ -12,7 +12,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthProvider";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -28,7 +28,7 @@ const Attendance = lazy(() => import("./pages/Attendance"));
 const Staff = lazy(() => import("./pages/Staff"));
 const StaffAttendance = lazy(() => import("./pages/StaffAttendance"));
 const ParentDashboard = lazy(() => import("./pages/ParentDashboard"));
-const UserManagement = lazy(() => import("./pages/UserManagement"));
+// Removed duplicate UserManagement import to eliminate duplicate pages
 const MarksEntry = lazy(() => import("./pages/MarksEntry"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Notifications = lazy(() => import("./pages/Notifications"));
@@ -153,7 +153,7 @@ const App = () => (
             <Route
               path="/"
               element={
-                <ProtectedRoute allowedRoles={["admin", "teacher", "staff", "security", "head_teacher", "deputy_head_teacher", "accountant", "dos", "nurse", "storekeeper", "gateman", "office_manager", "direct_manager", "center_director"]}>
+                <ProtectedRoute allowedRoles={["admin", "ict_admin", "teacher", "class_teacher", "subject_teacher", "staff", "security", "head_teacher", "deputy_head_teacher", "accountant", "bursar", "cashier", "dos", "islamic_coordinator", "sheikh", "discipline_master", "nurse", "matron", "librarian", "storekeeper", "store_manager", "gateman", "office_manager", "direct_manager", "center_director", "director", "board_director", "proprietor", "smc_member", "secretary", "student", "imam", "deo", "ministry_official", "uneb_official", "donor", "alumni"]}>
                   <Index />
                 </ProtectedRoute>
               }
@@ -217,9 +217,7 @@ const App = () => (
             <Route
               path="/users"
               element={
-                <ProtectedRoute allowedRoles={["admin", "head_teacher", "deputy_head_teacher"]}>
-                  <UserManagement />
-                </ProtectedRoute>
+                <Navigate to="/director/users" replace />
               }
             />
             <Route
@@ -337,7 +335,15 @@ const App = () => (
             <Route
               path="/madrasa"
               element={
-                <ProtectedRoute allowedRoles={["admin", "teacher", "staff", "head_teacher"]}>
+                <ProtectedRoute allowedRoles={["admin", "ict_admin", "teacher", "class_teacher", "subject_teacher", "head_teacher", "deputy_head_teacher", "dos", "center_director", "director", "board_director", "proprietor", "islamic_coordinator", "sheikh", "imam", "staff"]}>
+                  <Madrasa />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/islamic"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "ict_admin", "teacher", "class_teacher", "subject_teacher", "head_teacher", "deputy_head_teacher", "dos", "center_director", "director", "board_director", "proprietor", "islamic_coordinator", "sheikh", "imam", "staff"]}>
                   <Madrasa />
                 </ProtectedRoute>
               }
@@ -607,7 +613,7 @@ const App = () => (
             <Route
               path="/director/users"
               element={
-                <ProtectedRoute allowedRoles={["admin", "center_director"]}>
+                <ProtectedRoute allowedRoles={["admin", "center_director", "head_teacher", "deputy_head_teacher"]}>
                   <DirectorUsers />
                 </ProtectedRoute>
               }

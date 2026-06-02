@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 const Clinic = () => {
   const { data: visits = [], isLoading } = useHealthVisits();
@@ -129,21 +130,22 @@ const Clinic = () => {
                 <DialogTitle>New Clinic Visit</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                <div className="space-y-2">
+                <div className="space-y-2 flex flex-col">
                   <Label>Select Student</Label>
-                  <Select onValueChange={(v) => {
-                    setFormData(prev => ({ ...prev, learner_id: v }));
-                    setSelectedLearnerId(v);
-                  }}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose student" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.isArray(learners) && learners.map(l => (
-                        <SelectItem key={l.id} value={l.id}>{l.full_name} ({l.admission_number})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    options={Array.isArray(learners) ? learners.map(l => ({
+                      value: l.id,
+                      label: `${l.full_name} (${l.admission_number})`
+                    })) : []}
+                    value={formData.learner_id}
+                    onValueChange={(v) => {
+                      setFormData(prev => ({ ...prev, learner_id: v }));
+                      setSelectedLearnerId(v);
+                    }}
+                    placeholder="Search/Choose student..."
+                    searchPlaceholder="Type student name..."
+                    className="rounded-xl border-2 h-10 w-full"
+                  />
                   
                   {selectedLearnerId && (
                     <Card className="bg-blue-50 border-blue-200 mt-2">

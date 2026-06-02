@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -5,9 +6,60 @@ import { UserPlus, Mail, Phone, Loader2 } from "lucide-react";
 import { useTeachers } from "@/hooks/useTeachers";
 import { AddTeacherDialog } from "@/components/teachers/AddTeacherDialog";
 import { format } from "date-fns";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ExtendedProfessionalProfileForm } from "@/components/teachers/ExtendedProfessionalProfileForm";
 
 const Teachers = () => {
   const { data: teachers = [], isLoading, error } = useTeachers();
+  const [selectedTeacher, setSelectedTeacher] = useState<any | null>(null);
+  const queryClient = useQueryClient();
+
+  const editMutation = useMutation({
+    mutationFn: async (values: any) => {
+      // Pack the extended metadata inside the profiles scope column
+      const scopeData = {
+        date_of_birth: values.date_of_birth || null,
+        specialized_subjects: values.specialized_subjects || null,
+        years_of_experience: values.years_of_experience || null,
+        certifications: values.certifications || [],
+      };
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: values.full_name,
+          email: values.email,
+          phone: values.phone || null,
+          qualification: values.qualification || null,
+          registration_number: values.registration_number || null,
+          scope: JSON.stringify(scopeData),
+        })
+        .eq("id", selectedTeacher.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Profile Updated", description: "Teacher's extended professional profile was updated successfully." });
+      queryClient.invalidateQueries({ queryKey: ["teachers"] });
+      setSelectedTeacher(null);
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Update Failed",
+        description: err.message || "Failed to update teacher profile.",
+        variant: "destructive",
+      });
+    },
+  });
 
   return (
     <DashboardLayout title="Teachers" subtitle="Manage teaching staff - Uganda New Curriculum">
@@ -50,8 +102,8 @@ const Teachers = () => {
               >
                 {/* Profile Header */}
                 <div className="flex items-start gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 font-display text-lg font-semibold text-primary">
-                    {teacher.full_name.split(" ").slice(0, 2).map((n) => n[0]).join("")}
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 font-display text-lg font-semibold text-primary animate-pulse">
+                    {teacher.full_name ? teacher.full_name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase() : "T"}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-display text-lg font-semibold text-card-foreground truncate">
@@ -69,7 +121,7 @@ const Teachers = () => {
                 {/* Qualification */}
                 {teacher.qualification && (
                   <div className="mt-3 rounded-lg bg-muted/50 px-3 py-2">
-                    <p className="text-xs text-muted-foreground">{teacher.qualification}</p>
+                    <p className="text-xs text-muted-foreground font-semibold">{teacher.qualification}</p>
                   </div>
                 )}
 
@@ -96,8 +148,8 @@ const Teachers = () => {
                       ? `Since ${format(new Date(teacher.created_at), "yyyy")}`
                       : "—"}
                   </span>
-                  <Button variant="outline" size="sm">
-                    View Profile
+                  <Button variant="outline" size="sm" onClick={() => setSelectedTeacher(teacher)}>
+                    View / Edit Profile
                   </Button>
                 </div>
               </div>
@@ -105,6 +157,30 @@ const Teachers = () => {
           </div>
         )}
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!selectedTeacher} onOpenChange={(open) => !open && setSelectedTeacher(null)}>
+        <DialogContent className="max-w-3xl overflow-y-auto max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>View & Edit Extended Professional Profile</DialogTitle>
+            <DialogDescription>
+              Modify the teacher's credentials, specialization profile, academic records, and certification uploads.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedTeacher && (
+            <ExtendedProfessionalProfileForm
+              initialData={selectedTeacher}
+              onSubmit={async (values) => {
+                await editMutation.mutateAsync(values);
+              }}
+              isSubmitting={editMutation.isPending}
+              mode="edit"
+              onCancel={() => setSelectedTeacher(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };

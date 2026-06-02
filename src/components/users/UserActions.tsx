@@ -9,7 +9,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, ShieldAlert, Trash2, Key, UserCheck } from "lucide-react";
+import { 
+  MoreHorizontal, 
+  ShieldAlert, 
+  Trash2, 
+  Key, 
+  UserCheck,
+  KeyRound,
+  AlertTriangle,
+  MessageSquare,
+  ShieldOff,
+  ShieldCheck
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   AlertDialog,
@@ -26,19 +37,41 @@ import { useQueryClient } from "@tanstack/react-query";
 
 interface UserActionsProps {
   user: any; // User type from UserManagement
+  onManagePermissions?: () => void;
+  onWarn?: () => void;
+  onMessage?: () => void;
+  onStatusToggle?: () => void;
+  onChangeRole?: () => void;
 }
 
-export const UserActions = ({ user }: UserActionsProps) => {
+export const UserActions = ({ 
+  user,
+  onManagePermissions,
+  onWarn,
+  onMessage,
+  onStatusToggle,
+  onChangeRole
+}: UserActionsProps) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const queryClient = useQueryClient();
 
   const handleResetPassword = async () => {
-    // In a real app, this would trigger an email or set a temporary password
-    // For now, we'll just show a toast as a mock action
-    toast({ 
-      title: "Password Reset Requested", 
-      description: `Default password '1234school.com' has been reset for ${user.full_name}.` 
-    });
+    if (!user.email) {
+      toast({ title: "No email on file", variant: "destructive" });
+      return;
+    }
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${window.location.origin}/auth?reset=1`,
+      });
+      if (error) throw error;
+      toast({ 
+        title: "Reset link sent", 
+        description: `Password reset instructions have been sent to ${user.email}.` 
+      });
+    } catch (e: any) {
+      toast({ title: "Failed", description: e.message, variant: "destructive" });
+    }
   };
 
   const handleDelete = async () => {
@@ -61,15 +94,41 @@ export const UserActions = ({ user }: UserActionsProps) => {
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuContent align="end" className="w-52">
           <DropdownMenuLabel>Account Controls</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleResetPassword}>
-            <Key className="mr-2 h-4 w-4" /> Reset Password
+            <Key className="mr-2 h-4 w-4 text-zinc-400" /> Reset Password
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => toast({ title: "Role change coming soon" })}>
-            <ShieldAlert className="mr-2 h-4 w-4" /> Change Role
-          </DropdownMenuItem>
+          {onManagePermissions && (
+            <DropdownMenuItem onClick={onManagePermissions}>
+              <KeyRound className="mr-2 h-4 w-4 text-purple-500" /> Manage Permissions
+            </DropdownMenuItem>
+          )}
+          {onWarn && (
+            <DropdownMenuItem onClick={onWarn}>
+              <AlertTriangle className="mr-2 h-4 w-4 text-amber-500" /> Warn User
+            </DropdownMenuItem>
+          )}
+          {onMessage && (
+            <DropdownMenuItem onClick={onMessage}>
+              <MessageSquare className="mr-2 h-4 w-4 text-blue-500" /> Send Message
+            </DropdownMenuItem>
+          )}
+          {onChangeRole && (
+            <DropdownMenuItem onClick={onChangeRole}>
+              <ShieldAlert className="mr-2 h-4 w-4 text-pink-500" /> Change Role
+            </DropdownMenuItem>
+          )}
+          {onStatusToggle && (user.account_status === "active" || !user.account_status ? (
+            <DropdownMenuItem onClick={onStatusToggle} className="text-destructive focus:text-destructive">
+              <ShieldOff className="mr-2 h-4 w-4" /> Disconnect Account
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem onClick={onStatusToggle} className="text-emerald-500 focus:text-emerald-500">
+              <ShieldCheck className="mr-2 h-4 w-4" /> Reactivate Account
+            </DropdownMenuItem>
+          ))}
           <DropdownMenuSeparator />
           <DropdownMenuItem 
             className="text-destructive focus:text-destructive"

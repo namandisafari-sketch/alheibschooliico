@@ -5,26 +5,14 @@ import { supabase } from "@/integrations/supabase/client";
 const isSupabaseConfigured = true;
 import { isWhitelistedAdmin } from "@/config/admins";
 
-type AppRole = 
+export type AppRole = 
   | "admin" 
   | "teacher" 
   | "parent" 
   | "staff" 
   | "security" 
   | "accountant" 
-  | "head_teacher" 
-  | "dos" 
-  | "nurse" 
-  | "storekeeper" 
-  | "gateman" 
-  | "office_manager" 
-  | "direct_manager" 
-  | "center_director"
-  | "deputy_head_teacher"
-  | "director"
-  | "bursar"
-  | "store_manager"
-  | "secretary";
+  | "head_teacher";
 
 interface AuthContextType {
   user: User | null;

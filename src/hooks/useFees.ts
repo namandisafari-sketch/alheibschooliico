@@ -273,5 +273,29 @@ export const useDeleteBursarRule = () => {
   });
 };
 
+export const useResolveOverrideRequest = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, status, review_notes }: { id: string; status: "approved" | "denied"; review_notes?: string }) => {
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from("bursar_override_requests")
+        .update({
+          status,
+          review_notes: review_notes || null,
+          reviewed_by: userData.user?.id || null,
+          reviewed_at: new Date().toISOString()
+        })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["override-requests"] });
+      toast.success("Override request successfully resolved.");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+};
+
 export const formatUGX = (amount: number) =>
   `USh ${new Intl.NumberFormat("en-US").format(Math.round(amount))}`;

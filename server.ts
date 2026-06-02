@@ -8,7 +8,7 @@ async function startServer() {
   const PORT = Number(
     (portArgIdx !== -1 && process.argv[portArgIdx + 1]) ||
       process.env.PORT ||
-      8080
+      3000
   );
 
   app.use(express.json());

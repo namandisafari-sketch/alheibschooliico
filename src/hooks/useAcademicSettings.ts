@@ -15,6 +15,8 @@ export interface AcademicSettings {
   current_term_id: string;
   terms: TermDetail[];
   is_automatic: boolean;
+  current_week: number;
+  total_weeks: number;
 }
 
 const DEFAULTS: AcademicSettings = {
@@ -22,6 +24,8 @@ const DEFAULTS: AcademicSettings = {
   number_of_terms: 3,
   current_term_id: "term_1",
   is_automatic: true,
+  current_week: 8,
+  total_weeks: 14,
   terms: [
     { id: "term_1", name: "Term I", start_month: "February", end_month: "May" },
     { id: "term_2", name: "Term II", start_month: "June", end_month: "August" },

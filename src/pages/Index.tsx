@@ -10,6 +10,7 @@ import { Users, GraduationCap, BookOpen, ClipboardCheck, Monitor, LayoutDashboar
 import { useLearners } from "@/hooks/useLearners";
 import { useTeachers } from "@/hooks/useTeachers";
 import { useClasses } from "@/hooks/useClasses";
+import { useAcademicSettings } from "@/hooks/useAcademicSettings";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subDays } from "date-fns";
@@ -31,6 +32,9 @@ import { Button } from "@/components/ui/button";
 import { PageGuide } from "@/components/common/PageGuide";
 import { DatabaseHealthCheck } from "@/components/dashboard/DatabaseHealthCheck";
 import { RegistrationTrackerWidget } from "@/components/dashboard/RegistrationTrackerWidget";
+import { StudentDashboard } from "@/components/dashboard/StudentDashboard";
+import { IslamicDashboard } from "@/components/dashboard/IslamicDashboard";
+import { ExecutiveDashboard } from "@/components/dashboard/ExecutiveDashboard";
 
 const useAttendanceStats = () => {
   return useQuery({
@@ -64,6 +68,14 @@ const Index = () => {
   const { data: teachers } = useTeachers();
   const { data: classes } = useClasses();
   const { data: attStats } = useAttendanceStats();
+  const { data: academicSettings } = useAcademicSettings();
+
+  const currentYear = academicSettings?.current_year ?? 2024;
+  const currentTermId = academicSettings?.current_term_id ?? "term_3";
+  const terms = academicSettings?.terms ?? [];
+  const activeTerm = terms.find(t => t.id === currentTermId)?.name ?? "Term III";
+  const currentWeek = academicSettings?.current_week ?? 8;
+  const totalWeeks = academicSettings?.total_weeks ?? 14;
 
   const totalLearners = learners?.length ?? 0;
   const totalTeachers = teachers?.length ?? 0;
@@ -83,6 +95,10 @@ const Index = () => {
         <SecurityDashboard />
       </DashboardLayout>
     );
+  }
+
+  if (role === "parent") {
+    return <Navigate to="/parent" replace />;
   }
 
   if (role === "teacher") {
@@ -120,42 +136,10 @@ const Index = () => {
     );
   }
 
-  if (role === "dos") {
-    return <Navigate to="/dos" replace />;
-  }
-
-  if (role === "nurse") {
-    return <Navigate to="/nurse" replace />;
-  }
-
-  if (role === "storekeeper") {
-    return <Navigate to="/store" replace />;
-  }
-
-  if (role === "gateman") {
-    return <Navigate to="/gate" replace />;
-  }
-
-  if (role === "office_manager") {
-    return <Navigate to="/office" replace />;
-  }
-
-  if (role === "direct_manager") {
-    return <Navigate to="/manager" replace />;
-  }
-
-  if (role === "center_director") {
-    return <Navigate to="/director" replace />;
-  }
-
-  if (role === "parent") {
-    return <Navigate to="/parent" replace />;
-  }
-
   return (
     <DashboardLayout 
       title="Dashboard" 
-      subtitle="Welcome back! Term 3, 2024 - Alheib Mixed Day & Boarding School"
+      subtitle={`Welcome back! ${activeTerm}, ${currentYear} - Alheib Mixed Day & Boarding School`}
     >
       {/* Term Banner */}
       <div className="mb-4 lg:mb-6 rounded-xl border border-primary/20 bg-primary/5 p-3 lg:p-4">
@@ -165,8 +149,8 @@ const Index = () => {
             <p className="text-xs lg:text-sm text-muted-foreground">P1-P7 Competency-Based Education System</p>
           </div>
           <div className="sm:text-right">
-            <p className="text-xs lg:text-sm font-medium text-foreground">Term 3, 2024</p>
-            <p className="text-xs text-muted-foreground">Week 8 of 14</p>
+            <p className="text-xs lg:text-sm font-medium text-foreground">{activeTerm}, {currentYear}</p>
+            <p className="text-xs text-muted-foreground">Week {currentWeek} of {totalWeeks}</p>
           </div>
         </div>
       </div>

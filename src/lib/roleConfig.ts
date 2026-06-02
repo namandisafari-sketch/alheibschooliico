@@ -3,40 +3,22 @@ import type { AppRole } from "@/hooks/useAuth";
 
 export const HOME_PATH: Record<AppRole, string> = {
   admin: "/",
-  head_teacher: "/headteacher",
-  staff: "/",
   teacher: "/teacher",
-  accountant: "/accountant",
-  security: "/security",
   parent: "/parent",
-  storekeeper: "/store",
-  gateman: "/gate",
-  office_manager: "/office",
-  direct_manager: "/manager",
-  center_director: "/director",
-  nurse: "/nurse",
-  dos: "/dos",
-  deputy_head_teacher: "/headteacher",
-  secretary: "/office",
+  staff: "/",
+  security: "/security",
+  accountant: "/accountant",
+  head_teacher: "/headteacher",
 };
 
 export const ROLE_LABEL: Record<AppRole, string> = {
   admin: "Administrator",
-  head_teacher: "Head Teacher",
-  deputy_head_teacher: "Deputy Head Teacher",
-  staff: "Staff",
   teacher: "Teacher",
-  accountant: "Accountant",
-  security: "Security",
-  parent: "Parent",
-  storekeeper: "Storekeeper",
-  gateman: "Gate Officer",
-  office_manager: "Office Manager",
-  direct_manager: "Direct Manager",
-  center_director: "Center Director",
-  nurse: "School Nurse",
-  dos: "Director of Studies",
-  secretary: "School Secretary",
+  parent: "Parent / Guardian",
+  staff: "School Support Staff",
+  security: "Security Officer",
+  accountant: "Bursar / Accountant",
+  head_teacher: "Head Teacher",
 };
 
 export const homeFor = (role: AppRole | null | undefined): string =>
@@ -61,17 +43,11 @@ export type PermissionKey = typeof PERMISSION_KEYS[number]["key"];
 
 /** Default permission matrix per role, applied at user creation. */
 export const DEFAULT_PERMISSIONS: Partial<Record<AppRole, PermissionKey[]>> = {
+  admin: ["view_finance", "request_leave", "request_advance", "write_letters", "manage_assigned_classes", "view_own_attendance", "message_director", "approve_lessons", "issue_warnings", "edit_marks", "manage_fees"],
   teacher: ["view_finance", "request_leave", "request_advance", "write_letters", "manage_assigned_classes", "view_own_attendance", "message_director", "edit_marks"],
-  dos: ["view_finance", "request_leave", "write_letters", "view_own_attendance", "message_director", "approve_lessons", "issue_warnings"],
-  nurse: ["view_finance", "request_leave", "request_advance", "write_letters", "view_own_attendance", "message_director"],
-  accountant: ["view_finance", "request_leave", "write_letters", "view_own_attendance", "message_director", "manage_fees"],
-  storekeeper: ["view_finance", "request_leave", "request_advance", "write_letters", "view_own_attendance"],
-  gateman: ["view_finance", "request_leave", "write_letters", "view_own_attendance"],
-  office_manager: ["view_finance", "request_leave", "write_letters", "view_own_attendance", "message_director", "issue_warnings"],
-  direct_manager: ["view_finance", "request_leave", "write_letters", "view_own_attendance", "message_director", "issue_warnings"],
-  head_teacher: ["view_finance", "request_leave", "write_letters", "view_own_attendance", "message_director", "approve_lessons", "issue_warnings"],
-  deputy_head_teacher: ["view_finance", "request_leave", "write_letters", "view_own_attendance", "message_director", "approve_lessons"],
-  staff: ["view_finance", "request_leave", "write_letters", "view_own_attendance"],
+  parent: ["view_own_attendance"],
+  staff: ["view_finance", "request_leave", "request_advance", "write_letters", "view_own_attendance", "message_director"],
   security: ["view_finance", "request_leave", "view_own_attendance"],
-  secretary: ["view_finance", "request_leave", "write_letters", "view_own_attendance", "message_director"],
+  accountant: ["view_finance", "request_leave", "write_letters", "view_own_attendance", "message_director", "manage_fees"],
+  head_teacher: ["view_finance", "request_leave", "write_letters", "view_own_attendance", "message_director", "approve_lessons", "issue_warnings", "edit_marks"],
 };
