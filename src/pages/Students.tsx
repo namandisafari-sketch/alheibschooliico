@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { useLearners } from "@/hooks/useLearners";
 import { RegisterLearnerDialog } from "@/components/students/RegisterLearnerDialog";
+import { ImportLearnersDialog } from "@/components/students/ImportLearnersDialog";
+import { Upload } from "lucide-react";
 import { LearnerActions } from "@/components/students/LearnerActions";
 import { LearnerFolderCard } from "@/components/students/LearnerFolderCard";
 import { DataTable } from "@/components/ui/DataTable";
