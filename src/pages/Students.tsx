@@ -342,6 +342,13 @@ const Students = () => {
                 </Button>
               </RegisterLearnerDialog>
 
+              <ImportLearnersDialog>
+                <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
+                  <Upload className="mr-2 h-4 w-4" />
+                  <span className="sm:inline">Import</span>
+                </Button>
+              </ImportLearnersDialog>
+
               <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
                 <Button 
                   variant={viewMode === "shelf" ? "secondary" : "ghost"} 
