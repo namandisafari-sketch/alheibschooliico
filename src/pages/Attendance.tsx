@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useState, useMemo } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { getUgandaDateString } from "@/lib/ugandaTime";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -34,7 +35,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 
 const Attendance = () => {
   const [selectedClassId, setSelectedClassId] = useState<string>("");
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [selectedDate, setSelectedDate] = useState(getUgandaDateString());
   const [localAttendance, setLocalAttendance] = useState<Record<string, AttendanceStatus>>({});
 
   const { data: classes = [], isLoading: classesLoading } = useClasses();

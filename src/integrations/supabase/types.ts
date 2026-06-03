@@ -2581,6 +2581,131 @@ export type Database = {
           },
         ]
       }
+      holiday_arrival_clearances: {
+        Row: {
+          arrival_date: string
+          centre_director_notes: string | null
+          centre_director_status: string
+          completed_at: string | null
+          created_at: string
+          dormitory_number: string | null
+          guardian_name: string | null
+          health_signature: string | null
+          health_status: string | null
+          holiday_type: string | null
+          head_teacher_notes: string | null
+          head_teacher_status: string
+          id: string
+          internal_supervisor_notes: string | null
+          internal_supervisor_status: string
+          kanzu_hijab: number
+          learner_id: string
+          matron_notes: string | null
+          matron_status: string
+          phone_number: string | null
+          proposed_dormitory: string | null
+          school_uniforms: number
+          shoes: number
+          status: string
+          stockings: number
+          sweater: number
+          track_suits: number
+          updated_at: string
+          vests: number
+          casual_wears: number
+          cap_veils: number
+          underwear_pants: number
+          relative_relationship: string | null
+          weight: string | null
+          height: string | null
+          chronic_disease_history: string | null
+        }
+        Insert: {
+          arrival_date: string
+          centre_director_notes?: string | null
+          centre_director_status?: string
+          completed_at?: string | null
+          created_at?: string
+          dormitory_number?: string | null
+          guardian_name?: string | null
+          health_signature?: string | null
+          health_status?: string | null
+          holiday_type?: string | null
+          head_teacher_notes?: string | null
+          head_teacher_status?: string
+          id?: string
+          internal_supervisor_notes?: string | null
+          internal_supervisor_status?: string
+          kanzu_hijab?: number
+          learner_id: string
+          matron_notes?: string | null
+          matron_status?: string
+          phone_number?: string | null
+          proposed_dormitory?: string | null
+          school_uniforms?: number
+          shoes?: number
+          status?: string
+          stockings?: number
+          sweater?: number
+          track_suits?: number
+          updated_at?: string
+          vests?: number
+          casual_wears?: number
+          cap_veils?: number
+          underwear_pants?: number
+          relative_relationship?: string | null
+          weight?: string | null
+          height?: string | null
+          chronic_disease_history?: string | null
+        }
+        Update: {
+          arrival_date?: string
+          centre_director_notes?: string | null
+          centre_director_status?: string
+          completed_at?: string | null
+          created_at?: string
+          dormitory_number?: string | null
+          guardian_name?: string | null
+          health_signature?: string | null
+          health_status?: string | null
+          holiday_type?: string | null
+          head_teacher_notes?: string | null
+          head_teacher_status?: string
+          id?: string
+          internal_supervisor_notes?: string | null
+          internal_supervisor_status?: string
+          kanzu_hijab?: number
+          learner_id?: string
+          matron_notes?: string | null
+          matron_status?: string
+          phone_number?: string | null
+          proposed_dormitory?: string | null
+          school_uniforms?: number
+          shoes?: number
+          status?: string
+          stockings?: number
+          sweater?: number
+          track_suits?: number
+          updated_at?: string
+          vests?: number
+          casual_wears?: number
+          cap_veils?: number
+          underwear_pants?: number
+          relative_relationship?: string | null
+          weight?: string | null
+          height?: string | null
+          chronic_disease_history?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "holiday_arrival_clearances_learner_id_fkey"
+            columns: ["learner_id"]
+            isOneToOne: false
+            referencedRelation: "learners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       in_app_notifications: {
         Row: {
           created_at: string

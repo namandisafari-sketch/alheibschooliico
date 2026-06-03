@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getUgandaDateString } from "@/lib/ugandaTime";
 import { toast } from "@/hooks/use-toast";
 
 export interface Dormitory {
@@ -111,7 +112,7 @@ export const useDormitoryResidents = (dormitoryId?: string) => {
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from("dormitory_residents")
-        .update({ is_active: false, released_date: new Date().toISOString().slice(0, 10) })
+        .update({ is_active: false, released_date: getUgandaDateString() })
         .eq("id", id);
       if (error) throw error;
     },
@@ -162,7 +163,7 @@ export const useLearnerEssentials = (learnerId?: string) => {
       const patch: any = { status: values.status };
       if (values.condition) patch.condition = values.condition;
       if (values.notes !== undefined) patch.notes = values.notes;
-      if (values.status === "returned") patch.returned_date = new Date().toISOString().slice(0, 10);
+      if (values.status === "returned") patch.returned_date = getUgandaDateString();
       const { error } = await supabase.from("learner_essentials").update(patch).eq("id", values.id);
       if (error) throw error;
     },
@@ -173,4 +174,140 @@ export const useLearnerEssentials = (learnerId?: string) => {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
   return { list, issue, updateStatus };
+};
+
+export interface HolidayArrivalClearance {
+  id: string;
+  learner_id: string;
+  arrival_date: string;
+  holiday_type: string | null;
+  guardian_name: string | null;
+  relative_relationship: string | null;
+  phone_number: string | null;
+  dormitory_number: string | null;
+  proposed_dormitory: string | null;
+  weight: string | null;
+  height: string | null;
+  chronic_disease_history: string | null;
+  health_status: string | null;
+  health_signature: string | null;
+  school_uniforms: number;
+  sports_wear: number;
+  sweater: number;
+  track_suits: number;
+  shoes: number;
+  kanzu_hijab: number;
+  vests: number;
+  casual_wears: number;
+  cap_veils: number;
+  stockings: number;
+  underwear_pants: number;
+  matron_status: string;
+  head_teacher_status: string;
+  internal_supervisor_status: string;
+  centre_director_status: string;
+  matron_notes: string | null;
+  head_teacher_notes: string | null;
+  internal_supervisor_notes: string | null;
+  centre_director_notes: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+  learner?: { full_name: string; admission_number: string | null; class_id: string | null; gender: string | null };
+}
+
+export const useHolidayArrivalClearances = () => {
+  const qc = useQueryClient();
+  const list = useQuery({
+    queryKey: ["holiday-arrival-clearances"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("holiday_arrival_clearances")
+        .select("*, learner:learners(full_name, admission_number, class_id, gender)")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as unknown as HolidayArrivalClearance[];
+    },
+  });
+
+  const create = useMutation({
+    mutationFn: async (values: {
+      learner_id: string;
+      arrival_date: string;
+      holiday_type?: string;
+      guardian_name?: string;
+      relative_relationship?: string;
+      phone_number?: string;
+      dormitory_number?: string;
+      proposed_dormitory?: string;
+      weight?: string;
+      height?: string;
+      chronic_disease_history?: string;
+      health_status?: string;
+      health_signature?: string;
+      school_uniforms?: number;
+      sports_wear?: number;
+      sweater?: number;
+      track_suits?: number;
+      shoes?: number;
+      kanzu_hijab?: number;
+      vests?: number;
+      casual_wears?: number;
+      cap_veils?: number;
+      stockings?: number;
+      underwear_pants?: number;
+      matron_notes?: string;
+    }) => {
+      const { error } = await supabase.from("holiday_arrival_clearances").insert({
+        learner_id: values.learner_id,
+        arrival_date: values.arrival_date,
+        holiday_type: values.holiday_type || null,
+        guardian_name: values.guardian_name || null,
+        relative_relationship: values.relative_relationship || null,
+        phone_number: values.phone_number || null,
+        dormitory_number: values.dormitory_number || null,
+        proposed_dormitory: values.proposed_dormitory || null,
+        weight: values.weight || null,
+        height: values.height || null,
+        chronic_disease_history: values.chronic_disease_history || null,
+        health_status: values.health_status || null,
+        health_signature: values.health_signature || null,
+        school_uniforms: values.school_uniforms ?? 0,
+        sports_wear: values.sports_wear ?? 0,
+        sweater: values.sweater ?? 0,
+        track_suits: values.track_suits ?? 0,
+        shoes: values.shoes ?? 0,
+        kanzu_hijab: values.kanzu_hijab ?? 0,
+        vests: values.vests ?? 0,
+        casual_wears: values.casual_wears ?? 0,
+        cap_veils: values.cap_veils ?? 0,
+        stockings: values.stockings ?? 0,
+        underwear_pants: values.underwear_pants ?? 0,
+        matron_notes: values.matron_notes || null,
+        status: "in_progress",
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["holiday-arrival-clearances"] });
+      toast({ title: "Created", description: "Holiday arrival clearance created" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const updateStage = useMutation({
+    mutationFn: async (values: Record<string, any>) => {
+      const { id, ...patch } = values;
+      const { error } = await supabase.from("holiday_arrival_clearances").update(patch).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["holiday-arrival-clearances"] });
+      toast({ title: "Updated", description: "Clearance stage updated" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  return { list, create, updateStage };
 };

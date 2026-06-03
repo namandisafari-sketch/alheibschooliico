@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { getUgandaDateString, formatUgandaDate } from "@/lib/ugandaTime";
 import { ROLE_LABEL, PERMISSION_KEYS, DEFAULT_PERMISSIONS } from "@/lib/roleConfig";
 import { 
   Shield, UserPlus, AlertTriangle, MessageSquare, ShieldOff, 
@@ -174,8 +175,8 @@ const CreateUserDialog = ({ onClose }: { onClose: () => void }) => {
 
   // Step 4 documents
   const [uploadedDocs, setUploadedDocs] = useState<any[]>([
-    { id: "cv", name: "Resume_Curriculum_Vitae.pdf", size: "1.4 MB", uploadedAt: new Date().toLocaleDateString(), type: "Curriculum Vitae", verified: true },
-    { id: "degree", name: "Academic_Transcript_Degree.pdf", size: "2.8 MB", uploadedAt: new Date().toLocaleDateString(), type: "Academic Papers", verified: true }
+    { id: "cv", name: "Resume_Curriculum_Vitae.pdf", size: "1.4 MB", uploadedAt: formatUgandaDate(new Date()), type: "Curriculum Vitae", verified: true },
+    { id: "degree", name: "Academic_Transcript_Degree.pdf", size: "2.8 MB", uploadedAt: formatUgandaDate(new Date()), type: "Academic Papers", verified: true }
   ]);
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -198,7 +199,7 @@ const CreateUserDialog = ({ onClose }: { onClose: () => void }) => {
                 id: docId,
                 name: cleanName,
                 size: (Math.random() * 2 + 1).toFixed(1) + " MB",
-                uploadedAt: new Date().toLocaleDateString(),
+                uploadedAt: formatUgandaDate(new Date()),
                 type: docLabel,
                 verified: true
               }
@@ -729,7 +730,7 @@ const UserDetailsDialog = ({ user, onClose }: { user: any; onClose: () => void }
                       <div className="space-y-0.5">
                         <span className="text-[11px] font-bold text-muted-foreground uppercase">{doc.type || "Document Copy"}</span>
                         <p className="font-semibold text-gray-800">{doc.name}</p>
-                        <p className="text-[10px] text-muted-foreground">Size: {doc.size} • Attached: {doc.uploadedAt || new Date().toLocaleDateString()}</p>
+                        <p className="text-[10px] text-muted-foreground">Size: {doc.size} • Attached: {doc.uploadedAt || formatUgandaDate(new Date())}</p>
                       </div>
 
                       <div className="flex items-center gap-2 self-end sm:self-center">

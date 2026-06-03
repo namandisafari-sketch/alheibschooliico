@@ -7,7 +7,7 @@ ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'office_manager';
 ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'nurse';
 ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'dos';
 ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'manager';
-
+ALERT TYPE public.app_role ADD VALUE IF NOT EXISTS 'accountant';
 DO $$ BEGIN
   CREATE TYPE public.approval_stage AS ENUM (
     'submitted','manager_approved','director_approved','accountant_verified',

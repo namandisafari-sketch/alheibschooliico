@@ -48,6 +48,7 @@ import {
   CreditCard,
 } from "lucide-react";
 import { format } from "date-fns";
+import { getUgandaDateString } from "@/lib/ugandaTime";
 
 const Salary = () => {
   const { t, isRTL } = useLanguage();
@@ -67,7 +68,7 @@ const Salary = () => {
     allowances: 0,
     deductions: 0,
     currency: "UGX",
-    effective_from: new Date().toISOString().split("T")[0],
+    effective_from: getUgandaDateString(),
     notes: "",
   });
 
@@ -75,7 +76,7 @@ const Salary = () => {
     salary_record_id: "",
     staff_id: "",
     amount: 0,
-    payment_date: new Date().toISOString().split("T")[0],
+    payment_date: getUgandaDateString(),
     payment_method: "bank_transfer",
     reference_number: "",
     status: "completed",
@@ -102,7 +103,7 @@ const Salary = () => {
         allowances: 0,
         deductions: 0,
         currency: "UGX",
-        effective_from: new Date().toISOString().split("T")[0],
+        effective_from: getUgandaDateString(),
         notes: "",
       });
     } catch {
@@ -119,7 +120,7 @@ const Salary = () => {
         salary_record_id: "",
         staff_id: "",
         amount: 0,
-        payment_date: new Date().toISOString().split("T")[0],
+        payment_date: getUgandaDateString(),
         payment_method: "bank_transfer",
         reference_number: "",
         status: "completed",

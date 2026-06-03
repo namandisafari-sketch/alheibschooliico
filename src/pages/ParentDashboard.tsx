@@ -2,6 +2,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getUgandaDateString, getUgandaDateDaysAgo } from "@/lib/ugandaTime";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -48,12 +49,12 @@ const ParentDashboard = () => {
       const classMap = new Map(classes?.map((c) => [c.id, c.name]) || []);
 
       // Fetch recent attendance
-      const today = new Date().toISOString().split("T")[0];
+      const today = getUgandaDateString();
       const { data: attendance } = await supabase
         .from("attendance")
         .select("*")
         .in("learner_id", learnerIds)
-        .gte("date", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0])
+        .gte("date", getUgandaDateDaysAgo(7))
         .lte("date", today);
 
       return learners.map((learner) => ({

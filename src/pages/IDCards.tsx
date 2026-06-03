@@ -26,6 +26,7 @@ import { useAllStaff } from "@/hooks/useStaff";
 import { useLearners } from "@/hooks/useLearners";
 import { useClasses } from "@/hooks/useClasses";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
+import { getUgandaDateString, formatUgandaDateTime } from "@/lib/ugandaTime";
 import { useIdCardSettings, IdCardSettings } from "@/hooks/useIdCardSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { 
@@ -287,7 +288,7 @@ const IDCards = () => {
       const a = document.createElement("a");
       a.href = url;
       const label = batchClass === "all" ? "all_classes" : (classes.find((c) => c.id === batchClass)?.name || "class").replace(/[^a-z0-9]/gi, "_");
-      a.download = `ID_Cards_${label}_${new Date().toISOString().slice(0, 10)}.zip`;
+      a.download = `ID_Cards_${label}_${getUgandaDateString()}.zip`;
       a.click();
       URL.revokeObjectURL(url);
 
@@ -323,8 +324,7 @@ const IDCards = () => {
             </div>
           </div>
           <div className="flex items-center gap-4 text-[10px] sm:text-xs font-mono text-muted-foreground">
-            <span>{new Date().toLocaleDateString()}</span>
-            <span>{new Date().toLocaleTimeString()}</span>
+            <span>{formatUgandaDateTime(new Date(), { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
           </div>
         </div>
 

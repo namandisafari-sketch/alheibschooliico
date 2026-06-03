@@ -18,6 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { smsService } from "@/services/smsService";
+import { formatUgandaDate } from "@/lib/ugandaTime";
 
 const Comms = () => {
   const { user } = useAuth();
@@ -92,7 +93,7 @@ const Comms = () => {
                 message: msg.content
                   .replace(/\{name\}/gi, p.full_name || "Parent/Staff")
                   .replace(/\{school\}/gi, "Alheib PS")
-                  .replace(/\{date\}/gi, new Date().toLocaleDateString())
+                  .replace(/\{date\}/gi, formatUgandaDate(new Date()))
               }));
               
               const smsResult = await smsService.sendBulkSMS(messages);

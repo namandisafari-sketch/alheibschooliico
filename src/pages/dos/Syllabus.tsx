@@ -1,24 +1,32 @@
 // @ts-nocheck
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useCurriculumPlans, useUpdateSyllabusCoverage } from "@/hooks/useAcademicPlanning";
 import { useClasses } from "@/hooks/useClasses";
+import { useSubjects } from "@/hooks/useSubjects";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { BookMarked, CheckCircle2, Circle, Clock, Filter, AlertTriangle } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { getUgandaDateString } from "@/lib/ugandaTime";
 
 const SyllabusCoverage = () => {
   const { data: classes = [] } = useClasses();
   const [selectedClass, setSelectedClass] = useState<string>("");
-  const { data: plans = [], isLoading } = useCurriculumPlans(selectedClass);
+  const [selectedSubject, setSelectedSubject] = useState<string>("all");
+  const { data: subjects = [] } = useSubjects();
+  const effectiveSubject = selectedSubject === "all" ? "" : selectedSubject;
+  const { data: plans = [], isLoading } = useCurriculumPlans(selectedClass, effectiveSubject);
   const updateCoverage = useUpdateSyllabusCoverage();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   const handleToggleCoverage = async (planId: string, currentStatus: string) => {
     const nextStatus = currentStatus === "completed" ? "pending" : "completed";
@@ -27,7 +35,7 @@ const SyllabusCoverage = () => {
         plan_id: planId,
         teacher_id: user?.id,
         status: nextStatus,
-        completion_date: nextStatus === "completed" ? new Date().toISOString().split("T")[0] : null,
+        completion_date: nextStatus === "completed" ? getUgandaDateString() : null,
       });
       toast({ title: "Status Updated", description: `Topic marked as ${nextStatus}` });
     } catch (error: any) {
@@ -39,14 +47,26 @@ const SyllabusCoverage = () => {
   const coveragePercent = plans.length > 0 ? Math.round((completedCount / plans.length) * 100) : 0;
 
   return (
-    <DashboardLayout title="Syllabus Coverage" subtitle="Curriculum Tracking & Academic Audit">
+    <DashboardLayout title={t("Syllabus Coverage")} subtitle={t("Curriculum Tracking & Academic Audit")}>
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row gap-4 items-end bg-card p-4 rounded-lg border shadow-sm">
-          <div className="space-y-2 flex-1">
-            <p className="text-xs font-bold uppercase text-muted-foreground ml-1">Select Class</p>
-            <Select value={selectedClass} onValueChange={setSelectedClass}>
+        <Card className="border-dashed">
+          <CardContent className="space-y-4">
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-semibold">{t("Syllabus & Lesson Linkage")}</p>
+              <p className="text-sm text-muted-foreground">{t("Keep subjects assigned and syllabus topics updated so teacher planners reflect the actual teaching load.")}</p>
+            </div>
+            <Link to="/dos/assignments">
+              <Button variant="outline" size="sm">{t("Back to Teacher Assignments")}</Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-card p-4 rounded-lg border shadow-sm">
+          <div className="space-y-2">
+            <p className="text-xs font-bold uppercase text-muted-foreground ml-1">{t("Select Class")}</p>
+            <Select value={selectedClass} onValueChange={(value) => { setSelectedClass(value); setSelectedSubject("all"); }}>
               <SelectTrigger>
-                <SelectValue placeholder="Choose a class to track" />
+                <SelectValue placeholder={t("Choose a class to track")} />
               </SelectTrigger>
               <SelectContent>
                 {classes.map(c => (
@@ -55,15 +75,20 @@ const SyllabusCoverage = () => {
               </SelectContent>
             </Select>
           </div>
-          {selectedClass && (
-            <div className="flex-1 space-y-2">
-              <div className="flex justify-between text-xs font-bold uppercase text-muted-foreground px-1">
-                <span>Overall Coverage</span>
-                <span>{coveragePercent}%</span>
-              </div>
-              <Progress value={coveragePercent} className="h-2" />
-            </div>
-          )}
+          <div className="space-y-2">
+            <p className="text-xs font-bold uppercase text-muted-foreground ml-1">{t("Filter Subject")}</p>
+            <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+              <SelectTrigger>
+                <SelectValue placeholder={t("All subjects")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("All subjects")}</SelectItem>
+                {subjects.map(s => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {!selectedClass ? (
@@ -73,13 +98,13 @@ const SyllabusCoverage = () => {
                 <Filter className="h-6 w-6 text-muted-foreground" />
               </div>
               <div>
-                <h3 className="font-bold">No Class Selected</h3>
-                <p className="text-sm text-muted-foreground">Select a class above to view and track syllabus coverage.</p>
+                <h3 className="font-bold">{t("No Class Selected")}</h3>
+                <p className="text-sm text-muted-foreground">{t("Select a class above to view and track syllabus coverage.")}</p>
               </div>
             </CardContent>
           </Card>
         ) : isLoading ? (
-          <div className="py-20 text-center text-muted-foreground">Loading curriculum plan...</div>
+          <div className="py-20 text-center text-muted-foreground">{t("Loading curriculum plan...")}</div>
         ) : plans.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="py-20 text-center space-y-3">
@@ -87,9 +112,9 @@ const SyllabusCoverage = () => {
                 <BookMarked className="h-6 w-6 text-muted-foreground" />
               </div>
               <div>
-                <h3 className="font-bold">No Plan Found</h3>
-                <p className="text-sm text-muted-foreground">Curriculum plans haven't been uploaded for this class yet.</p>
-                <Button variant="outline" className="mt-4" size="sm">Download Template</Button>
+                <h3 className="font-bold">{t("No Plan Found")}</h3>
+                <p className="text-sm text-muted-foreground">{t("Curriculum plans haven't been uploaded for this class yet.")}</p>
+                <Button variant="outline" className="mt-4" size="sm">{t("Download Template")}</Button>
               </div>
             </CardContent>
           </Card>
@@ -111,19 +136,19 @@ const SyllabusCoverage = () => {
                       )}
                     </div>
                     <CardTitle className="text-base line-clamp-2">{plan.topic_title}</CardTitle>
-                    <CardDescription className="text-xs">Sequence: {plan.sequence_order}</CardDescription>
+                    <CardDescription className="text-xs">{t("Sequence")}: {plan.sequence_order}</CardDescription>
                   </CardHeader>
                   <CardContent className="pt-2">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
                       <Clock className="h-3 w-3" /> 
-                      <span>Planned duration: {plan.planned_weeks} weeks</span>
+                      <span>{t("Planned duration")}: {plan.planned_weeks} {t("weeks")}</span>
                     </div>
                     <Button 
                       variant={isCompleted ? "outline" : "default"} 
                       className="w-full h-8 text-xs gap-2"
                       onClick={() => handleToggleCoverage(plan.id, coverage?.status || "pending")}
                     >
-                      {isCompleted ? "Topic Covered" : "Mark as Covered"}
+                      {isCompleted ? t("Topic Covered") : t("Mark as Covered")}
                     </Button>
                   </CardContent>
                 </Card>

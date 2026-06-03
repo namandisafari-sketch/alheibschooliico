@@ -1,17 +1,18 @@
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bed, Wind, PackageCheck, ClipboardList } from "lucide-react";
+import { Bed, Wind, PackageCheck, ClipboardList, CalendarDays } from "lucide-react";
 import { HostelLogisticsTab } from "@/components/hostel/HostelLogisticsTab";
 import { WashingMachineTab } from "@/components/hostel/WashingMachineTab";
 import { StudentEssentialsTab } from "@/components/hostel/StudentEssentialsTab";
 import { DormitoriesTab } from "@/components/hostel/DormitoriesTab";
+import { HolidayClearanceTab } from "@/components/hostel/HolidayClearanceTab";
 
 const Hostel = () => {
   return (
     <DashboardLayout title="Hostel & Welfare" subtitle="Manage dormitories, residents, and welfare items issued to learners">
       <Tabs defaultValue="dormitories" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 h-auto">
+        <TabsList className="grid w-full grid-cols-5 h-auto">
           <TabsTrigger value="dormitories" className="gap-2">
             <Bed className="h-4 w-4" /> Dormitories
           </TabsTrigger>
@@ -24,12 +25,16 @@ const Hostel = () => {
           <TabsTrigger value="washing" className="gap-2">
             <Wind className="h-4 w-4" /> Washing
           </TabsTrigger>
+          <TabsTrigger value="clearance" className="gap-2">
+            <CalendarDays className="h-4 w-4" /> Holiday Clearance
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="dormitories" className="mt-4"><DormitoriesTab /></TabsContent>
         <TabsContent value="essentials" className="mt-4"><StudentEssentialsTab /></TabsContent>
         <TabsContent value="logistics" className="mt-4"><HostelLogisticsTab /></TabsContent>
         <TabsContent value="washing" className="mt-4"><WashingMachineTab /></TabsContent>
+        <TabsContent value="clearance" className="mt-4"><HolidayClearanceTab /></TabsContent>
       </Tabs>
     </DashboardLayout>
   );

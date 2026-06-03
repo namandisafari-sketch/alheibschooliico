@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Truck, Calendar, Wallet, User, Tag, Settings2, Info } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getUgandaDateString } from "@/lib/ugandaTime";
 
 const formSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters"),
@@ -80,7 +81,7 @@ export function AssetDialog({ children, asset, open: controlledOpen, onOpenChang
       category_id: "",
       condition: "good",
       purchase_cost: "",
-      purchase_date: new Date().toISOString().split("T")[0],
+      purchase_date: getUgandaDateString(),
     },
   });
 
@@ -118,7 +119,7 @@ export function AssetDialog({ children, asset, open: controlledOpen, onOpenChang
             category_id: "",
             condition: "good",
             purchase_cost: "",
-            purchase_date: new Date().toISOString().split("T")[0],
+            purchase_date: getUgandaDateString(),
             serial_number: "",
             location: "",
             assigned_to_staff: "",

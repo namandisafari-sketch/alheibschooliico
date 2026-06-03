@@ -351,7 +351,7 @@ const App = () => (
             <Route
               path="/hostel"
               element={
-                <ProtectedRoute allowedRoles={["admin", "staff", "head_teacher"]}>
+                <ProtectedRoute allowedRoles={["admin", "staff", "head_teacher", "matron", "dos", "center_director", "director"]}>
                   <Hostel />
                 </ProtectedRoute>
               }
@@ -436,6 +436,12 @@ const App = () => (
                 <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
                   <DosAssignments />
                 </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dos/departments"
+              element={
+                <Navigate to="/dos/assignments" replace />
               }
             />
             <Route

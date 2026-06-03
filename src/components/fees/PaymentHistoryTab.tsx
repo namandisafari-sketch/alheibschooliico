@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { getUgandaDateString } from "@/lib/ugandaTime";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,7 +31,7 @@ export const PaymentHistoryTab = () => {
     return matchSearch && matchMethod;
   });
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getUgandaDateString();
   const todayPayments = filtered.filter((p: any) => p.payment_date === today);
   const totalToday = todayPayments.reduce((s: number, p: any) => s + Number(p.amount), 0);
   const totalAll = filtered.reduce((s: number, p: any) => s + Number(p.amount), 0);

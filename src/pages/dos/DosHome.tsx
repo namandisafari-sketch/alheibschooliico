@@ -147,7 +147,7 @@ const DosHome = () => {
                   { label: "Academic Timetable (Live)", icon: Calendar, path: "/dos/timetable", color: "text-indigo-500", desc: "Master school schedule adjustment" },
                   { label: "P7 PLE & Candidates", icon: GraduationCap, path: "/dos/p7-management", color: "text-red-500", desc: "UNEB registration & performance tracking" },
                   { label: "Results & Analysis", icon: TrendingUp, path: "/dos/analysis", color: "text-cyan-500", desc: "Deep dive into termly performance" },
-                  { label: "Departmental Coordination", icon: Users, path: "/dos/departments", color: "text-pink-500", desc: "Manage subject departments" },
+                  { label: "Departmental Coordination", icon: Users, path: "/dos/assignments", color: "text-pink-500", desc: "Manage subject assignments and departments" },
                 ].map((action) => (
                   <Link to={action.path} key={action.label} className="p-6 hover:bg-muted/50 transition-all group relative overflow-hidden">
                     <div className="flex flex-col h-full">

@@ -13,6 +13,7 @@ import {
   Eye, Download
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { formatUgandaDate } from "@/lib/ugandaTime";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface ExtendedProfessionalProfileFormProps {
@@ -175,7 +176,7 @@ Downloaded via School EMIS Portal.
                 id: certType,
                 name: fileName,
                 size: size,
-                uploadedAt: new Date().toLocaleDateString(),
+                uploadedAt: formatUgandaDate(new Date()),
                 type: certLabel,
                 verified: true
               }

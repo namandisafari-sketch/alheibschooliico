@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Phone, Send, Search, Smartphone, Loader2 } from "lucide-react";
 import { smsService } from "@/services/smsService";
 import { useToast } from "@/hooks/use-toast";
+import { formatUgandaDate } from "@/lib/ugandaTime";
 
 const ParentChat = () => {
   const { user } = useAuth();
@@ -32,10 +33,7 @@ const ParentChat = () => {
       const mergedTemplate = tpl
         .replace(/\{name\}/gi, learnerName)
         .replace(/\{school\}/gi, "Alheib PS")
-        .replace(/\{date\}/gi, new Date().toLocaleDateString());
-
-      const fullMessage = `${mergedTemplate}\n— Sent via TennaHub`;
-      const result = await smsService.sendSMS(phone, fullMessage);
+          .replace(/\{date\}/gi, formatUgandaDate(new Date()));
       
       if (result.success) {
         toast({

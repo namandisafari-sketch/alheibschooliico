@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { useLearners } from "@/hooks/useLearners";
+import { getUgandaDateString } from "@/lib/ugandaTime";
 import { supabase } from "@/integrations/supabase/client";
 
 const safeCount = async (table: string, filter?: (q: any) => any) => {
@@ -34,7 +35,7 @@ export const DirectorDashboard = () => {
     (async () => {
       const since30 = new Date(Date.now() - 30 * 86400000).toISOString();
       const since7  = new Date(Date.now() - 7  * 86400000).toISOString();
-      const today   = new Date().toISOString().slice(0, 10);
+      const today   = getUgandaDateString();
 
       const [
         teachers, staff, classes, visitors, inventory, suppliers,
