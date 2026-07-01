@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import * as XLSX from "xlsx";
 import {
   Dialog,
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Loader2, FileSpreadsheet, AlertTriangle, CheckCircle2, Download } from "lucide-react";
+import { Upload, Loader2, FileSpreadsheet, AlertTriangle, CheckCircle2, Download, X } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -44,25 +44,27 @@ const HEADER_MAP: Record<string, string> = {
   "CLASS": "_class",
   "DISTRICT": "home_district",
   "AREA": "home_village",
-  "DORMITORY": "house",
-  "DOMITORY": "house",
+  "SPONSORSHIP NO": "sponsorship_number",
+  "SPONSORSHIP NUMBER": "sponsorship_number",
+  "TYPE OF SPONSORSHIP": "sponsorship_type",
+  "SPONSORSHIP AGENCY": "sponsorship_agency",
+  "ARABIC NAME": "arabic_name",
+  "ARABIC": "arabic_name",
+  "FATHER": "father_name",
+  "MOTHER": "mother_name",
+  "DORMITORY": "dormitory",
+  "DOMITORY": "dormitory",
   "HOUSE": "house",
   "SECTION": "_boarding",
   "STAY": "_boarding",
   "GUARDIAN": "parent_name",
-  "FATHER": "_father",
-  "MOTHER": "_mother",
   "CONTACT": "parent_phone",
   "PHONE": "parent_phone",
   "DATE OF BIRTH": "date_of_birth",
   "DOB": "date_of_birth",
   "RELATIONSHIP": "_relationship",
-  "TYPE OF SPONSORSHIP": "_sponsorship",
-  "SPONSORSHIP AGENCY": "_agency",
   "NIRA DOC": "nin",
   "NIRA  DOC": "nin",
-  "ARABIC NAME": "_arabic",
-  "ARABIC": "_arabic",
 };
 
 const CLASS_PATTERNS: Array<[RegExp, string]> = [
@@ -86,15 +88,6 @@ const detectGender = (raw: any): "male" | "female" | null => {
   const s = norm(raw);
   if (s.startsWith("M")) return "male";
   if (s.startsWith("F")) return "female";
-  return null;
-};
-
-const detectBoarding = (raw: any): string | null => {
-  const s = norm(raw);
-  if (!s) return null;
-  if (s === "IN" || s.includes("BOARD")) return "boarding";
-  if (s === "OUT" || s === "DAY") return "day";
-  if (s === "BOTH") return "boarding";
   return null;
 };
 
@@ -159,14 +152,20 @@ interface ParsedRow {
   gender: "male" | "female" | null;
   className: string | null;
   pupil_status: string | null;
-  boarding_status: string | null;
   house: string | null;
+  dormitory: string | null;
   home_district: string | null;
   home_village: string | null;
   parent_name: string | null;
   parent_phone: string | null;
   date_of_birth: string | null;
   nin: string | null;
+  arabic_name: string | null;
+  sponsorship_number: string | null;
+  sponsorship_type: string | null;
+  sponsorship_agency: string | null;
+  father_name: string | null;
+  mother_name: string | null;
   _warnings: string[];
 }
 
@@ -218,20 +217,26 @@ const parseWorkbook = (wb: XLSX.WorkBook): ParsedRow[] => {
         gender,
         className,
         pupil_status: sheetStatus,
-        boarding_status: detectBoarding(get("_boarding")),
         house: get("house") ? String(get("house")).trim() : null,
+        dormitory: get("dormitory") ? String(get("dormitory")).trim() : null,
         home_district: get("home_district") ? String(get("home_district")).trim() : null,
         home_village: get("home_village") ? String(get("home_village")).trim() : null,
         parent_name: get("parent_name")
           ? String(get("parent_name")).trim()
-          : get("_father")
-          ? String(get("_father")).trim()
-          : get("_mother")
-          ? String(get("_mother")).trim()
+          : get("father_name")
+          ? String(get("father_name")).trim()
+          : get("mother_name")
+          ? String(get("mother_name")).trim()
           : null,
         parent_phone: cleanPhone(get("parent_phone")),
         date_of_birth: toIsoDate(get("date_of_birth")),
         nin: get("nin") ? String(get("nin")).trim() : null,
+        arabic_name: get("arabic_name") ? String(get("arabic_name")).trim() : null,
+        sponsorship_number: get("sponsorship_number") ? String(get("sponsorship_number")).trim() : null,
+        sponsorship_type: get("sponsorship_type") ? String(get("sponsorship_type")).trim() : null,
+        sponsorship_agency: get("sponsorship_agency") ? String(get("sponsorship_agency")).trim() : null,
+        father_name: get("father_name") ? String(get("father_name")).trim() : null,
+        mother_name: get("mother_name") ? String(get("mother_name")).trim() : null,
         _warnings: warnings,
       });
     }
@@ -250,6 +255,7 @@ export const ImportLearnersDialog = ({ children }: { children: React.ReactNode }
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState("");
   const [classMap, setClassMap] = useState<Map<string, string>>(new Map());
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const summary = useMemo(() => {
     const total = parsed.length;
@@ -290,103 +296,121 @@ export const ImportLearnersDialog = ({ children }: { children: React.ReactNode }
   const handleImport = async () => {
     if (!parsed.length) return;
     setImporting(true);
-    let inserted = 0;
-    let updated = 0;
-    let failed = 0;
+    setProgress("Preparing data…");
 
-    // Fetch existing admission numbers to dedupe
-    const { data: existing } = await supabase
-      .from("learners")
-      .select("id, admission_number, full_name")
-      .limit(5000);
-    const byAdm = new Map<string, string>();
-    const byName = new Map<string, string>();
-    (existing || []).forEach((l: any) => {
-      if (l.admission_number) byAdm.set(String(l.admission_number).trim(), l.id);
-      if (l.full_name) byName.set(l.full_name.toUpperCase().trim(), l.id);
-    });
+    // Map parsed rows to the server payload, resolving class_id from classMap
+    const learners = parsed.map((p) => ({
+      full_name: p.full_name,
+      admission_number: p.admission_number,
+      gender: p.gender || "male",
+      class_id: p.className ? classMap.get(p.className) || null : null,
+      pupil_status: p.pupil_status,
+      house: p.house,
+      dormitory: p.dormitory,
+      home_district: p.home_district,
+      home_village: p.home_village,
+      date_of_birth: p.date_of_birth,
+      nin: p.nin,
+      arabic_name: p.arabic_name,
+      sponsorship_number: p.sponsorship_number,
+      sponsorship_type: p.sponsorship_type,
+      sponsorship_agency: p.sponsorship_agency,
+      father_name: p.father_name,
+      mother_name: p.mother_name,
+      parent_name: p.parent_name,
+      parent_phone: p.parent_phone,
+    }));
 
-    const chunkSize = 50;
-    for (let i = 0; i < parsed.length; i += chunkSize) {
-      const chunk = parsed.slice(i, i + chunkSize);
-      setProgress(`Importing ${Math.min(i + chunkSize, parsed.length)} / ${parsed.length}…`);
+    setProgress(`Uploading ${learners.length} learners…`);
 
-      const toInsert: any[] = [];
-      const toUpdate: Array<{ id: string; data: any }> = [];
+    try {
+      // Use client-side upsert so audit trigger gets the real auth.uid()
+      let inserted = 0;
+      let updated = 0;
+      let failed = 0;
+      let lastError: string | null = null;
 
-      for (const p of chunk) {
-        const record: any = {
-          full_name: p.full_name,
-          gender: p.gender || "male",
-          admission_number: p.admission_number,
-          class_id: p.className ? classMap.get(p.className) || null : null,
-          pupil_status: p.pupil_status,
-          house: p.house,
-          home_district: p.home_district,
-          home_village: p.home_village,
-          district: p.home_district,
-          parent_name: p.parent_name,
-          parent_phone: p.parent_phone,
-          date_of_birth: p.date_of_birth,
-          nin: p.nin,
-          status: "active",
-        };
-        // Strip nulls so we don't overwrite with empty values on update
-        Object.keys(record).forEach((k) => record[k] == null && delete record[k]);
-        if (!record.full_name || !record.gender) {
-          failed++;
-          continue;
-        }
+      const chunkSize = 500;
+      for (let i = 0; i < learners.length; i += chunkSize) {
+        const chunk = learners.slice(i, i + chunkSize);
+        setProgress(`Importing ${Math.min(i + chunkSize, learners.length)} / ${learners.length}…`);
 
-        const existingId =
-          (p.admission_number && byAdm.get(p.admission_number)) ||
-          byName.get(p.full_name.toUpperCase());
+        const records = chunk.map((p) => {
+          const rec: Record<string, any> = {
+            full_name: p.full_name,
+            gender: p.gender || "male",
+            admission_number: p.admission_number || null,
+            class_id: p.className ? classMap.get(p.className) || null : null,
+            pupil_status: p.pupil_status || null,
+            house: p.house || null,
+            dormitory: p.dormitory || null,
+            home_district: p.home_district || null,
+            home_village: p.home_village || null,
+            date_of_birth: p.date_of_birth || null,
+            nin: p.nin || null,
+            arabic_name: p.arabic_name || null,
+            sponsorship_number: p.sponsorship_number || null,
+            sponsorship_type: p.sponsorship_type || null,
+            sponsorship_agency: p.sponsorship_agency || null,
+            father_name: p.father_name || null,
+            mother_name: p.mother_name || null,
+            parent_name: p.parent_name || null,
+            parent_phone: p.parent_phone || null,
+            status: "active",
+          };
+          if (rec.nin && !/^[A-Z0-9]{14}$/.test(rec.nin)) rec.nin = null;
+          Object.keys(rec).forEach((k) => rec[k] == null && delete rec[k]);
+          if (!rec.full_name || !rec.gender) return null;
+          return rec;
+        }).filter(Boolean);
 
-        if (existingId) {
-          toUpdate.push({ id: existingId, data: record });
-        } else {
-          toInsert.push(record);
-        }
-      }
+        if (records.length === 0) continue;
 
-      if (toInsert.length) {
-        const { error, data } = await supabase
+        // PostgREST requires all objects in bulk POST to have identical keys
+        const allKeys = [...new Set(records.flatMap((r) => Object.keys(r)))];
+        const usedKeys = allKeys.filter((k) => records.some((r: any) => r[k] != null));
+        const normalized = records.map((r: any) => {
+          const obj: Record<string, any> = {};
+          for (const k of usedKeys) obj[k] = r[k] ?? null;
+          return obj;
+        });
+
+        const { error } = await supabase
           .from("learners")
-          .insert(toInsert)
-          .select("id, admission_number, full_name");
+          .upsert(normalized, { onConflict: "admission_number", ignoreDuplicates: false });
+
         if (error) {
-          failed += toInsert.length;
-          console.error("Insert error", error);
+          failed += chunk.length;
+          lastError = error.message;
+          console.error("Bulk upsert error:", error);
         } else {
-          inserted += data?.length || 0;
-          (data || []).forEach((l: any) => {
-            if (l.admission_number) byAdm.set(String(l.admission_number).trim(), l.id);
-            if (l.full_name) byName.set(l.full_name.toUpperCase().trim(), l.id);
-          });
+          inserted += chunk.length;
         }
       }
 
-      for (const u of toUpdate) {
-        const { error } = await supabase.from("learners").update(u.data).eq("id", u.id);
-        if (error) {
-          failed++;
-          console.error("Update error", error);
-        } else updated++;
-      }
+      setImporting(false);
+      setProgress("");
+      toast({
+        title: failed ? "Import completed with errors" : "Import complete",
+        description: lastError
+          ? `${inserted} added · ${updated} updated · ${failed} failed — ${lastError}`
+          : `${inserted} added · ${updated} updated · ${failed} failed`,
+        variant: failed ? "destructive" : "default",
+      });
+    } catch (e: any) {
+      setImporting(false);
+      setProgress("");
+      toast({
+        title: "Import failed",
+        description: e.message,
+        variant: "destructive",
+      });
     }
 
-    setImporting(false);
-    setProgress("");
-    toast({
-      title: "Import complete",
-      description: `${inserted} added · ${updated} updated · ${failed} failed`,
-    });
     qc.invalidateQueries({ queryKey: ["learners"] });
-    if (failed === 0) {
-      setOpen(false);
-      setParsed([]);
-      setFileName("");
-    }
+    setOpen(false);
+    setParsed([]);
+    setFileName("");
   };
 
   return (
@@ -406,44 +430,71 @@ export const ImportLearnersDialog = ({ children }: { children: React.ReactNode }
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-3 border rounded-lg p-3 bg-muted/30">
-            <input
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-              className="text-sm"
-            />
-            <a
-              href="/students_import_template.xlsx"
-              download="students_import_template.xlsx"
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline shrink-0"
+          {!parsed.length ? (
+            <div
+              className="flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-10 text-center cursor-pointer hover:bg-muted/30 transition-colors"
+              onClick={() => fileInputRef.current?.click()}
             >
-              <Download className="h-3.5 w-3.5" />
-              Download template
-            </a>
-            {parsing && <Loader2 className="h-4 w-4 animate-spin" />}
-            {fileName && !parsing && (
-              <span className="text-xs text-muted-foreground">{fileName}</span>
-            )}
-          </div>
+              <FileSpreadsheet className="h-12 w-12 text-muted-foreground/40 mb-3" />
+              <p className="font-semibold text-sm">Drop your Excel file here</p>
+              <p className="text-xs text-muted-foreground mt-1 mb-4">or click to browse (.xlsx, .xls)</p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+              />
+              <div className="flex items-center gap-3">
+                <Button type="button" variant="secondary" size="sm">Choose File</Button>
+                <a
+                  href="/students_import_template.xlsx"
+                  download="students_import_template.xlsx"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Download template
+                </a>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-3 border rounded-lg p-3 bg-muted/30">
+              <div className="flex items-center gap-2 min-w-0">
+                <FileSpreadsheet className="h-5 w-5 text-primary shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{fileName}</p>
+                  <p className="text-[10px] text-muted-foreground">{parsed.length} rows parsed</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {parsing && <Loader2 className="h-4 w-4 animate-spin" />}
+                <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => { setParsed([]); setFileName(""); }}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
 
           {parsed.length > 0 && (
             <>
               <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary">{summary.total} rows</Badge>
-                <Badge variant="outline">
-                  <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-600" />
-                  Class detected: {summary.withClass}
+                <Badge variant="secondary" className="gap-1">
+                  <FileSpreadsheet className="h-3 w-3" /> {summary.total} rows
                 </Badge>
-                <Badge variant="outline">
-                  <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-600" />
-                  Gender detected: {summary.withGender}
+                <Badge variant="outline" className="gap-1">
+                  <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                  Class: {summary.withClass}
                 </Badge>
-                <Badge variant="outline">ADM #: {summary.withAdm}</Badge>
+                <Badge variant="outline" className="gap-1">
+                  <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                  Gender: {summary.withGender}
+                </Badge>
+                <Badge variant="outline" className="gap-1">ADM: {summary.withAdm}</Badge>
                 {summary.total - summary.withClass > 0 && (
-                  <Badge variant="destructive">
-                    <AlertTriangle className="h-3 w-3 mr-1" />
-                    Missing class: {summary.total - summary.withClass}
+                  <Badge variant="destructive" className="gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    No class: {summary.total - summary.withClass}
                   </Badge>
                 )}
               </div>
@@ -468,7 +519,6 @@ export const ImportLearnersDialog = ({ children }: { children: React.ReactNode }
                       <TableHead className="text-xs">Class</TableHead>
                       <TableHead className="text-xs">Gender</TableHead>
                       <TableHead className="text-xs">Status</TableHead>
-                      <TableHead className="text-xs">Stay</TableHead>
                       <TableHead className="text-xs">Guardian</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -489,7 +539,6 @@ export const ImportLearnersDialog = ({ children }: { children: React.ReactNode }
                           {p.gender || <span className="text-destructive">?</span>}
                         </TableCell>
                         <TableCell className="text-xs">{p.pupil_status || "—"}</TableCell>
-                        <TableCell className="text-xs">{p.boarding_status || "—"}</TableCell>
                         <TableCell className="text-xs">
                           {p.parent_name || "—"}
                           {p.parent_phone ? ` · ${p.parent_phone}` : ""}

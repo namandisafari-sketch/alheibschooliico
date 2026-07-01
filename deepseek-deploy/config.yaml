@@ -1,0 +1,16 @@
+model_name: DeepSeek-R1-Distill
+resources:
+  accelerator: L4
+model_metadata:
+  tags:
+    - openai-compatible
+trt_llm:
+  build:
+    base_model: decoder
+    checkpoint_repository:
+      source: HF
+      repo: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
+    max_seq_len: 4096
+    quantization_type: fp8
+    tensor_parallel_count: 1
+    num_builder_gpus: 1

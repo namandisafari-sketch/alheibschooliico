@@ -8,10 +8,42 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
+const sessionAwareStorage: Storage = {
+  getItem(key: string) {
+    return localStorage.getItem(key) ?? sessionStorage.getItem(key);
+  },
+  setItem(key: string, value: string) {
+    const persist = sessionStorage.getItem("alheib_persist_session") === "true";
+    (persist ? localStorage : sessionStorage).setItem(key, value);
+  },
+  removeItem(key: string) {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  },
+  get length() {
+    return Math.max(localStorage.length, sessionStorage.length);
+  },
+  key(index: number) {
+    return localStorage.key(index) ?? sessionStorage.key(index);
+  },
+  clear() {
+    localStorage.clear();
+    sessionStorage.clear();
+  },
+};
+
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: localStorage,
+    storage: sessionAwareStorage,
     persistSession: true,
     autoRefreshToken: true,
-  }
+    flowType: "pkce",
+  },
+  global: {
+    fetch: (url, init) => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 60000);
+      return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timeout));
+    },
+  },
 });

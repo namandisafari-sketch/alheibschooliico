@@ -1,5 +1,5 @@
 import { useUgandaLocations } from "@/hooks/useUgandaLocations";
-import { SearchableSelect } from "@/components/ui/searchable-select";
+import { SearchableSelectField } from "@/components/ui/searchable-select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
@@ -32,7 +32,7 @@ export function LocationSelector({ districtValue, onDistrictChange, label = "Dis
 
       <div className="space-y-2">
         <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">{label}</Label>
-        <SearchableSelect
+        <SearchableSelectField
           value={isNameVal ? districtValue : ""}
           onValueChange={onDistrictChange}
           options={districts.map((d) => ({ value: d, label: d }))}

@@ -35,6 +35,8 @@ import {
   Loader2,
   RefreshCw,
   AlertCircle,
+  ChevronDown,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth, AppRole } from "@/hooks/useAuth";
@@ -52,6 +54,11 @@ export const Sidebar = ({ isOpen = false, onClose, collapsed = false }: SidebarP
   const { t, isRTL } = useLanguage();
   const { isGlobalAdmin } = useIsAdmin();
   const [search, setSearch] = useState("");
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    navSections.forEach((s) => { initial[s.titleKey] = false; });
+    return initial;
+  });
 
   const { pathname } = useLocation();
   const navRef = useRef<HTMLElement>(null);
@@ -73,6 +80,42 @@ export const Sidebar = ({ isOpen = false, onClose, collapsed = false }: SidebarP
 
   const isWhitelisted = isWhitelistedAdmin(user?.email);
 
+  const SIMPLE_ROLES = new Set(["matron", "nurse", "cook", "security", "gateman", "staff", "storekeeper"] as AppRole[]);
+  const isSimpleRole = role && SIMPLE_ROLES.has(role);
+
+  const SIMPLE_LINKS: Record<string, { icon: any; labelKey: string; path: string }[]> = {
+    matron: [
+      { icon: LayoutDashboard, labelKey: "Matron Dashboard", path: "/matron" },
+    ],
+    nurse: [
+      { icon: Stethoscope, labelKey: "Medical Infirmary Hub", path: "/nurse" },
+    ],
+    cook: [
+      { icon: ClipboardList, labelKey: "Kitchen Operations", path: "/kitchen" },
+    ],
+    security: [
+      { icon: Shield, labelKey: "Gate Control Hub", path: "/gate" },
+    ],
+    gateman: [
+      { icon: Shield, labelKey: "Gate Control Hub", path: "/gate" },
+    ],
+    staff: [
+      { icon: FileText, labelKey: "Office Management", path: "/office" },
+    ],
+    storekeeper: [
+      { icon: Box, labelKey: "Store & Inventory Hub", path: "/store" },
+    ],
+  };
+
+  const SIMPLE_PERSONAL = [
+    { icon: LayoutDashboard, labelKey: "My Dashboard", path: "/" },
+    { icon: ClipboardCheck, labelKey: "My Attendance", path: "/teacher/my-attendance" },
+    { icon: FileCheck, labelKey: "My Leave Requests", path: "/teacher/requests" },
+    { icon: Calendar, labelKey: "Events Calendar", path: "/calendar" },
+    { icon: Bell, labelKey: "Staff Messaging", path: "/teacher/inbox" },
+    { icon: Wallet, labelKey: "Personal Finance", path: "/teacher/finance" },
+  ];
+
   const allowed = (item: NavItem) => {
     if (isWhitelisted) return true;
     if (item.adminOnly && !isGlobalAdmin) return false;
@@ -80,6 +123,22 @@ export const Sidebar = ({ isOpen = false, onClose, collapsed = false }: SidebarP
   };
 
   const filteredSections = useMemo(() => {
+    if (isSimpleRole && !search) {
+      const links = SIMPLE_LINKS[role!] || [];
+      return [
+        {
+          titleKey: "Quick Access",
+          items: [...links, ...SIMPLE_PERSONAL.filter((item) => {
+            if (role === "staff") {
+              if (item.path === "/teacher/my-attendance") return allowed({ icon: ClipboardCheck, labelKey: "My Attendance", path: "/teacher/my-attendance", roles: ["admin", "teacher", "staff", "head_of_internal"] });
+              if (item.path === "/teacher/requests") return allowed({ icon: FileCheck, labelKey: "My Leave Requests", path: "/teacher/requests", roles: ["admin", "teacher", "staff", "head_of_internal"] });
+            }
+            return true;
+          })],
+        },
+      ];
+    }
+
     const q = search.trim().toLowerCase();
     return navSections
       .map((section) => ({
@@ -96,11 +155,15 @@ export const Sidebar = ({ isOpen = false, onClose, collapsed = false }: SidebarP
       }))
       .filter((section) => section.items.length > 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, role, isGlobalAdmin, isWhitelisted, user, roleFetched]);
+  }, [search, role, isGlobalAdmin, isWhitelisted, user, roleFetched, isSimpleRole]);
 
   const filteredBottomItems = bottomNavItems.filter(
     (item) => isWhitelisted || !item.roles || (role && item.roles.includes(role))
   );
+
+  const toggleSection = (titleKey: string) => {
+    setExpandedSections((prev) => ({ ...prev, [titleKey]: !prev[titleKey] }));
+  };
 
   const handleNavClick = () => {
     if (onClose) onClose();
@@ -280,38 +343,55 @@ export const Sidebar = ({ isOpen = false, onClose, collapsed = false }: SidebarP
               {t("No pages found")}
             </p>
           )}
-          {filteredSections.map((section) => (
-            <div key={section.titleKey} className="mb-3">
-              {!collapsed && (
-                <p className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/50">
-                  {t(section.titleKey)}
-                </p>
-              )}
-              <div className="space-y-0.5">
-                {section.items.map((item) => (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    end={item.path === "/"}
-                    onClick={handleNavClick}
-                    title={t(item.labelKey)}
-                    className={({ isActive }) =>
-                      cn(
-                        "flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-200 px-3 py-2.5",
-                        collapsed && "lg:justify-center lg:px-2",
-                        isActive
-                          ? "bg-sidebar-accent text-sidebar-primary"
-                          : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                      )
-                    }
+          {filteredSections.map((section) => {
+            const isExpanded = expandedSections[section.titleKey];
+            return (
+              <div key={section.titleKey} className="mb-3">
+                {!collapsed && (
+                  <button
+                    onClick={() => toggleSection(section.titleKey)}
+                    className="flex w-full items-center justify-between px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/50 hover:text-sidebar-foreground/80 transition-colors"
                   >
-                    <item.icon className="h-5 w-5 shrink-0" />
-                    <span className={cn("truncate", collapsed && "lg:hidden")}>{t(item.labelKey)}</span>
-                  </NavLink>
-                ))}
+                    <span>{t(section.titleKey)}</span>
+                    <ChevronDown
+                      className={cn(
+                        "h-3 w-3 transition-transform duration-200",
+                        isExpanded ? "" : "-rotate-90"
+                      )}
+                    />
+                  </button>
+                )}
+                <div
+                  className={cn(
+                    "space-y-0.5 overflow-hidden transition-all duration-200",
+                    collapsed ? "" : (isExpanded ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0")
+                  )}
+                >
+                  {section.items.map((item) => (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      end={item.path === "/"}
+                      onClick={handleNavClick}
+                      title={t(item.labelKey)}
+                      className={({ isActive }) =>
+                        cn(
+                          "flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-200 px-3 py-2.5",
+                          collapsed && "lg:justify-center lg:px-2",
+                          isActive
+                            ? "bg-sidebar-accent text-sidebar-primary"
+                            : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                        )
+                      }
+                    >
+                      <item.icon className="h-5 w-5 shrink-0" />
+                      <span className={cn("truncate", collapsed && "lg:hidden")}>{t(item.labelKey)}</span>
+                    </NavLink>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
 
         {/* Bottom Navigation */}

@@ -6,3 +6,13 @@ coverage/
 *.log
 .env*
 !.env.example
+.old-assets-archive
+
+# Generated / temp files
+nohup.out
+all_english_strings.json
+public/all_english_strings.json
+scripts/*.json
+scripts/*.txt
+translation_candidates.txt
+*.bak

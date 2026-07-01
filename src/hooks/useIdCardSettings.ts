@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import alheibLogo from "@/assets/alheib-logo.png";
+import alheibLogo from "@/assets/iico-logo.jpg";
 import alheibStamp from "@/assets/alheib-stamp.png";
 import alheibHeadteacherSig from "@/assets/alheib-headteacher-signature.png";
 

@@ -8,8 +8,8 @@ export const StorekeeperDashboard = () => {
   const { items: itemsQ } = useInventory();
   const items = itemsQ.data as any[] | undefined;
   const total = items?.length ?? 0;
-  const low = items?.filter((i: any) => (i.stock?.quantity ?? 0) <= (i.reorder_level ?? 0)).length ?? 0;
-  const out = items?.filter((i: any) => (i.stock?.quantity ?? 0) === 0).length ?? 0;
+  const low = items?.filter((i: any) => (i.quantity ?? 0) <= (i.min_threshold ?? 0)).length ?? 0;
+  const out = items?.filter((i: any) => (i.quantity ?? 0) === 0).length ?? 0;
 
   return (
     <div className="space-y-6">
@@ -44,15 +44,15 @@ export const StorekeeperDashboard = () => {
         <Section title="Replenishment Watchlist" description="Items needing reorder">
           <div className="space-y-2 max-h-72 overflow-auto">
             {(items ?? [])
-              .filter((i: any) => (i.stock?.quantity ?? 0) <= (i.reorder_level ?? 0))
+              .filter((i: any) => (i.quantity ?? 0) <= (i.min_threshold ?? 0))
               .slice(0, 8)
               .map((i: any) => (
                 <div key={i.id} className="flex items-center justify-between p-3 rounded-lg bg-amber-50/50 border border-amber-100">
                   <div className="min-w-0">
                     <p className="text-sm font-bold truncate">{i.name}</p>
-                    <p className="text-[10px] uppercase text-muted-foreground tracking-wider">{i.category?.name ?? "—"}</p>
+                    <p className="text-[10px] uppercase text-muted-foreground tracking-wider">{i.category ?? "—"}</p>
                   </div>
-                  <span className="text-sm font-black text-amber-700">{i.stock?.quantity ?? 0}</span>
+                  <span className="text-sm font-black text-amber-700">{i.quantity ?? 0}</span>
                 </div>
               ))}
             {low === 0 && <p className="text-xs text-muted-foreground py-6 text-center">All stocks healthy</p>}

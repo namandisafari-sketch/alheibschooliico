@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -101,12 +102,13 @@ const Incidents = () => {
               <div className="space-y-4 mt-4">
                 <div className="space-y-2">
                   <Label>Affected Learner</Label>
-                  <Select onValueChange={(v) => setFormData(p => ({...p, learner_id: v}))}>
-                    <SelectTrigger className="rounded-lg"><SelectValue placeholder="Select student" /></SelectTrigger>
-                    <SelectContent>
-                      {learners.map(l => <SelectItem key={l.id} value={l.id}>{l.full_name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    options={learners.map(l => ({ value: l.id, label: l.full_name, searchTerms: [l.full_name] }))}
+                    value={formData.learner_id}
+                    onValueChange={(v) => setFormData(p => ({...p, learner_id: v}))}
+                    placeholder="Select student..."
+                    searchPlaceholder="Search by name..."
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">

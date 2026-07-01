@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Banknote, Upload, CheckCircle2, AlertTriangle, Search, FileDown, Link2, Unlink } from "lucide-react";
+import { Banknote, Upload, CheckCircle2, AlertTriangle, Search, FileDown, Link2, Unlink, ChevronsUpDown } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
@@ -156,15 +157,24 @@ const Reconciliation = () => {
                         {l.matchedPaymentId ? (
                           <Button size="sm" variant="ghost" onClick={() => toggleMatch(l.id, null)}><Unlink className="h-3 w-3" /></Button>
                         ) : (
-                          <select className="text-xs border rounded h-8 px-2 max-w-[160px]"
-                            onChange={(e) => e.target.value && toggleMatch(l.id, e.target.value)}>
-                            <option value="">Match to receipt…</option>
-                            {payments.filter((p: any) => Math.abs(Number(p.amount)) === Math.abs(Number(l.amount)) || true).slice(0, 50).map((p: any) => (
-                              <option key={p.id} value={p.id}>
-                                {p.receipt_number || p.id.slice(0, 6)} · {fmt(Number(p.amount))}
-                              </option>
-                            ))}
-                          </select>
+                          <SearchableSelect
+                            options={[
+                              { value: "", label: "Match to receipt…" },
+                              ...payments
+                                .filter((p: any) => Math.abs(Number(p.amount)) === Math.abs(Number(l.amount)) || true)
+                                .slice(0, 50)
+                                .map((p: any) => ({
+                                  value: p.id,
+                                  label: `${p.receipt_number || p.id.slice(0, 6)} · ${fmt(Number(p.amount))}`,
+                                })),
+                            ]}
+                            value={l.matchedPaymentId || ""}
+                            onValueChange={(v) => v && toggleMatch(l.id, v)}
+                            placeholder="Match to receipt…"
+                            searchPlaceholder="Search receipts…"
+                            emptyText="No matching receipts"
+                            className="max-w-[180px] h-8 text-xs"
+                          />
                         )}
                         <Button size="sm" variant="ghost" onClick={() => removeLine(l.id)}>×</Button>
                       </div>

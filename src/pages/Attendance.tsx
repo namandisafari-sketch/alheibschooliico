@@ -1,55 +1,57 @@
 // @ts-nocheck
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { getUgandaDateString } from "@/lib/ugandaTime";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Check, X, Clock, Calendar, Loader2, Users } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
+import { Check, X, Clock, Calendar, Loader2, Users, BarChart3, BookOpen, ShieldAlert } from "lucide-react";
 import { useRealtime } from "@/hooks/useRealtime";
-import { DataTable } from "@/components/ui/DataTable";
-import { ColumnDef } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { useClasses } from "@/hooks/useClasses";
-import { useAttendance, useMarkAttendance, useBulkMarkAttendance, LearnerWithAttendance } from "@/hooks/useAttendance";
-import { useDisciplineFlags } from "@/hooks/useDisciplineFlags";
-import { DisciplineFlag } from "@/components/discipline/DisciplineFlag";
+import { useAttendance, useBulkMarkAttendance } from "@/hooks/useAttendance";
+import { AttendanceOverview } from "@/components/attendance/AttendanceOverview";
 import { Database } from "@/integrations/supabase/types";
 
 type AttendanceStatus = Database["public"]["Enums"]["attendance_status"];
 
-const statusConfig: Record<AttendanceStatus, { icon: typeof Check; color: string; label: string }> = {
-  present: { icon: Check, color: "bg-success text-success-foreground", label: "Present" },
-  absent: { icon: X, color: "bg-destructive text-destructive-foreground", label: "Absent" },
-  late: { icon: Clock, color: "bg-warning text-warning-foreground", label: "Late" },
-  excused: { icon: Calendar, color: "bg-muted text-muted-foreground", label: "Excused" },
+const statusBtnConfig: Record<AttendanceStatus, { icon: typeof Check; activeClass: string }> = {
+  present: { icon: Check, activeClass: "bg-success text-white border-success" },
+  absent: { icon: X, activeClass: "bg-destructive text-white border-destructive" },
+  late: { icon: Clock, activeClass: "bg-warning text-white border-warning" },
+  excused: { icon: Calendar, activeClass: "bg-muted text-muted-foreground border-muted-foreground" },
 };
 
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
-const Attendance = () => {
+const MarkAttendanceTab = () => {
+  const { user } = useAuth();
   const [selectedClassId, setSelectedClassId] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState(getUgandaDateString());
   const [localAttendance, setLocalAttendance] = useState<Record<string, AttendanceStatus>>({});
+  const [classTeacherIds, setClassTeacherIds] = useState<string[]>([]);
 
   const { data: classes = [], isLoading: classesLoading } = useClasses();
   const { data: learners = [], isLoading: learnersLoading } = useAttendance(selectedClassId, selectedDate);
-  const markAttendance = useMarkAttendance();
   const bulkMarkAttendance = useBulkMarkAttendance();
-  const { data: flags } = useDisciplineFlags();
 
-  // Real-time updates
   useRealtime("attendance", [["attendance", selectedClassId, selectedDate]]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase.from("classes").select("id").eq("teacher_id", user.id).then(({ data }) => {
+      setClassTeacherIds((data || []).map(c => c.id));
+    });
+  }, [user?.id]);
+
+  const myClasses = classes.filter(c => classTeacherIds.includes(c.id));
+  const isClassTeacher = classTeacherIds.length > 0;
 
   const selectedClass = classes.find((c) => c.id === selectedClassId);
 
-  // Merge server data with local changes
   const learnersWithStatus = useMemo(() => {
     return learners.map((learner) => ({
       ...learner,
@@ -61,87 +63,10 @@ const Attendance = () => {
     setLocalAttendance((prev) => ({ ...prev, [learnerId]: status }));
   };
 
-  // Calculate stats
   const presentCount = learnersWithStatus.filter((s) => s.currentStatus === "present").length;
   const absentCount = learnersWithStatus.filter((s) => s.currentStatus === "absent").length;
   const lateCount = learnersWithStatus.filter((s) => s.currentStatus === "late").length;
-
-  const columns: ColumnDef<any>[] = [
-    {
-      accessorKey: "full_name",
-      header: "Learner",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
-            {row.original.full_name?.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
-          </div>
-          <div className="min-w-0">
-            <p className="font-bold text-slate-900 uppercase tracking-tight text-xs">{row.original.full_name}</p>
-            <p className="text-[10px] text-slate-500 font-bold">
-              {row.original.attendance?.check_in_time
-                ? `Checked in: ${row.original.attendance.check_in_time.slice(0, 5)}`
-                : "Not recorded"}
-            </p>
-            {flags?.[row.original.id] && (
-              <div className="mt-1 w-full max-w-[200px]">
-                <DisciplineFlag disciplineCase={flags[row.original.id]} />
-              </div>
-            )}
-          </div>
-        </div>
-      )
-    },
-    {
-      id: "status",
-      header: "Status",
-      cell: ({ row }) => {
-        const status = row.original.currentStatus;
-        const config = status ? statusConfig[status as AttendanceStatus] : null;
-        const StatusIcon = config?.icon;
-        return config && StatusIcon ? (
-          <Badge className={cn("text-[9px] font-black uppercase tracking-widest h-5 px-1.5", config.color)}>
-            <StatusIcon className="mr-1 h-2.5 w-2.5" />
-            {config.label}
-          </Badge>
-        ) : null;
-      }
-    },
-    {
-      id: "actions",
-      header: () => <div className="text-right">Action</div>,
-      cell: ({ row }) => {
-        const status = row.original.currentStatus;
-        return (
-          <div className="flex gap-1 justify-end">
-            <Button
-              variant={status === "present" ? "default" : "outline"}
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => handleStatusChange(row.original.id, "present")}
-            >
-              <Check className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={status === "absent" ? "destructive" : "outline"}
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => handleStatusChange(row.original.id, "absent")}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={status === "late" ? "secondary" : "outline"}
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => handleStatusChange(row.original.id, "late")}
-            >
-              <Clock className="h-4 w-4" />
-            </Button>
-          </div>
-        );
-      }
-    }
-  ];
+  const excusedCount = learnersWithStatus.filter((s) => s.currentStatus === "excused").length;
 
   const handleSaveAttendance = async () => {
     if (!selectedClassId) return;
@@ -169,18 +94,33 @@ const Attendance = () => {
   const hasChanges = Object.keys(localAttendance).length > 0;
 
   return (
-    <DashboardLayout title="Attendance" subtitle="Track daily learner attendance - Term 3, 2024">
+    <div className="space-y-4 sm:space-y-6">
+      {!isClassTeacher ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <ShieldAlert className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
+            <p className="font-semibold mb-1">Only Class Teachers can mark attendance</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              You are not assigned as a Class Teacher for any class. Use the Lesson Register to track your lesson delivery.
+            </p>
+            <Button asChild variant="outline" className="gap-2">
+              <Link to="/teacher/lesson-register"><BookOpen className="h-4 w-4" /> Go to Lesson Register</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+      <>
       {/* Controls */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
           <SearchableSelect
-            options={classes.map(c => ({ value: c.id, label: c.name }))}
+            options={myClasses.map(c => ({ value: c.id, label: c.name }))}
             value={selectedClassId}
             onValueChange={(value) => {
               setSelectedClassId(value);
               setLocalAttendance({});
             }}
-            placeholder="Select class"
+            placeholder="Select your class"
             className="w-full sm:w-64"
             disabled={classesLoading}
           />
@@ -194,6 +134,7 @@ const Attendance = () => {
                 setLocalAttendance({});
               }}
               className="bg-transparent text-sm outline-none w-full"
+              max={getUgandaDateString()}
             />
           </div>
         </div>
@@ -208,8 +149,8 @@ const Attendance = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="mt-4 sm:mt-6 grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-4">
-        <div className="rounded-xl border border-border bg-card p-3 sm:p-4 animate-slide-up">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-5">
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-4">
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
               <Users className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
@@ -220,7 +161,7 @@ const Attendance = () => {
             </div>
           </div>
         </div>
-        <div className="rounded-xl border border-border bg-card p-3 sm:p-4 animate-slide-up" style={{ animationDelay: "100ms" }}>
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-4">
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg bg-success/10">
               <Check className="h-4 w-4 sm:h-5 sm:w-5 text-success" />
@@ -231,7 +172,7 @@ const Attendance = () => {
             </div>
           </div>
         </div>
-        <div className="rounded-xl border border-border bg-card p-3 sm:p-4 animate-slide-up" style={{ animationDelay: "200ms" }}>
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-4">
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg bg-destructive/10">
               <X className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
@@ -242,7 +183,7 @@ const Attendance = () => {
             </div>
           </div>
         </div>
-        <div className="rounded-xl border border-border bg-card p-3 sm:p-4 animate-slide-up" style={{ animationDelay: "300ms" }}>
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-4">
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg bg-warning/10">
               <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-warning" />
@@ -253,10 +194,21 @@ const Attendance = () => {
             </div>
           </div>
         </div>
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg bg-muted/50">
+              <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-lg sm:text-2xl font-semibold text-card-foreground">{excusedCount}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Excused</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Attendance List */}
-      <div className="mt-4 sm:mt-6 rounded-xl border border-border bg-card animate-slide-up" style={{ animationDelay: "400ms" }}>
+      <div className="rounded-xl border border-border bg-card">
         <div className="border-b border-border p-3 sm:p-4">
           <h3 className="font-display text-sm sm:text-base font-semibold text-card-foreground">
             {selectedClass?.name || "Select a class"} - Attendance
@@ -281,18 +233,96 @@ const Attendance = () => {
             <p>No learners in this class</p>
           </div>
         ) : (
-          <div className="p-4 sm:p-6">
-            <DataTable columns={columns} data={learnersWithStatus} searchKey="full_name" />
+          <div className="p-3">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {learnersWithStatus.map((learner) => {
+                const status = learner.currentStatus;
+                return (
+                  <div
+                    key={learner.id}
+                    className={cn(
+                      "flex items-center gap-2 rounded-xl border p-3 transition-colors",
+                      status === "present" ? "border-success/30 bg-success/5" :
+                      status === "absent" ? "border-destructive/30 bg-destructive/5" :
+                      status === "late" ? "border-warning/30 bg-warning/5" :
+                      "border-border bg-card"
+                    )}
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                      {(learner.full_name || "").split(" ").map((n: string) => n[0] || "").join("").slice(0, 2) || "?"}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-slate-900 uppercase truncate">{learner.full_name}</p>
+                      <p className="text-[10px] text-slate-500">
+                        {learner.attendance?.check_in_time
+                          ? `In: ${learner.attendance.check_in_time.slice(0, 5)}`
+                          : "Not recorded"}
+                      </p>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      {(["present", "absent", "late", "excused"] as AttendanceStatus[]).map((s) => {
+                        const cfg = statusBtnConfig[s];
+                        const Icon = cfg.icon;
+                        const isActive = status === s;
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => handleStatusChange(learner.id, s)}
+                            className={cn(
+                              "flex h-7 w-7 items-center justify-center rounded-md border transition-all",
+                              isActive ? cfg.activeClass : "border-slate-200 text-slate-400 hover:border-slate-300 hover:text-slate-600"
+                            )}
+                            title={s.charAt(0).toUpperCase() + s.slice(1)}
+                          >
+                            <Icon className="h-3.5 w-3.5" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
 
       {/* Unsaved Changes Notice */}
       {hasChanges && (
-        <div className="mt-4 rounded-lg border border-warning/50 bg-warning/10 p-3 text-sm text-warning-foreground">
+        <div className="rounded-lg border border-warning/50 bg-warning/10 p-3 text-sm text-warning-foreground">
           You have unsaved changes. Click "Save Attendance" to save.
         </div>
       )}
+      </>
+      )}
+    </div>
+  );
+};
+
+const Attendance = () => {
+  return (
+    <DashboardLayout title="Attendance" subtitle="Track and analyse learner attendance">
+      <div className="mb-4 sm:mb-6">
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="overview" className="flex items-center gap-1.5">
+              <BarChart3 className="h-4 w-4" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="mark" className="flex items-center gap-1.5">
+              <Check className="h-4 w-4" />
+              Mark Attendance
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="overview" className="mt-0">
+            <AttendanceOverview />
+          </TabsContent>
+          <TabsContent value="mark" className="mt-0">
+            <MarkAttendanceTab />
+          </TabsContent>
+        </Tabs>
+      </div>
     </DashboardLayout>
   );
 };

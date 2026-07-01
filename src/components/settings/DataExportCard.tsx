@@ -11,13 +11,13 @@ import * as XLSX from "xlsx";
 // Tables to export — one sheet per table
 const EXPORT_TABLES = [
   "profiles", "user_roles", "schools", "learners", "guardians", "classes",
-  "subjects", "teachers", "teacher_assignments", "staff", "employees",
-  "attendance", "term_results", "homework", "lesson_plans", "timetable",
+  "subjects", "teacher_assignments",
+  "attendance", "term_results", "homework", "lesson_plans",
   "fee_payments", "fee_structures", "salary_records", "salary_payments",
   "expense_requests", "budget_requests", "purchase_orders", "inventory_items",
   "inventory_stock", "inventory_transactions", "visitors", "appointments",
-  "calendar_events", "discipline_cases", "discipline_flags", "leave_requests",
-  "health_records", "hostel_assignments", "notifications", "audit_log",
+  "discipline_cases", "leave_requests",
+  "notifications", "audit_log",
 ];
 
 const sanitizeSheetName = (name: string) =>

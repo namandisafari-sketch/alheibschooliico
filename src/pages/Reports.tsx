@@ -3,13 +3,6 @@ import { useState, useRef, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -58,6 +51,7 @@ import { Database } from "@/integrations/supabase/types";
 import { computeAggregate } from "@/lib/grading";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useAcademicSettings } from "@/hooks/useAcademicSettings";
 import jsPDF from "jspdf";
 import { toPng } from "html-to-image";
 import JSZip from "jszip";
@@ -65,28 +59,28 @@ import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
-const termLabel: Record<string, string> = { term1: "Term 1", term2: "Term 2", term3: "Term 3" };
-
 type TermType = Database["public"]["Enums"]["term_type"];
-
-const terms: { value: TermType; label: string }[] = [
-  { value: "term_1", label: "Term 1" },
-  { value: "term_2", label: "Term 2" },
-  { value: "term_3", label: "Term 3" },
-];
 
 const Reports = () => {
   const [searchParams] = useSearchParams();
   const printRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
-  const currentYear = new Date().getFullYear();
+  const { data: academicSettings } = useAcademicSettings();
+  const currentYear = academicSettings?.current_year ?? new Date().getFullYear();
   const { toast } = useToast();
   const { role } = useAuth();
   const isAdmin = role === "admin";
 
+  const terms = (academicSettings?.terms ?? []).map((t: any) => ({
+    value: t.id as TermType,
+    label: t.name,
+  }));
+  const termLabel: Record<string, string> = {};
+  (academicSettings?.terms ?? []).forEach((t: any) => { termLabel[t.id] = t.name; });
+
   const [selectedClass, setSelectedClass] = useState<string>(searchParams.get("class") || "");
   const [selectedTerm, setSelectedTerm] = useState<TermType>(
-    (searchParams.get("term") as TermType) || "term_1",
+    (searchParams.get("term") as TermType) || (academicSettings?.current_term_id as TermType) || "term_1",
   );
   const [academicYear, setAcademicYear] = useState<number>(
     parseInt(searchParams.get("year") || String(currentYear)),
@@ -124,10 +118,13 @@ const Reports = () => {
     const academicSubjects = subjects.filter((s) => s.category === "academic");
     const islamicSubjects = subjects.filter((s) => s.category === "islamic");
 
+    const examTermResults = termResults.filter(
+      (r) => !r.assessment_type || r.assessment_type === "exam" || r.assessment_type === "test",
+    );
     const academicByLearner = classLearners.map((l) => {
       const scores = academicSubjects
         .map(
-          (s) => termResults.find((r) => r.learner_id === l.id && r.subject_id === s.id)?.score,
+          (s) => examTermResults.find((r) => r.learner_id === l.id && r.subject_id === s.id)?.score,
         )
         .filter((v): v is number => v != null);
       const { total, average } = computeAggregate(scores);
@@ -136,7 +133,7 @@ const Reports = () => {
     const islamicByLearner = classLearners.map((l) => {
       const scores = islamicSubjects
         .map(
-          (s) => termResults.find((r) => r.learner_id === l.id && r.subject_id === s.id)?.score,
+          (s) => examTermResults.find((r) => r.learner_id === l.id && r.subject_id === s.id)?.score,
         )
         .filter((v): v is number => v != null);
       const { total } = computeAggregate(scores);
@@ -178,7 +175,10 @@ const Reports = () => {
   const selectAll = () => setSelectedLearners(classLearners.map((l) => l.id));
   const deselectAll = () => setSelectedLearners([]);
 
-  const getLearnerResults = (id: string) => termResults.filter((r) => r.learner_id === id);
+  const getLearnerResults = (id: string) =>
+    termResults.filter(
+      (r) => r.learner_id === id && (!r.assessment_type || r.assessment_type === "exam" || r.assessment_type === "test"),
+    );
   const getMeta = (id: string) => reportCards.find((r) => r.learner_id === id) ?? null;
 
   // ─── Publish / lock ───────────────────────────────────────────────────────

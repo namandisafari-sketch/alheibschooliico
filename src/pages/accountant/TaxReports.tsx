@@ -82,6 +82,7 @@ const TaxReports = () => {
   const corpTax = profit > 0 ? profit * 0.30 : 0;
 
   const handlePrint = () => window.print();
+  
   const downloadCsv = (rows: any[], name: string) => {
     if (!rows.length) return;
     const cols = Object.keys(rows[0]);
@@ -223,6 +224,83 @@ const TaxReports = () => {
               <tr><td className="p-2 font-black">Corporation tax @ 30%</td><td className="p-2 text-right font-black">{fmtUGX(corpTax)}</td></tr>
             </tbody>
           </table>
+        </div>
+        
+        {/* Print-only: full tax pack for printing */}
+        <div className="hidden print:block space-y-6">
+          <div className="text-center mb-4">
+            <h1 className="text-2xl font-black uppercase">Alheib Mixed Day & Boarding School</h1>
+            <p className="text-sm">Tax & Compliance Report — {month.label}</p>
+          </div>
+
+          {/* PAYE full table for print */}
+          <section style={{ pageBreakAfter: 'always' }}>
+            <h2 className="text-lg font-black mb-2">PAYE Schedule — {month.label}</h2>
+            <table className="w-full text-sm border">
+              <thead className="text-xs uppercase text-muted-foreground border-b">
+                <tr><th className="text-left p-2">Employee</th><th className="text-left p-2">TIN</th><th className="text-right p-2">Gross</th><th className="text-right p-2">PAYE</th><th className="text-right p-2">NSSF (5%)</th><th className="text-right p-2">Net</th></tr>
+              </thead>
+              <tbody>
+                {payeRows.map((r) => (
+                  <tr key={r.id} className="border-b">
+                    <td className="p-2 font-semibold">{r.full_name}</td>
+                    <td className="p-2">{r.tin || '—'}</td>
+                    <td className="p-2 text-right tabular-nums">{fmtUGX(r.gross)}</td>
+                    <td className="p-2 text-right tabular-nums">{fmtUGX(r.paye)}</td>
+                    <td className="p-2 text-right tabular-nums">{fmtUGX(r.nssf)}</td>
+                    <td className="p-2 text-right tabular-nums font-bold">{fmtUGX(r.net)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="border-t-2 font-black">
+                <tr>
+                  <td colSpan={2} className="p-2">TOTAL</td>
+                  <td className="p-2 text-right tabular-nums">{fmtUGX(totals.gross)}</td>
+                  <td className="p-2 text-right tabular-nums">{fmtUGX(totals.paye)}</td>
+                  <td className="p-2 text-right tabular-nums">{fmtUGX(totals.nssfEmp)}</td>
+                  <td className="p-2 text-right tabular-nums font-bold">{fmtUGX(totals.gross - totals.paye - totals.nssfEmp)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </section>
+
+          {/* NSSF */}
+          <section style={{ pageBreakAfter: 'always' }}>
+            <h2 className="text-lg font-black mb-2">NSSF Contributions — {month.label}</h2>
+            <table className="w-full text-sm border">
+              <tbody>
+                <tr className="border-b"><td className="p-2 font-bold">Employee contributions (5%)</td><td className="p-2 text-right">{fmtUGX(totals.nssfEmp)}</td></tr>
+                <tr className="border-b"><td className="p-2 font-bold">Employer contributions (10%)</td><td className="p-2 text-right">{fmtUGX(totals.nssfEmployer)}</td></tr>
+                <tr className="border-b"><td className="p-2 font-black">Total remittance</td><td className="p-2 text-right font-black">{fmtUGX(totals.nssfEmp + totals.nssfEmployer)}</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          {/* VAT / Income Summary */}
+          <section style={{ pageBreakAfter: 'always' }}>
+            <h2 className="text-lg font-black mb-2">Income & VAT — {month.label}</h2>
+            <table className="w-full text-sm border">
+              <tbody>
+                <tr className="border-b"><td className="p-2 font-bold">Total fee receipts</td><td className="p-2 text-right">{fmtUGX(totals.revenue)}</td></tr>
+                <tr className="border-b"><td className="p-2 font-bold">Approved expenses</td><td className="p-2 text-right">{fmtUGX(totals.expense)}</td></tr>
+                <tr className="border-b"><td className="p-2 font-bold">Estimated VAT (18% on taxable supplies)</td><td className="p-2 text-right">{fmtUGX(totals.revenue * 0.18 / 1.18)}</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          {/* Corporation Tax */}
+          <section>
+            <h2 className="text-lg font-black mb-2">Corporation Tax Estimate — {month.label}</h2>
+            <table className="w-full text-sm border">
+              <tbody>
+                <tr className="border-b"><td className="p-2 font-bold">Revenue</td><td className="p-2 text-right">{fmtUGX(totals.revenue)}</td></tr>
+                <tr className="border-b"><td className="p-2 font-bold">(–) Payroll cost (gross + employer NSSF)</td><td className="p-2 text-right">{fmtUGX(totals.gross + totals.nssfEmployer)}</td></tr>
+                <tr className="border-b"><td className="p-2 font-bold">(–) Approved operating expenses</td><td className="p-2 text-right">{fmtUGX(totals.expense)}</td></tr>
+                <tr className="border-b"><td className="p-2 font-black">Profit before tax</td><td className="p-2 text-right font-black">{fmtUGX(profit)}</td></tr>
+                <tr><td className="p-2 font-black">Corporation tax @ 30%</td><td className="p-2 text-right font-black">{fmtUGX(corpTax)}</td></tr>
+              </tbody>
+            </table>
+          </section>
         </div>
       </div>
     </DashboardLayout>

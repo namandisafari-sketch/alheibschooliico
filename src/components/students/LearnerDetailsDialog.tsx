@@ -10,26 +10,42 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  User, 
-  MapPin, 
-  Phone, 
-  Mail, 
-  Calendar, 
-  BookOpen, 
-  Wallet, 
-  ClipboardCheck, 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  User,
+  MapPin,
+  Phone,
+  Mail,
+  Calendar,
+  BookOpen,
+  Wallet,
+  ClipboardCheck,
   IdCard,
   Shield,
   School,
-  HeartPulse
+  HeartPulse,
+  Globe,
+  Users,
+  FileText,
+  Building2,
+  Hash,
+  Hand,
+  Award,
+  Badge
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { useLearnerDossier } from "@/hooks/useLearnerDossier";
+import { useLearnerDossier, DossierFilter } from "@/hooks/useLearnerDossier";
+import { useAcademicSettings } from "@/hooks/useAcademicSettings";
 import { PackageOpen, Clock, AlertCircle, History as HistoryIcon, Loader2, Scale, Printer, Pencil } from "lucide-react";
 import { formatUGX } from "@/hooks/useFees";
 import { EditLearnerDialog } from "./EditLearnerDialog";
@@ -41,16 +57,44 @@ interface LearnerDetailsDialogProps {
 }
 
 export function LearnerDetailsDialog({ student: basicStudent, open, onOpenChange }: LearnerDetailsDialogProps) {
-  const { data: dossier, isLoading } = useLearnerDossier(basicStudent?.id);
+  const { data: academicSettings } = useAcademicSettings();
+  const [selectedYear, setSelectedYear] = useState<string>(String(academicSettings?.current_year || new Date().getFullYear()));
+  const [selectedTerm, setSelectedTerm] = useState<string>(academicSettings?.current_term_id || "term_1");
+  const [filterAll, setFilterAll] = useState(false);
+
+  const filter: DossierFilter | undefined = filterAll ? undefined : {
+    academicYear: parseInt(selectedYear),
+    termId: selectedTerm,
+  };
+
+  const { data: dossier, isLoading } = useLearnerDossier(open ? basicStudent?.id : undefined, filter);
   const [showEdit, setShowEdit] = useState(false);
 
   if (!basicStudent) return null;
   const student = dossier?.learner || basicStudent;
 
+  const availableYears = dossier?.learner?.enrollment_date
+    ? Array.from({ length: new Date().getFullYear() - new Date(dossier.learner.enrollment_date).getFullYear() + 1 }, (_, i) =>
+        String(new Date(dossier.learner.enrollment_date).getFullYear() + i))
+    : [String(new Date().getFullYear())];
+
+  const termLabel = (t: string) => {
+    const map: Record<string, string> = { term_1: "Term I", term_2: "Term II", term_3: "Term III" };
+    return map[t] || t;
+  };
+
   const handlePrint = () => {
     const w = window.open("", "_blank", "width=900,height=700");
     if (!w) return;
     const fmt = (d: any) => d && !isNaN(new Date(d).getTime()) ? format(new Date(d), "PPP") : "—";
+    const a = dossier?.attendance || [];
+    const ms = dossier?.monthlySummary || [];
+    const present = a.filter((x: any) => x.status === "present").length;
+    const absent = a.filter((x: any) => x.status === "absent").length;
+    const late = a.filter((x: any) => x.status === "late").length;
+    const excused = a.filter((x: any) => x.status === "excused").length;
+    const pct = a.length ? Math.round((present / a.length) * 100) : 0;
+    const filterLabel = filterAll ? "All Terms" : `${selectedYear} - ${termLabel(selectedTerm)}`;
     w.document.write(`<html><head><title>Dossier - ${student.full_name}</title>
       <style>
         body{font-family:system-ui,sans-serif;padding:32px;color:#0f172a;}
@@ -62,38 +106,91 @@ export function LearnerDetailsDialog({ student: basicStudent, open, onOpenChange
         .val{font-weight:600;}
         .header{border-bottom:2px solid #0f172a;padding-bottom:12px;margin-bottom:8px;}
         .meta{font-size:11px;color:#64748b;margin-top:4px;}
+        table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
+        th{background:#f1f5f9;text-align:left;padding:8px 10px;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#64748b;}
+        td{padding:8px 10px;border-bottom:1px solid #e2e8f0;}
         .footer{margin-top:32px;font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0;padding-top:12px;}
+        .summary{display:flex;gap:16px;margin-top:8px;}
+        .summary-item{flex:1;padding:12px;border-radius:8px;text-align:center;}
+        .summary-item.present{background:#f0fdf4;color:#166534;}
+        .summary-item.absent{background:#fef2f2;color:#991b1b;}
+        .summary-item.late{background:#fffbeb;color:#92400e;}
+        .summary-item.excused{background:#f0f9ff;color:#075985;}
+        .summary-num{font-size:24px;font-weight:900;}
+        .summary-label{font-size:9px;text-transform:uppercase;letter-spacing:1px;}
       </style></head><body>
       <div class="header">
         <h1>${student.full_name}${student.arabic_name ? ' — ' + student.arabic_name : ''}</h1>
-        <div class="meta">ADM: ${student.admission_number || 'PENDING'} • ${student.class_name || 'Unassigned'} • ${student.religion || 'Islam'} • Status: ${student.status || 'Active'}</div>
+        <div class="meta">ADM: ${student.admission_number || 'PENDING'} • ${student.class_name || 'Unassigned'} • ${student.religion || 'Islam'} • Status: ${student.status || 'Active'} • Period: ${filterLabel}</div>
       </div>
       <h2>Personal Information</h2>
       <div class="grid">
+        <div class="row"><div class="label">Arabic Name</div><div class="val">${student.arabic_name || '—'}</div></div>
         <div class="row"><div class="label">Gender</div><div class="val">${student.gender || '—'}</div></div>
         <div class="row"><div class="label">Date of Birth</div><div class="val">${fmt(student.date_of_birth)}</div></div>
         <div class="row"><div class="label">Enrollment Date</div><div class="val">${fmt(student.enrollment_date)}</div></div>
-        <div class="row"><div class="label">Dormitory / House</div><div class="val">${student.house || '—'}</div></div>
-        <div class="row"><div class="label">District</div><div class="val">${student.district || '—'}</div></div>
+        <div class="row"><div class="label">Religion</div><div class="val">${student.religion || '—'}</div></div>
+        <div class="row"><div class="label">Dormitory</div><div class="val">${student.dormitory || student.house || '—'}</div></div>
+        <div class="row"><div class="label">Area</div><div class="val">${student.area || '—'}</div></div>
+        <div class="row"><div class="label">District</div><div class="val">${student.district || student.home_district || '—'}</div></div>
         <div class="row"><div class="label">Pupil Status</div><div class="val">${student.pupil_status || '—'}</div></div>
       </div>
       <h2>Guardian / Parental Info</h2>
       <div class="grid">
-        <div class="row"><div class="label">Guardian Name</div><div class="val">${student.guardian_name || '—'}</div></div>
-        <div class="row"><div class="label">Phone</div><div class="val">${student.guardian_phone || '—'}</div></div>
+        <div class="row"><div class="label">Guardian Name</div><div class="val">${student.guardian_name || student.parent_name || '—'}</div></div>
+        <div class="row"><div class="label">Phone</div><div class="val">${student.parent_phone || student.guardian_phone || '—'}</div></div>
+        <div class="row"><div class="label">Relationship</div><div class="val">${student.guardian_relationship || '—'}</div></div>
+        <div class="row"><div class="label">Father's Name</div><div class="val">${student.father_name || '—'}</div></div>
+        <div class="row"><div class="label">Mother's Name</div><div class="val">${student.mother_name || '—'}</div></div>
       </div>
-      <h2>Finance Summary</h2>
+      <h2>Sponsorship</h2>
+      <div class="grid">
+        <div class="row"><div class="label">Sponsorship No.</div><div class="val">${student.sponsorship_number || '—'}</div></div>
+        <div class="row"><div class="label">Type</div><div class="val">${student.sponsorship_type || '—'}</div></div>
+        <div class="row"><div class="label">Agency</div><div class="val">${student.sponsorship_agency || '—'}</div></div>
+        <div class="row"><div class="label">NIRA Document</div><div class="val">${student.nira_document_type || '—'}</div></div>
+      </div>
+      <h2>Attendance (${filterLabel})</h2>
+      <div class="summary">
+        <div class="summary-item present"><div class="summary-num">${present}</div><div class="summary-label">Present</div></div>
+        <div class="summary-item absent"><div class="summary-num">${absent}</div><div class="summary-label">Absent</div></div>
+        <div class="summary-item late"><div class="summary-num">${late}</div><div class="summary-label">Late</div></div>
+        <div class="summary-item excused"><div class="summary-num">${excused}</div><div class="summary-label">Excused</div></div>
+        <div class="summary-item" style="background:#f1f5f9;color:#0f172a;"><div class="summary-num">${pct}%</div><div class="summary-label">Rate</div></div>
+      </div>
+      ${ms.length > 0 ? `
+      <h2>Monthly Breakdown</h2>
+      <table>
+        <thead><tr><th>Month</th><th>Present</th><th>Absent</th><th>Late</th><th>Excused</th><th>Total</th></tr></thead>
+        <tbody>
+          ${ms.map((m: any) => {
+            const tot = m.present + m.absent + m.late + m.excused;
+            return `<tr><td>${m.month}</td><td>${m.present}</td><td>${m.absent}</td><td>${m.late}</td><td>${m.excused}</td><td>${tot}</td></tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+      ` : ''}
+      ${(dossier?.discipline || []).length > 0 ? `
+      <h2>Discipline Cases (${filterLabel})</h2>
+      ${dossier.discipline.map((c: any) => `
+      <div style="border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-top:8px;">
+        <p style="font-weight:700;font-size:13px;">${c.incident_type} — ${c.severity}</p>
+        <p style="font-size:11px;color:#64748b;">${fmt(c.incident_date)}</p>
+        <p style="font-size:12px;margin-top:4px;">${c.description || ''}</p>
+        <p style="font-size:11px;margin-top:4px;"><strong>Action:</strong> ${c.action_taken || 'Pending'}</p>
+      </div>`).join('')}
+      ` : ''}
+      <h2>Finance Summary (${filterLabel})</h2>
       <div class="grid">
         <div class="row"><div class="label">Total Fees</div><div class="val">${formatUGX(dossier?.financials?.totalFees || 0)}</div></div>
         <div class="row"><div class="label">Total Paid</div><div class="val">${formatUGX(dossier?.financials?.totalPaid || 0)}</div></div>
         <div class="row"><div class="label">Balance</div><div class="val">${formatUGX(dossier?.financials?.balance || 0)}</div></div>
       </div>
-      <div class="footer">Property of Alheib Mixed Day & Boarding School • Generated ${format(new Date(), "PPP p")}</div>
+      <div class="footer">Property of Alheib Mixed Day & Boarding School • Generated ${format(new Date(), "PPP p")} • Period: ${filterLabel}</div>
       </body></html>`);
     w.document.close();
     setTimeout(() => { w.focus(); w.print(); }, 300);
   };
-
 
   return (
     <>
@@ -117,19 +214,40 @@ export function LearnerDetailsDialog({ student: basicStudent, open, onOpenChange
                   {student.status || "Active"}
                 </Badge>
               </div>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-400 text-sm">
-                <div className="flex items-center gap-1.5 font-bold">
+              <div className="flex items-center gap-4 mt-2">
+                <div className="flex items-center gap-1.5 text-slate-400 text-sm font-bold">
                   <School className="h-3.5 w-3.5" />
                   {student.class_name || "Unassigned"}
                 </div>
-                <div className="flex items-center gap-1.5 font-bold">
+                <div className="flex items-center gap-1.5 text-slate-400 text-sm font-bold">
                   <IdCard className="h-3.5 w-3.5" />
                   ADM: {student.admission_number || "PENDING"}
                 </div>
-                <div className="flex items-center gap-1.5 font-bold">
-                  <Shield className="h-3.5 w-3.5" />
-                  {student.religion || "Islam"}
-                </div>
+              </div>
+              {/* Period Filter */}
+              <div className="flex items-center gap-2 mt-2">
+                <Select value={selectedYear} onValueChange={setSelectedYear}>
+                  <SelectTrigger className="h-7 w-28 bg-white/10 border-white/20 text-white text-[10px] font-bold uppercase">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableYears.map((y) => (
+                      <SelectItem key={y} value={y}>{y}</SelectItem>
+                    ))}
+                    <SelectItem value="all">All Years</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={filterAll ? "all" : selectedTerm} onValueChange={(v) => { if (v === "all") { setFilterAll(true); } else { setFilterAll(false); setSelectedTerm(v); } }}>
+                  <SelectTrigger className="h-7 w-28 bg-white/10 border-white/20 text-white text-[10px] font-bold uppercase">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="term_1">Term I</SelectItem>
+                    <SelectItem value="term_2">Term II</SelectItem>
+                    <SelectItem value="term_3">Term III</SelectItem>
+                    <SelectItem value="all">All Terms</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
@@ -166,40 +284,56 @@ export function LearnerDetailsDialog({ student: basicStudent, open, onOpenChange
           </div>
 
           <ScrollArea className="flex-1 p-6">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+              </div>
+            ) : (
+            <>
             <TabsContent value="bio" className="mt-0 space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Personal Info */}
-                <section className="space-y-4">
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Personal Information</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <InfoItem label="Gender" value={student.gender} icon={User} />
-                    <InfoItem label="Date of Birth" value={student.date_of_birth && !isNaN(new Date(student.date_of_birth).getTime()) ? format(new Date(student.date_of_birth), "PPP") : "Not Set"} icon={Calendar} />
-                    <InfoItem label="Religion" value={student.religion} icon={Shield} />
-                    <InfoItem label="Enrollment Date" value={student.enrollment_date && !isNaN(new Date(student.enrollment_date).getTime()) ? format(new Date(student.enrollment_date), "PPP") : "Not Set"} icon={Calendar} />
-                    <InfoItem label="Facility Type" value={student.boarding_status} icon={School} className="capitalize" />
-                    <InfoItem label="Pupil Status" value={student.pupil_status} icon={Badge} />
-                  </div>
-                </section>
+              <section className="space-y-4">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Personal Information</h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <InfoItem label="Arabic Name" value={student.arabic_name} icon={Globe} />
+                  <InfoItem label="Gender" value={student.gender} icon={User} />
+                  <InfoItem label="Date of Birth" value={student.date_of_birth && !isNaN(new Date(student.date_of_birth).getTime()) ? format(new Date(student.date_of_birth), "PPP") : "Not Set"} icon={Calendar} />
+                  <InfoItem label="Religion" value={student.religion} icon={Shield} />
+                  <InfoItem label="Enrollment Date" value={student.enrollment_date && !isNaN(new Date(student.enrollment_date).getTime()) ? format(new Date(student.enrollment_date), "PPP") : "Not Set"} icon={Calendar} />
+                  <InfoItem label="Pupil Status" value={student.pupil_status} icon={Badge} />
+                  <InfoItem label="Dormitory" value={student.dormitory} icon={Building2} />
+                  <InfoItem label="Area" value={student.area} icon={MapPin} />
+                  <InfoItem label="Home District" value={student.home_district} icon={MapPin} />
+                </div>
+              </section>
 
-                {/* Guardian Info */}
-                <section className="space-y-4">
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Guardian / Parental Info</h4>
-                  <div className="grid grid-cols-1 gap-4">
-                    <InfoItem label="Guardian Name" value={student.guardian_name} icon={User} />
+              <section className="space-y-4">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Guardian / Parental Info</h4>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h5 className="text-[9px] font-bold uppercase text-slate-400">Guardian</h5>
                     <div className="grid grid-cols-2 gap-4">
-                      <InfoItem label="Phone Number" value={student.guardian_phone} icon={Phone} />
-                      <InfoItem label="Relationship" value={student.relationship || "Parent"} icon={Shield} />
+                      <InfoItem label="Guardian Name" value={student.guardian_name || student.parent_name} icon={User} />
+                      <InfoItem label="Phone Number" value={student.parent_phone || student.guardian_phone} icon={Phone} />
+                      <InfoItem label="Relationship" value={student.guardian_relationship || "Parent"} icon={Shield} />
                     </div>
                   </div>
-                </section>
-              </div>
+                  <div className="space-y-4">
+                    <h5 className="text-[9px] font-bold uppercase text-slate-400">Parents</h5>
+                    <div className="grid grid-cols-2 gap-4">
+                      <InfoItem label="Father's Name" value={student.father_name} icon={User} />
+                      <InfoItem label="Mother's Name" value={student.mother_name} icon={User} />
+                    </div>
+                  </div>
+                </div>
+              </section>
 
-              {/* Location */}
               <section className="space-y-4">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Residential Information</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <InfoItem label="District" value={student.district} icon={MapPin} />
-                  <InfoItem label="Address" value={student.address} icon={MapPin} className="md:col-span-2" />
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Sponsorship Information</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <InfoItem label="Sponsorship No." value={student.sponsorship_number} icon={Hash} />
+                  <InfoItem label="Sponsorship Type" value={student.sponsorship_type} icon={Hand} />
+                  <InfoItem label="Sponsorship Agency" value={student.sponsorship_agency} icon={Award} />
+                  <InfoItem label="NIRA Document" value={student.nira_document_type} icon={FileText} />
                 </div>
               </section>
             </TabsContent>
@@ -213,25 +347,32 @@ export function LearnerDetailsDialog({ student: basicStudent, open, onOpenChange
             </TabsContent>
 
             <TabsContent value="finance" className="mt-0 space-y-6">
-               <div className="grid grid-cols-3 gap-4">
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                     <p className="text-[9px] font-black uppercase text-slate-400 mb-1">Total Fees</p>
-                     <p className="text-lg font-black text-slate-900">{formatUGX(dossier?.financials?.totalFees || 0)}</p>
-                  </div>
-                  <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
-                     <p className="text-[9px] font-black uppercase text-emerald-600 mb-1">Total Paid</p>
-                     <p className="text-lg font-black text-emerald-700">{formatUGX(dossier?.financials?.totalPaid || 0)}</p>
-                  </div>
-                  <div className={cn(
-                    "p-4 rounded-2xl border",
-                    (dossier?.financials?.balance || 0) > 0 ? "bg-red-50 border-red-100" : "bg-emerald-50 border-emerald-100"
-                  )}>
-                     <p className="text-[9px] font-black uppercase text-slate-400 mb-1">Balance</p>
-                     <p className={cn("text-lg font-black", (dossier?.financials?.balance || 0) > 0 ? "text-red-600" : "text-emerald-700")}>
-                        {formatUGX(dossier?.financials?.balance || 0)}
-                     </p>
-                  </div>
+               <div className="flex items-center justify-between">
+                 <div className="grid grid-cols-3 gap-4 flex-1">
+                   <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                      <p className="text-[9px] font-black uppercase text-slate-400 mb-1">Total Fees</p>
+                      <p className="text-lg font-black text-slate-900">{formatUGX(dossier?.financials?.totalFees || 0)}</p>
+                   </div>
+                   <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+                      <p className="text-[9px] font-black uppercase text-emerald-600 mb-1">Total Paid</p>
+                      <p className="text-lg font-black text-emerald-700">{formatUGX(dossier?.financials?.totalPaid || 0)}</p>
+                   </div>
+                   <div className={cn(
+                     "p-4 rounded-2xl border",
+                     (dossier?.financials?.balance || 0) > 0 ? "bg-red-50 border-red-100" : "bg-emerald-50 border-emerald-100"
+                   )}>
+                      <p className="text-[9px] font-black uppercase text-slate-400 mb-1">Balance</p>
+                      <p className={cn("text-lg font-black", (dossier?.financials?.balance || 0) > 0 ? "text-red-600" : "text-emerald-700")}>
+                         {formatUGX(dossier?.financials?.balance || 0)}
+                      </p>
+                   </div>
+                 </div>
                </div>
+               {!filterAll && (
+                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                   Showing payments for {selectedYear} - {termLabel(selectedTerm)}
+                 </p>
+               )}
 
                {dossier?.learner?.status !== 'active' && (
                  <div className="p-4 bg-orange-50 border border-orange-200 rounded-2xl flex items-center gap-4">
@@ -239,7 +380,7 @@ export function LearnerDetailsDialog({ student: basicStudent, open, onOpenChange
                     <div>
                        <p className="text-sm font-black text-orange-900 uppercase">Exit Summary</p>
                        <p className="text-xs text-orange-700">
-                         Learner left the school on {dossier?.exitDate ? format(new Date(dossier.exitDate), "PPP") : "Unknown Date"} with a 
+                         Learner left the school on {dossier?.exitDate ? format(new Date(dossier.exitDate), "PPP") : "Unknown Date"} with a
                          balance of {formatUGX(dossier?.financials?.balance || 0)}.
                        </p>
                     </div>
@@ -247,7 +388,7 @@ export function LearnerDetailsDialog({ student: basicStudent, open, onOpenChange
                )}
 
                <div className="space-y-3">
-                  <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Recent Payment History</h5>
+                  <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Payment History</h5>
                   {dossier?.financials?.payments?.length ? (
                     <div className="border rounded-xl overflow-hidden">
                        <table className="w-full text-xs">
@@ -273,7 +414,7 @@ export function LearnerDetailsDialog({ student: basicStudent, open, onOpenChange
                     </div>
                   ) : (
                     <div className="p-8 border-2 border-dashed rounded-3xl text-center text-slate-400">
-                       No payments recorded yet.
+                       No payments recorded for this period.
                     </div>
                   )}
                </div>
@@ -335,16 +476,94 @@ export function LearnerDetailsDialog({ student: basicStudent, open, onOpenChange
             </TabsContent>
 
             <TabsContent value="attendance" className="mt-0 space-y-6">
-               <div className="p-12 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center text-center text-slate-400">
+              {dossier?.attendance?.length > 0 ? (
+                <div className="space-y-6">
+                  {/* Attendance Summary Cards */}
+                  <div className="grid grid-cols-5 gap-3">
+                    <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-center">
+                      <p className="text-2xl font-black text-emerald-700">{dossier.attendanceSummary.present}</p>
+                      <p className="text-[9px] font-black uppercase text-emerald-600 tracking-widest">Present</p>
+                    </div>
+                    <div className="p-4 bg-red-50 rounded-2xl border border-red-100 text-center">
+                      <p className="text-2xl font-black text-red-700">{dossier.attendanceSummary.absent}</p>
+                      <p className="text-[9px] font-black uppercase text-red-600 tracking-widest">Absent</p>
+                    </div>
+                    <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 text-center">
+                      <p className="text-2xl font-black text-amber-700">{dossier.attendanceSummary.late}</p>
+                      <p className="text-[9px] font-black uppercase text-amber-600 tracking-widest">Late</p>
+                    </div>
+                    <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 text-center">
+                      <p className="text-2xl font-black text-blue-700">{dossier.attendanceSummary.excused}</p>
+                      <p className="text-[9px] font-black uppercase text-blue-600 tracking-widest">Excused</p>
+                    </div>
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-center">
+                      <p className="text-2xl font-black text-slate-700">
+                        {dossier.attendance.length > 0
+                          ? Math.round((dossier.attendanceSummary.present / dossier.attendanceSummary.total) * 100) + '%'
+                          : '—'}
+                      </p>
+                      <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Rate</p>
+                    </div>
+                  </div>
+                  {!filterAll && (
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      Showing attendance for {selectedYear} - {termLabel(selectedTerm)}
+                    </p>
+                  )}
+                  {/* Monthly Summary Table */}
+                  {dossier.monthlySummary?.length > 0 && (
+                    <div className="border rounded-xl overflow-hidden">
+                      <table className="w-full text-xs">
+                        <thead className="bg-slate-50 border-b">
+                          <tr className="text-left font-black uppercase text-[9px] tracking-widest text-slate-500">
+                            <th className="p-3">Month</th>
+                            <th className="p-3">Present</th>
+                            <th className="p-3">Absent</th>
+                            <th className="p-3">Late</th>
+                            <th className="p-3">Excused</th>
+                            <th className="p-3">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dossier.monthlySummary.map((m: any) => {
+                            const tot = m.present + m.absent + m.late + m.excused;
+                            return (
+                              <tr key={m.month} className="border-b last:border-0">
+                                <td className="p-3 font-bold">{format(new Date(m.month + '-01'), 'MMM yyyy')}</td>
+                                <td className="p-3 text-emerald-700 font-bold">{m.present}</td>
+                                <td className="p-3 text-red-700 font-bold">{m.absent}</td>
+                                <td className="p-3 text-amber-700 font-bold">{m.late}</td>
+                                <td className="p-3 text-blue-700 font-bold">{m.excused}</td>
+                                <td className="p-3 font-bold text-slate-700">{tot}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-12 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center text-center text-slate-400">
                   <ClipboardCheck className="h-12 w-12 mb-4 opacity-20" />
-                  <h5 className="font-black uppercase tracking-widest text-slate-900">Attendance Log</h5>
-                  <p className="text-sm mt-1 max-w-xs">A comprehensive view of presence and absence will appear here.</p>
-               </div>
+                  <h5 className="font-black uppercase tracking-widest text-slate-900">No Attendance Records</h5>
+                  <p className="text-sm mt-1 max-w-xs">
+                    {filterAll
+                      ? "No attendance records found for this learner."
+                      : `No attendance records for ${selectedYear} - ${termLabel(selectedTerm)}. Try selecting "All Terms".`}
+                  </p>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="discipline" className="mt-0 space-y-6">
                <div className="space-y-4">
                   <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Conduct & Discipline Incidents</h5>
+                  {!filterAll && (
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      Showing cases for {selectedYear} - {termLabel(selectedTerm)}
+                    </p>
+                  )}
                   {dossier?.discipline?.length ? (
                     <div className="space-y-4">
                        {dossier.discipline.map((case_item: any) => (
@@ -390,12 +609,16 @@ export function LearnerDetailsDialog({ student: basicStudent, open, onOpenChange
                     <div className="p-12 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center text-center text-slate-400">
                        <Shield className="h-12 w-12 mb-4 opacity-20 text-emerald-500" />
                        <p className="text-sm font-black uppercase tracking-widest text-slate-900">Exemplary Conduct</p>
-                       <p className="text-xs mt-1">No discipline cases found for this learner.</p>
+                       <p className="text-xs mt-1">
+                         {filterAll
+                           ? "No discipline cases found for this learner."
+                           : `No discipline cases for ${selectedYear} - ${termLabel(selectedTerm)}.`}
+                       </p>
                     </div>
                   )}
                </div>
             </TabsContent>
-            
+
             <TabsContent value="health" className="mt-0 space-y-6">
                <div className="p-12 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center text-center text-slate-400">
                   <HeartPulse className="h-12 w-12 mb-4 opacity-20" />
@@ -403,6 +626,8 @@ export function LearnerDetailsDialog({ student: basicStudent, open, onOpenChange
                   <p className="text-sm mt-1 max-w-xs">Infirmary visits, allergies, and health notes will appear here.</p>
                </div>
             </TabsContent>
+            </>
+            )}
           </ScrollArea>
         </Tabs>
 

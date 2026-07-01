@@ -17,7 +17,7 @@ export function DatabaseHealthCheck() {
     setLoading(true);
     setError(null);
     try {
-      const tables = ["learners", "profiles", "classes", "user_roles", "guardians", "staff", "attendance"];
+      const tables = ["learners", "profiles", "classes", "user_roles", "guardians", "attendance"];
       const results: Record<string, number | string> = {};
       
       for (const table of tables) {

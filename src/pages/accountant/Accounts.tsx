@@ -2,7 +2,7 @@
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wallet, Users, Globe, BarChart3, Plus, ChevronRight, ChevronDown, Edit2, Trash2, Loader2, Landmark, ArrowDownCircle, ArrowUpCircle, PieChart, Coins, User, Building2, Camera, History } from "lucide-react";
+import { Wallet, Users, Globe, BarChart3, Plus, ChevronRight, ChevronDown, Edit2, Trash2, Loader2, Landmark, ArrowDownCircle, ArrowUpCircle, PieChart, Coins, User, Building2, Camera, History, BookOpen, Search, Filter } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -40,11 +40,41 @@ const Accounts = () => {
   const [isAddingDonor, setIsAddingDonor] = useState(false);
   const [isAddingDonation, setIsAddingDonation] = useState(false);
   const [selectedDonor, setSelectedDonor] = useState<any>(null);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [activeReport, setActiveReport] = useState<string | null>(null);
 
   // Form State - Account
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState<Account['type']>("asset");
+
+  // General Ledger State
+  const [ledgerSearch, setLedgerSearch] = useState("");
+  const [expandedLedger, setExpandedLedger] = useState<Record<string, boolean>>({});
+
+  const toggleLedger = async (accountId: string) => {
+    if (expandedLedger[accountId]) {
+      setExpandedLedger(prev => ({ ...prev, [accountId]: false }));
+      return;
+    }
+    setExpandedLedger(prev => ({ ...prev, [accountId]: true }));
+    const acct = accounts?.find(a => a.id === accountId);
+    if (acct && !acct.journal_entries) {
+      (acct as any)._loading = true;
+      const { data } = await supabase
+        .from("journal_entries")
+        .select("*")
+        .eq("account_id", accountId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      (acct as any).journal_entries = data || [];
+      (acct as any)._loading = false;
+    }
+  };
+
+  const ledgerFiltered = (accounts || [])
+    .filter(a => !ledgerSearch || a.name.toLowerCase().includes(ledgerSearch.toLowerCase()) || a.code?.includes(ledgerSearch))
+    .slice(0, 30);
 
   // Form State - Donor
   const [donorName, setDonorName] = useState("");
@@ -186,6 +216,241 @@ const Accounts = () => {
     }
   });
 
+  const formatUGX = (value: any) => Number(value || 0).toLocaleString();
+
+  const loadPdfMake = async () => {
+    const pdfMakeModule: any = await import('pdfmake/build/pdfmake.js');
+    const pdfFontsModule: any = await import('pdfmake/build/vfs_fonts.js');
+    const pdfMake = pdfMakeModule.default || pdfMakeModule;
+    const pdfFonts = pdfFontsModule.default || pdfFontsModule;
+    if (!pdfFonts || typeof pdfFonts !== 'object') {
+      throw new Error('Unable to load pdfmake font data');
+    }
+    return { pdfMake, pdfFonts };
+  };
+
+  const fetchFinancialData = async () => {
+    const start = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+    const end = new Date().toISOString();
+
+    const [posRes, invoicesRes, runsRes, feesRes, advancesRes, projectsRes] = await Promise.all([
+      supabase.from("purchase_orders").select("id,title,total_amount,created_at,status,project_id").gte("created_at", start).lte("created_at", end),
+      supabase.from("petty_cash_invoices").select("id,invoice_number,amount,entered_at,run_id").gte("entered_at", start).lte("entered_at", end),
+      supabase.from("petty_cash_runs").select("id,project_id,total_float,opened_at,status").gte("opened_at", start).lte("opened_at", end),
+      supabase.from("fee_payments").select("id,amount,created_at,learner_id").gte("created_at", start).lte("created_at", end),
+      supabase.from("employee_advances").select("id,amount,outstanding_balance,stage,created_at").neq("stage", "completed").lte("created_at", end),
+      supabase.from("projects").select("id,name")
+    ]);
+
+    const error = [posRes, invoicesRes, runsRes, feesRes, advancesRes, projectsRes].find(r => r.error)?.error;
+    if (error) throw error;
+
+    return {
+      purchaseOrders: posRes.data || [],
+      pettyCashInvoices: invoicesRes.data || [],
+      pettyCashRuns: runsRes.data || [],
+      feePayments: feesRes.data || [],
+      advances: advancesRes.data || [],
+      projects: projectsRes.data || []
+    };
+  };
+
+  const generateReport = async (type: string) => {
+    setIsGeneratingReport(true);
+    setActiveReport(type);
+    try {
+      const { pdfMake, pdfFonts } = await loadPdfMake();
+      pdfMake.vfs = pdfFonts;
+      const { purchaseOrders, pettyCashInvoices, pettyCashRuns, feePayments, advances, projects } = await fetchFinancialData();
+
+      const projectNameById = new Map((projects || []).map((project: any) => [project.id, project.name]));
+      const revenue = feePayments.reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0);
+      const poExpenses = purchaseOrders.reduce((sum: number, po: any) => sum + Number(po.total_amount || 0), 0);
+      const pettyExpenses = pettyCashInvoices.reduce((sum: number, invoice: any) => sum + Number(invoice.amount || 0), 0);
+      const outflowRuns = pettyCashRuns.reduce((sum: number, run: any) => sum + Number(run.total_float || 0), 0);
+      const totalExpenses = poExpenses + pettyExpenses + outflowRuns;
+      const advanceLiabilities = advances.reduce((sum: number, adv: any) => sum + Number(adv.outstanding_balance || adv.amount || 0), 0);
+      const pettyCashBalance = pettyCashRuns.reduce((sum: number, run: any) => sum + Number(run.total_float || 0), 0);
+      const assets = Math.max(0, pettyCashBalance);
+      const liabilities = Math.max(0, advanceLiabilities);
+      const netIncome = revenue - totalExpenses;
+      const equity = assets - liabilities + netIncome;
+      const unpaidPurchaseTotal = purchaseOrders.filter((p: any) => p.status !== 'archived' && p.status !== 'approved').reduce((sum: number, p: any) => sum + Number(p.total_amount || 0), 0);
+
+      const projectMap = new Map<string, { expenses: number }>();
+      purchaseOrders.forEach((po: any) => {
+        const project = projectNameById.get(po.project_id) || 'Unassigned';
+        const current = projectMap.get(project) || { expenses: 0 };
+        current.expenses += Number(po.total_amount || 0);
+        projectMap.set(project, current);
+      });
+      pettyCashRuns.forEach((run: any) => {
+        const project = projectNameById.get(run.project_id) || 'Unassigned';
+        const current = projectMap.get(project) || { expenses: 0 };
+        current.expenses += Number(run.total_float || 0);
+        projectMap.set(project, current);
+      });
+
+      const projectRows = Array.from(projectMap.entries()).map(([project, totals]) => [
+        project,
+        { text: '0', alignment: 'right' },
+        { text: formatUGX(totals.expenses), alignment: 'right' },
+        { text: formatUGX(-totals.expenses), alignment: 'right' }
+      ]);
+
+      const cashFlowRows = [
+        [{ text: 'Date', style: 'tableHeader' }, { text: 'Source', style: 'tableHeader' }, { text: 'Type', style: 'tableHeader' }, { text: 'Amount (UGX)', style: 'tableHeader', alignment: 'right' }]
+      ];
+      feePayments.forEach((payment: any) => cashFlowRows.push([
+        new Date(payment.created_at).toLocaleDateString(),
+        'Student Fee',
+        'Inflow',
+        { text: formatUGX(payment.amount), alignment: 'right' }
+      ]));
+      purchaseOrders.forEach((po: any) => cashFlowRows.push([
+        new Date(po.created_at).toLocaleDateString(),
+        `PO ${po.id.slice(0,8)}`,
+        'Outflow',
+        { text: formatUGX(po.total_amount), alignment: 'right' }
+      ]));
+      pettyCashInvoices.forEach((invoice: any) => cashFlowRows.push([
+        new Date(invoice.entered_at).toLocaleDateString(),
+        `Petty Cash ${invoice.invoice_number || invoice.id.slice(0,8)}`,
+        'Outflow',
+        { text: formatUGX(invoice.amount), alignment: 'right' }
+      ]));
+      pettyCashRuns.forEach((run: any) => cashFlowRows.push([
+        new Date(run.opened_at).toLocaleDateString(),
+        `Cash Run ${run.id.slice(0,8)}`,
+        'Outflow',
+        { text: formatUGX(run.total_float), alignment: 'right' }
+      ]));
+
+      const cashTotals = {
+        inflow: feePayments.reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0),
+        outflow: purchaseOrders.reduce((sum: number, po: any) => sum + Number(po.total_amount || 0), 0) +
+                 pettyCashInvoices.reduce((sum: number, invoice: any) => sum + Number(invoice.amount || 0), 0) +
+                 pettyCashRuns.reduce((sum: number, run: any) => sum + Number(run.total_float || 0), 0),
+      };
+
+      const trialTotals = {
+        debit: assets + totalExpenses + (netIncome < 0 ? Math.abs(netIncome) : 0),
+        credit: liabilities + revenue + (netIncome >= 0 ? netIncome : 0)
+      };
+
+      const start = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      const end = new Date();
+      const periodText = `${start.toLocaleDateString()} – ${end.toLocaleDateString()}`;
+
+      const sections: any[] = [];
+      let filename = `accounting-report-${type}-${new Date().toISOString().slice(0,10)}.pdf`;
+      let title = '';
+      switch (type) {
+        case 'trial-balance':
+          title = 'Trial Balance';
+          sections.push({ text: 'Trial Balance', style: 'sectionHeader', margin: [0, 18, 0, 8] });
+          sections.push({ table: { headerRows: 1, widths: ['*', 'auto', 'auto'], body: [
+            [{ text: 'Account', style: 'tableHeader' }, { text: 'Debit', style: 'tableHeader', alignment: 'right' }, { text: 'Credit', style: 'tableHeader', alignment: 'right' }],
+            ['Cash & Petty Cash', { text: formatUGX(assets), alignment: 'right' }, ''],
+            ['Outstanding Advances', '', { text: formatUGX(liabilities), alignment: 'right' }],
+            ['Revenue', '', { text: formatUGX(revenue), alignment: 'right' }],
+            ['Expenses', { text: formatUGX(totalExpenses), alignment: 'right' }, ''],
+            ['Net Income', netIncome >= 0 ? '' : { text: formatUGX(Math.abs(netIncome)), alignment: 'right' } , netIncome >= 0 ? { text: formatUGX(netIncome), alignment: 'right' } : '']
+          ] }, layout: 'lightHorizontalLines' });
+          sections.push({ table: { widths: ['*', 'auto', 'auto'], body: [[{ text: 'Totals', style: 'tableTotal', alignment: 'right' }, { text: formatUGX(assets + totalExpenses + (netIncome < 0 ? Math.abs(netIncome) : 0)), style: 'tableTotal', alignment: 'right' }, { text: formatUGX(liabilities + revenue + (netIncome >= 0 ? netIncome : 0)), style: 'tableTotal', alignment: 'right' }]] }, layout: 'lightHorizontalLines', margin: [0, 4, 0, 0] });
+          sections.push({ text: trialTotalsMessage(trialTotals), style: 'notes' });
+          break;
+        case 'pl-statement':
+          title = 'Profit & Loss Statement';
+          sections.push({ text: 'Income Summary', style: 'sectionHeader', margin: [0, 18, 0, 8] });
+          sections.push({ table: { widths: ['*', 'auto'], body: [
+            [{ text: 'Revenue', style: 'tableHeader' }, { text: 'Amount (UGX)', style: 'tableHeader', alignment: 'right' }],
+            ['Fee Collections', { text: formatUGX(revenue), alignment: 'right' }],
+            ['Total Expenses', { text: formatUGX(totalExpenses), alignment: 'right' }],
+            ['Net Income', { text: formatUGX(netIncome), alignment: 'right' }]
+          ] }, layout: 'lightHorizontalLines' });
+          sections.push({ text: 'Project-wise Profit & Loss', style: 'sectionHeader', margin: [0, 18, 0, 8] });
+          sections.push({ table: { widths: ['*', 'auto', 'auto', 'auto'], body: [
+            [{ text: 'Project', style: 'tableHeader' }, { text: 'Revenue', style: 'tableHeader', alignment: 'right' }, { text: 'Expense', style: 'tableHeader', alignment: 'right' }, { text: 'Net', style: 'tableHeader', alignment: 'right' }],
+            ...projectRows
+          ] }, layout: 'lightHorizontalLines' });
+          break;
+        case 'balance-sheet':
+          title = 'Balance Sheet';
+          sections.push({ text: 'Assets vs Liabilities Snapshot', style: 'sectionHeader', margin: [0, 18, 0, 8] });
+          sections.push({ table: { widths: ['*', 'auto'], body: [
+             [{ text: 'Category', style: 'tableHeader' }, { text: 'Amount (UGX)', style: 'tableHeader', alignment: 'right' }],
+             ['Cash & Petty Cash', { text: formatUGX(assets), alignment: 'right' }],
+             ['Receivables / Other Assets', { text: '0', alignment: 'right' }],
+             ['Outstanding Advances', { text: formatUGX(liabilities), alignment: 'right' }],
+             ['Unpaid Purchase Orders', { text: formatUGX(unpaidPurchaseTotal), alignment: 'right' }],
+             ['Equity', { text: formatUGX(equity), alignment: 'right' }]
+          ] }, layout: 'lightHorizontalLines' });
+          sections.push({ text: 'Balance Check', style: 'sectionHeader', margin: [0, 18, 0, 8] });
+          sections.push({ text: `Assets (${formatUGX(assets)}) ${assets === liabilities + equity ? 'equal' : 'do not equal'} Liabilities + Equity (${formatUGX(liabilities + equity)})`, style: 'notes' });
+          break;
+        case 'cash-flow':
+          title = 'Cash Flow Statement';
+          sections.push({ text: 'Inflow and Outflow Tracking', style: 'sectionHeader', margin: [0, 18, 0, 8] });
+          sections.push({ table: { widths: ['auto', '*', 'auto', 'auto'], body: cashFlowRows }, layout: 'lightHorizontalLines' });
+          sections.push({ table: { widths: ['*', 'auto'], body: [
+            [{ text: 'Total Inflow', style: 'tableHeader' }, { text: formatUGX(cashTotals.inflow), style: 'tableHeader', alignment: 'right' }],
+            [{ text: 'Total Outflow', style: 'tableHeader' }, { text: formatUGX(cashTotals.outflow), style: 'tableHeader', alignment: 'right' }],
+            [{ text: 'Net Cash Movement', style: 'tableHeader' }, { text: formatUGX(cashTotals.inflow - cashTotals.outflow), style: 'tableHeader', alignment: 'right' }]
+          ] }, layout: 'lightHorizontalLines', margin: [0, 12, 0, 0] });
+          break;
+        default:
+          throw new Error('Unknown report type');
+      }
+
+      const docDefinition: any = {
+        pageSize: 'A4',
+        pageMargins: [40, 60, 40, 60],
+        footer: (currentPage: number, pageCount: number) => ({
+          columns: [
+            { text: `Generated ${new Date().toLocaleString()}`, alignment: 'left', margin: [40, 0, 0, 0], style: 'footer' },
+            { text: `Page ${currentPage} of ${pageCount}`, alignment: 'right', margin: [0, 0, 40, 0], style: 'footer' }
+          ]
+        }),
+        content: [
+          { text: 'Alheib Financial Ecosystem & Procurement Control', style: 'title' },
+          { text: title, style: 'header' },
+          { text: `Period: ${periodText}`, style: 'subTitle' },
+          { text: `Prepared by: Accountant`, style: 'meta', margin: [0, 0, 0, 12] },
+          ...sections,
+          { text: '\nUse this report for internal finance monitoring. Reconcile the totals against live ledger entries.', style: 'notes' }
+        ],
+        styles: {
+          title: { fontSize: 16, bold: true, margin: [0, 0, 0, 8] },
+          header: { fontSize: 12, bold: true, color: '#1e293b', margin: [0, 0, 0, 6] },
+          subTitle: { fontSize: 10, color: '#475569' },
+          meta: { fontSize: 9, color: '#64748b' },
+          sectionHeader: { fontSize: 11, bold: true, color: '#0f172a' },
+          tableHeader: { bold: true, fontSize: 10, color: '#ffffff', fillColor: '#0f172a' },
+          tableCell: { fontSize: 9, color: '#0f172a' },
+          tableTotal: { bold: true, fontSize: 10, fillColor: '#f8fafc' },
+          notes: { fontSize: 9, color: '#475569', italics: true },
+          footer: { fontSize: 8, color: '#94a3b8' }
+        }
+      };
+
+      pdfMake.createPdf(docDefinition).download(filename);
+      toast.success(`${title} generated successfully`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.message || 'Unable to generate report');
+    } finally {
+      setIsGeneratingReport(false);
+      setActiveReport(null);
+    }
+  };
+
+  const trialTotalsMessage = (totals: { debit: number; credit: number}) => {
+    return totals.debit === totals.credit
+      ? 'Trial balance is in parity. Debits and credits are equal.'
+      : `Parity warning: debits (${formatUGX(totals.debit)}) do not equal credits (${formatUGX(totals.credit)})`;
+  };
+
   const toggleNode = (id: string) => {
     const next = new Set(expandedNodes);
     if (next.has(id)) next.delete(id);
@@ -292,17 +557,20 @@ const Accounts = () => {
   return (
     <DashboardLayout title={t("finance")} subtitle="Manage hierarchical ledger and financial organization">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 h-auto p-1 bg-slate-100 rounded-2xl">
-          <TabsTrigger value="chart" className="gap-2 rounded-xl py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-            <Wallet className="h-4 w-4" /> Ledger Tree
+        <TabsList className="grid w-full grid-cols-5 h-auto p-1 bg-slate-100 rounded-2xl">
+          <TabsTrigger value="chart" className="gap-1 rounded-xl py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs">
+            <Wallet className="h-4 w-4" /> Chart
           </TabsTrigger>
-          <TabsTrigger value="donors" className="gap-2 rounded-xl py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="ledger" className="gap-1 rounded-xl py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs">
+            <BookOpen className="h-4 w-4" /> General Ledger
+          </TabsTrigger>
+          <TabsTrigger value="donors" className="gap-1 rounded-xl py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs">
             <Users className="h-4 w-4" /> Donors
           </TabsTrigger>
-          <TabsTrigger value="currency" className="gap-2 rounded-xl py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="currency" className="gap-1 rounded-xl py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs">
             <Globe className="h-4 w-4" /> Rates
           </TabsTrigger>
-          <TabsTrigger value="reports" className="gap-2 rounded-xl py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="reports" className="gap-1 rounded-xl py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs">
             <BarChart3 className="h-4 w-4" /> Reports
           </TabsTrigger>
         </TabsList>
@@ -332,6 +600,106 @@ const Accounts = () => {
                   <p className="text-sm mt-1">Start by adding root accounts for Assets, Liabilities, etc.</p>
                </div>
              )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="ledger" className="mt-6 space-y-6">
+          <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+              <div>
+                <h2 className="text-xl font-black uppercase tracking-tight text-slate-900">General Ledger</h2>
+                <p className="text-sm text-slate-500 font-medium">Drill into journal entries by account.</p>
+              </div>
+              <div className="flex gap-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    placeholder="Search accounts..."
+                    value={ledgerSearch}
+                    onChange={e => setLedgerSearch(e.target.value)}
+                    className="h-10 pl-9 rounded-xl w-48"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4">
+              {loadingAccounts ? (
+                <div className="py-12 flex justify-center"><Loader2 className="animate-spin text-slate-200" /></div>
+              ) : ledgerFiltered.length === 0 ? (
+                <div className="py-12 text-center text-slate-400">No accounts found.</div>
+              ) : ledgerFiltered.map(acct => {
+                const jeBalance = (acct.journal_entries || []).reduce((s: number, je: any) => {
+                  return s + (je.debit || 0) - (je.credit || 0);
+                }, 0);
+                return (
+                  <div key={acct.id} className="border border-slate-100 rounded-2xl overflow-hidden">
+                    <button
+                      onClick={() => toggleLedger(acct.id)}
+                      className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "h-8 w-8 rounded-lg flex items-center justify-center text-xs font-black",
+                          acct.type === 'asset' ? 'bg-emerald-100 text-emerald-700' :
+                          acct.type === 'liability' ? 'bg-amber-100 text-amber-700' :
+                          acct.type === 'equity' ? 'bg-indigo-100 text-indigo-700' :
+                          acct.type === 'income' ? 'bg-blue-100 text-blue-700' :
+                          'bg-red-100 text-red-700'
+                        )}>{acct.code}</div>
+                        <div className="text-left">
+                          <p className="text-sm font-bold text-slate-900">{acct.name}</p>
+                          <p className="text-[10px] text-slate-400 uppercase font-black">{acct.type}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-6">
+                        <div className="text-right">
+                          <p className="text-xs text-slate-400">Balance</p>
+                          <p className={cn("text-sm font-black font-mono", jeBalance >= 0 ? 'text-emerald-600' : 'text-red-600')}>
+                            {Math.abs(jeBalance).toLocaleString()} {jeBalance < 0 ? '(Cr)' : '(Dr)'}
+                          </p>
+                        </div>
+                        {expandedLedger[acct.id] ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
+                      </div>
+                    </button>
+                    {expandedLedger[acct.id] && (
+                      <div className="border-t border-slate-50 bg-slate-50/30">
+                        {acct._loading ? (
+                          <div className="p-6 text-center"><Loader2 className="animate-spin h-5 w-5 mx-auto text-slate-300" /></div>
+                        ) : (acct.journal_entries || []).length === 0 ? (
+                          <div className="p-6 text-center text-sm text-slate-400">No journal entries for this account.</div>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                              <thead>
+                                <tr className="text-[10px] font-black uppercase text-slate-400 border-b border-slate-100">
+                                  <th className="px-6 py-3">Date</th>
+                                  <th className="px-6 py-3">Description</th>
+                                  <th className="px-6 py-3">Reference</th>
+                                  <th className="px-6 py-3 text-right">Debit</th>
+                                  <th className="px-6 py-3 text-right">Credit</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-50">
+                                {acct.journal_entries.map((je: any) => (
+                                  <tr key={je.id} className="hover:bg-white transition-colors">
+                                    <td className="px-6 py-3 text-slate-500 text-xs">{format(new Date(je.created_at), 'dd MMM yy')}</td>
+                                    <td className="px-6 py-3 font-medium text-slate-700">{je.description || je.reference || '-'}</td>
+                                    <td className="px-6 py-3 font-mono text-[10px] text-slate-400">{je.reference || je.id.slice(0, 8)}</td>
+                                    <td className="px-6 py-3 text-right font-mono font-bold text-emerald-700">{je.debit ? Number(je.debit).toLocaleString() : '-'}</td>
+                                    <td className="px-6 py-3 text-right font-mono font-bold text-red-700">{je.credit ? Number(je.credit).toLocaleString() : '-'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </TabsContent>
 
@@ -512,17 +880,26 @@ const Accounts = () => {
         <TabsContent value="reports" className="mt-6">
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { title: 'Trial Balance', desc: 'Debits & Credits parity check', color: 'bg-indigo-500' },
-                { title: 'P&L Statement', desc: 'Project-wise profit and loss', color: 'bg-emerald-500' },
-                { title: 'Balance Sheet', desc: 'Assets vs Liabilities snapshot', color: 'bg-slate-900' },
-                { title: 'Cash Flow', desc: 'Inflow and outflow tracking', color: 'bg-amber-500' },
+                { title: 'Trial Balance', desc: 'Debits & Credits parity check', color: 'bg-indigo-500', type: 'trial-balance' },
+                { title: 'P&L Statement', desc: 'Project-wise profit and loss', color: 'bg-emerald-500', type: 'pl-statement' },
+                { title: 'Balance Sheet', desc: 'Assets vs Liabilities snapshot', color: 'bg-slate-900', type: 'balance-sheet' },
+                { title: 'Cash Flow', desc: 'Inflow and outflow tracking', color: 'bg-amber-500', type: 'cash-flow' },
               ].map(rep => (
-                <Button key={rep.title} variant="outline" className="h-auto p-6 rounded-[32px] border-slate-100 flex flex-col items-start text-left hover:border-slate-900 transition-all group">
+                <Button
+                  key={rep.title}
+                  variant="outline"
+                  disabled={isGeneratingReport}
+                  onClick={() => generateReport(rep.type)}
+                  className="h-auto p-6 rounded-[32px] border-slate-100 flex flex-col items-start text-left hover:border-slate-900 transition-all group"
+                >
                    <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center text-white mb-4 shadow-lg group-hover:scale-110 transition-transform", rep.color)}>
                       <BarChart3 className="h-5 w-5" />
                    </div>
                    <h4 className="font-black text-slate-900 uppercase tracking-tight">{rep.title}</h4>
                    <p className="text-xs text-slate-400 font-medium mt-1">{rep.desc}</p>
+                   {isGeneratingReport && activeReport === rep.type ? (
+                     <span className="mt-4 text-[11px] uppercase tracking-[0.2em] text-slate-500">Generating report…</span>
+                   ) : null}
                 </Button>
               ))}
            </div>

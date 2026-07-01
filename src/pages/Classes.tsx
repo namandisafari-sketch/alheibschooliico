@@ -1,14 +1,37 @@
+import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Users, BookOpen, Plus, MapPin, Loader2 } from "lucide-react";
-import { useClasses } from "@/hooks/useClasses";
+import { Users, BookOpen, Plus, MapPin, Loader2, Trash2 } from "lucide-react";
+import { useClasses, useDeleteClass } from "@/hooks/useClasses";
 import { AddClassDialog } from "@/components/classes/AddClassDialog";
 import { useNavigate } from "react-router-dom";
+import { useAcademicSettings } from "@/hooks/useAcademicSettings";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "@/hooks/use-toast";
+import { PasswordConfirmDialog } from "@/components/ui/PasswordConfirmDialog";
 
 const Classes = () => {
   const navigate = useNavigate();
   const { data: classes = [], isLoading, error } = useClasses();
+  const { data: academicSettings } = useAcademicSettings();
+  const [deleteClassId, setDeleteClassId] = useState<string | null>(null);
+  const deleteClass = useDeleteClass();
+  const deletingClass = classes.find((c) => c.id === deleteClassId);
+
+  const currentTermId = academicSettings?.current_term_id ?? "term_1";
+  const terms = academicSettings?.terms ?? [];
+  const termName = terms.find((t: any) => t.id === currentTermId)?.name ?? "Term I";
+  const currentYear = academicSettings?.current_year ?? new Date().getFullYear();
 
   return (
     <DashboardLayout title="Classes" subtitle="Uganda New Curriculum - P1 to P7 Structure">
@@ -16,7 +39,7 @@ const Classes = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <p className="text-sm text-muted-foreground">{classes.length} active classes</p>
-          <p className="text-xs text-muted-foreground">Term 3, 2024 Academic Year</p>
+          <p className="text-xs text-muted-foreground">{termName}, {currentYear} Academic Year</p>
         </div>
         <AddClassDialog>
           <Button size="sm" className="w-full sm:w-auto">
@@ -113,6 +136,14 @@ const Classes = () => {
                         Manage
                       </Button>
                     </AddClassDialog>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive hover:text-destructive border-destructive/20 hover:border-destructive/40"
+                      onClick={() => setDeleteClassId(cls.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 </div>
               );
@@ -120,6 +151,31 @@ const Classes = () => {
           </div>
         )}
       </div>
+
+      {/* Delete Class Confirmation */}
+      <PasswordConfirmDialog
+        open={!!deleteClassId}
+        onOpenChange={(open) => { if (!open) setDeleteClassId(null); }}
+        title="Delete Class?"
+        description={
+          <div>
+            <p>This will permanently delete <strong>{deletingClass?.name}</strong>.</p>
+            {deletingClass && deletingClass.student_count > 0 && (
+              <p className="mt-2 text-destructive font-medium">
+                Warning: This class has {deletingClass.student_count} learner(s) assigned to it.
+              </p>
+            )}
+            <p className="mt-2">This action cannot be undone.</p>
+          </div>
+        }
+        actionLabel="Delete"
+        loading={deleteClass.isPending}
+        onSuccess={async () => {
+          if (!deleteClassId) return;
+          await deleteClass.mutateAsync(deleteClassId);
+          toast({ title: "Class deleted", description: (deletingClass?.name || '') + ' has been removed.' });
+        }}
+      />
     </DashboardLayout>
   );
 };

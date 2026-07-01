@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ import {
   useSalaryPayments,
   useCreateSalaryRecord,
   useCreateSalaryPayment,
+  SalaryPayment,
 } from "@/hooks/useSalary";
 import {
   DollarSign,
@@ -46,15 +47,22 @@ import {
   TrendingUp,
   Users,
   CreditCard,
+  Printer,
 } from "lucide-react";
+import { useReactToPrint } from "react-to-print";
 import { format } from "date-fns";
 import { getUgandaDateString } from "@/lib/ugandaTime";
+import { SalaryReceipt } from "@/components/finance/SalaryReceipt";
 
 const Salary = () => {
   const { t, isRTL } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [salaryDialogOpen, setSalaryDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
+  const [receiptPayment, setReceiptPayment] = useState<SalaryPayment | null>(null);
+  const receiptRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({ contentRef: receiptRef as any });
 
   const { data: staff = [] } = useAllStaff();
   const { data: salaryRecords = [], isLoading: loadingRecords } = useSalaryRecords();
@@ -113,9 +121,11 @@ const Salary = () => {
 
   const handleCreatePayment = async () => {
     try {
-      await createPayment.mutateAsync(newPayment);
+      const paymentResult = await createPayment.mutateAsync(newPayment);
       toast.success(t("success"));
       setPaymentDialogOpen(false);
+      setReceiptPayment(paymentResult);
+      setReceiptDialogOpen(true);
       setNewPayment({
         salary_record_id: "",
         staff_id: "",
@@ -454,22 +464,24 @@ const Salary = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="text-xs sm:text-sm">{t("name")}</TableHead>
+                      <TableHead className="text-xs sm:text-sm">Receipt</TableHead>
                       <TableHead className="text-xs sm:text-sm">{isRTL ? "المبلغ" : "Amount"}</TableHead>
                       <TableHead className="hidden sm:table-cell text-xs sm:text-sm">{t("paymentDate")}</TableHead>
                       <TableHead className="hidden md:table-cell text-xs sm:text-sm">{t("paymentMethod")}</TableHead>
                       <TableHead className="text-xs sm:text-sm">{isRTL ? "الحالة" : "Status"}</TableHead>
+                      <TableHead className="text-xs sm:text-sm">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loadingPayments ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-sm">
+                        <TableCell colSpan={7} className="text-center py-8 text-sm">
                           {t("loading")}
                         </TableCell>
                       </TableRow>
                     ) : payments.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-sm">
+                        <TableCell colSpan={7} className="text-center py-8 text-sm">
                           {t("noData")}
                         </TableCell>
                       </TableRow>
@@ -484,6 +496,7 @@ const Salary = () => {
                               </span>
                             </div>
                           </TableCell>
+                          <TableCell className="text-xs font-mono text-left">{payment.receipt_number || payment.id.slice(0, 8)}</TableCell>
                           <TableCell className="font-bold text-sm">{formatCurrency(payment.amount)}</TableCell>
                           <TableCell className="hidden sm:table-cell text-sm">{format(new Date(payment.payment_date), "PPP")}</TableCell>
                           <TableCell className="hidden md:table-cell">
@@ -502,6 +515,11 @@ const Salary = () => {
                               {payment.status === "completed" ? (isRTL ? "✓" : "✓") : (isRTL ? "..." : "...")}
                             </Badge>
                           </TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" onClick={() => { setReceiptPayment(payment); setReceiptDialogOpen(true); }}>
+                              <Printer className="h-3.5 w-3.5" />
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))
                     )}
@@ -509,6 +527,22 @@ const Salary = () => {
                 </Table>
               </CardContent>
             </Card>
+
+            <Dialog open={receiptDialogOpen} onOpenChange={(open) => { setReceiptDialogOpen(open); if (!open) setReceiptPayment(null); }}>
+              <DialogContent className="max-w-md p-4">
+                <DialogHeader className="sr-only">
+                  <DialogTitle>Salary Payment Receipt</DialogTitle>
+                </DialogHeader>
+                <div className="flex justify-end mb-2">
+                  <Button size="sm" onClick={handlePrint}><Printer className="h-4 w-4 mr-1" /> Print</Button>
+                </div>
+                {receiptPayment && (
+                  <div className="max-h-[70vh] overflow-y-auto no-scrollbar">
+                    <SalaryReceipt ref={receiptRef} receipt={receiptPayment} />
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
           </TabsContent>
         </Tabs>
       </div>

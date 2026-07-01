@@ -1,0 +1,20 @@
+-- Enable realtime for all key application tables
+ALTER PUBLICATION supabase_realtime ADD TABLE IF NOT EXISTS public.classes;
+ALTER PUBLICATION supabase_realtime ADD TABLE IF NOT EXISTS public.fee_payments;
+ALTER PUBLICATION supabase_realtime ADD TABLE IF NOT EXISTS public.fee_structures;
+ALTER PUBLICATION supabase_realtime ADD TABLE IF NOT EXISTS public.fee_assignments;
+ALTER PUBLICATION supabase_realtime ADD TABLE IF NOT EXISTS public.guardians;
+ALTER PUBLICATION supabase_realtime ADD TABLE IF NOT EXISTS public.inventory_items;
+ALTER PUBLICATION supabase_realtime ADD TABLE IF NOT EXISTS public.inventory_transactions;
+ALTER PUBLICATION supabase_realtime ADD TABLE IF NOT EXISTS public.term_results;
+ALTER PUBLICATION supabase_realtime ADD TABLE IF NOT EXISTS public.exam_series;
+ALTER PUBLICATION supabase_realtime ADD TABLE IF NOT EXISTS public.exam_timetable;
+ALTER PUBLICATION supabase_realtime ADD TABLE IF NOT EXISTS public.notification_templates;
+ALTER PUBLICATION supabase_realtime ADD TABLE IF NOT EXISTS public.subjects;
+ALTER PUBLICATION supabase_realtime ADD TABLE IF NOT EXISTS public.lesson_plans;
+ALTER PUBLICATION supabase_realtime ADD TABLE IF NOT EXISTS public.homework;
+ALTER PUBLICATION supabase_realtime ADD TABLE IF NOT EXISTS public.library_books;
+ALTER PUBLICATION supabase_realtime ADD TABLE IF NOT EXISTS public.visitors;
+ALTER PUBLICATION supabase_realtime ADD TABLE IF NOT EXISTS public.parent_learner_links;
+ALTER PUBLICATION supabase_realtime ADD TABLE IF NOT EXISTS public.site_settings;
+ALTER PUBLICATION supabase_realtime ADD TABLE IF NOT EXISTS public.report_cards;

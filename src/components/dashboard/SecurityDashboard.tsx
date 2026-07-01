@@ -108,7 +108,7 @@ export const SecurityDashboard = () => {
               <CardTitle>Gate Operations</CardTitle>
               <CardDescription>Check-in/out visitors and staff</CardDescription>
             </div>
-            <Button onClick={() => navigate("/visitors")}>
+            <Button onClick={() => navigate("/gate?tab=visitors")}>
               <Plus className="h-4 w-4 mr-2" /> New Entry
             </Button>
           </CardHeader>
@@ -139,7 +139,7 @@ export const SecurityDashboard = () => {
                 ))
               )}
               {activeVisits.length > 5 && (
-                <Button variant="link" className="text-xs p-0 h-auto" onClick={() => navigate("/visitors")}>
+                <Button variant="link" className="text-xs p-0 h-auto" onClick={() => navigate("/gate?tab=visitors")}>
                   View all {activeVisits.length} visitors
                 </Button>
               )}
@@ -187,7 +187,7 @@ export const SecurityDashboard = () => {
 
       {/* Quick Links */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => navigate("/visitors?tab=reentry")}>
+        <Card className="hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => navigate("/gate?tab=visitors")}>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
               <AlertTriangle className="h-5 w-5 text-amber-600" />
@@ -199,7 +199,7 @@ export const SecurityDashboard = () => {
           </CardContent>
         </Card>
         
-        <Card className="hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => navigate("/visitors?tab=log")}>
+        <Card className="hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => navigate("/gate?tab=visitors")}>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
               <FileText className="h-5 w-5 text-blue-600" />

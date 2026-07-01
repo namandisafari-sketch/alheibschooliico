@@ -24,7 +24,7 @@ const DEFAULTS: AcademicSettings = {
   number_of_terms: 3,
   current_term_id: "term_1",
   is_automatic: true,
-  current_week: 8,
+  current_week: 1,
   total_weeks: 14,
   terms: [
     { id: "term_1", name: "Term I", start_month: "February", end_month: "May" },
@@ -53,19 +53,17 @@ export const useAcademicSettings = () => {
       const saved = data?.value as Partial<AcademicSettings>;
       const settings = { ...DEFAULTS, ...(saved || {}) } as AcademicSettings;
 
+      // Only auto-detect when explicitly enabled AND no saved settings exist
       if (settings.is_automatic) {
         const now = new Date();
         settings.current_year = now.getFullYear();
         
-        const currentMonthIndex = now.getMonth(); // 0-11
-        
-        // Find matching term based on month ranges
+        const currentMonthIndex = now.getMonth();
         for (const term of settings.terms) {
           const startIdx = MONTHS.indexOf(term.start_month);
           const endIdx = MONTHS.indexOf(term.end_month);
           
           if (startIdx !== -1 && endIdx !== -1) {
-            // Handle cross-year terms (unlikely for school terms but good to have)
             if (startIdx <= endIdx) {
               if (currentMonthIndex >= startIdx && currentMonthIndex <= endIdx) {
                 settings.current_term_id = term.id;
@@ -83,6 +81,7 @@ export const useAcademicSettings = () => {
 
       return settings;
     },
+    staleTime: 60000,
   });
 };
 

@@ -27,6 +27,36 @@ const Comms = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [sendViaSMS, setSendViaSMS] = useState(false);
   const [smsBalance, setSmsBalance] = useState<any>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+
+  // Pre-built message templates
+  const messageTemplates = {
+    "holiday-notice": {
+      title: "Holiday Notice",
+      content: "Dear {name}, {school} will close on [DATE] and reopen on [DATE]. Please ensure all assignments are completed. Regards, School Management.",
+      target_roles: ["parent", "teacher"]
+    },
+    "meeting-reminder": {
+      title: "Staff Meeting Reminder",
+      content: "This is to remind all staff that a meeting is scheduled for [DATE] at [TIME] in the staff room. Attendance is compulsory. Contact the office for details.",
+      target_roles: ["staff", "teacher"]
+    },
+    "fee-reminder": {
+      title: "Fee Payment Reminder",
+      content: "Dear {name}, this is a reminder to pay outstanding school fees. Current balance: [AMOUNT]. Please visit the office or use our online payment portal. Thank you.",
+      target_roles: ["parent"]
+    },
+    "attendance-warning": {
+      title: "Attendance Warning",
+      content: "Dear {name}, we have noticed low attendance recently. Please ensure your child/ward attends school regularly. Contact the office for any concerns.",
+      target_roles: ["parent"]
+    },
+    "event-announcement": {
+      title: "Upcoming Event",
+      content: "You are invited to our upcoming [EVENT NAME] on {date}. Details: [LOCATION], Time: [TIME]. For more information, contact the office.",
+      target_roles: ["parent", "teacher", "staff"]
+    }
+  };
 
   const { data: messages = [], isLoading } = useQuery({
     queryKey: ["communications"],
@@ -154,7 +184,7 @@ const Comms = () => {
   };
 
   return (
-    <DashboardLayout title="Communications" subtitle="Broadcast School-wide Announcements & Memos">
+    <DashboardLayout title="Broadcast Center" subtitle="Send announcements, reminders & critical messages to school community">
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex gap-2 items-center">
@@ -182,6 +212,35 @@ const Comms = () => {
               </DialogHeader>
               <div className="space-y-4 mt-4">
                 <div className="space-y-2">
+                  <Label>Use Template (Optional)</Label>
+                  <Select 
+                    value={selectedTemplate}
+                    onValueChange={(v) => {
+                      if (v) {
+                        const template = messageTemplates[v as keyof typeof messageTemplates];
+                        setFormData({
+                          title: template.title,
+                          content: template.content,
+                          priority: "normal",
+                          target_roles: template.target_roles
+                        });
+                      }
+                      setSelectedTemplate(v);
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select a template..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">-- No Template --</SelectItem>
+                      <SelectItem value="holiday-notice">Holiday Notice</SelectItem>
+                      <SelectItem value="meeting-reminder">Staff Meeting Reminder</SelectItem>
+                      <SelectItem value="fee-reminder">Fee Payment Reminder</SelectItem>
+                      <SelectItem value="attendance-warning">Attendance Warning</SelectItem>
+                      <SelectItem value="event-announcement">Event Announcement</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Tip: Use placeholders like {'{name}'}, {'{date}'}, {'{school}'} for personalization</p>
+                </div>
+                <div className="space-y-2">
                   <Label>Message Title</Label>
                   <Input 
                     value={formData.title} 
@@ -192,16 +251,16 @@ const Comms = () => {
                 <div className="space-y-2">
                   <Label>Content</Label>
                   <Textarea 
-                    rows={4}
+                    rows={5}
                     value={formData.content} 
                     onChange={(e) => setFormData(p => ({...p, content: e.target.value}))}
                     placeholder="Detailed message content..." 
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label>Priority</Label>
-                    <Select onValueChange={(v) => setFormData(p => ({...p, priority: v}))}>
+                    <Select onValueChange={(v) => setFormData(p => ({...p, priority: v}))} value={formData.priority}>
                       <SelectTrigger><SelectValue placeholder="Normal" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="normal">Normal</SelectItem>
@@ -212,15 +271,15 @@ const Comms = () => {
                   </div>
                   <div className="space-y-2">
                     <Label>Target Groups</Label>
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {['teacher', 'parent', 'staff'].map(role => (
+                    <div className="space-y-2 border rounded-lg p-3 bg-muted/30">
+                      {['admin', 'teacher', 'staff', 'parent', 'head_teacher'].map(role => (
                         <div key={role} className="flex items-center space-x-2">
                           <Checkbox 
                             id={`role-${role}`} 
                             checked={formData.target_roles.includes(role)}
                             onCheckedChange={() => handleRoleToggle(role)}
                           />
-                          <Label htmlFor={`role-${role}`} className="text-xs capitalize">{role}</Label>
+                          <Label htmlFor={`role-${role}`} className="text-sm capitalize font-normal cursor-pointer">{role === 'head_teacher' ? 'Head Teacher' : role === 'parent' ? 'Parents & Guardians' : role.charAt(0).toUpperCase() + role.slice(1)}</Label>
                         </div>
                       ))}
                     </div>

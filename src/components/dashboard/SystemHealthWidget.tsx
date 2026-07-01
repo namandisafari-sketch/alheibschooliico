@@ -3,9 +3,37 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Server, Activity, ShieldCheck, Database, HardDrive, Cpu, Wifi } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
+
+interface SystemHealth {
+  cpuLoad: string;
+  ramUsage: string;
+  storageFree: string;
+  dbStatus: string;
+  lanAccess: string;
+}
 
 export function SystemHealthWidget() {
+  const [health, setHealth] = useState<SystemHealth | null>(null);
   const isOnline = navigator.onLine;
+
+  useEffect(() => {
+    const fetchHealth = async () => {
+      try {
+        const response = await fetch("/api/system/health");
+        if (response.ok) {
+          const data = await response.json();
+          setHealth(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch system health:", error);
+      }
+    };
+
+    fetchHealth();
+    const interval = setInterval(fetchHealth, 10000); // Update every 10 seconds
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <Card className="border-2 border-slate-900 bg-slate-900 text-white shadow-xl overflow-hidden group">
@@ -30,9 +58,9 @@ export function SystemHealthWidget() {
                <Cpu className="h-3 w-3" />
                <span className="text-[8px] md:text-[9px] font-black uppercase tracking-widest truncate">CPU Load</span>
              </div>
-             <p className="text-lg md:text-xl font-black">14.2%</p>
+             <p className="text-lg md:text-xl font-black">{health?.cpuLoad || "..."}%</p>
              <div className="h-1 w-full bg-slate-800 rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-500 w-[14%]" />
+                <div className="h-full bg-emerald-500" style={{ width: `${health?.cpuLoad || 0}%` }} />
              </div>
            </div>
            <div className="space-y-1">
@@ -40,9 +68,9 @@ export function SystemHealthWidget() {
                <Activity className="h-3 w-3" />
                <span className="text-[8px] md:text-[9px] font-black uppercase tracking-widest truncate">RAM Usage</span>
              </div>
-             <p className="text-lg md:text-xl font-black">2.4 GB</p>
+             <p className="text-lg md:text-xl font-black">{health?.ramUsage || "..."} GB</p>
              <div className="h-1 w-full bg-slate-800 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500 w-[30%]" />
+                <div className="h-full bg-blue-500" style={{ width: health ? `${(parseFloat(health.ramUsage) / 8 * 100)}%` : '0%' }} />
              </div>
            </div>
         </div>
@@ -53,7 +81,7 @@ export function SystemHealthWidget() {
                 <HardDrive className="h-3 w-3 md:h-3.5 md:w-3.5" />
                 <span className="truncate">STORAGE (SSD)</span>
               </div>
-              <span className="text-slate-200 uppercase shrink-0">492 GB Free</span>
+              <span className="text-slate-200 uppercase shrink-0">{health?.storageFree || "..."} GB Free</span>
            </div>
            
            <div className="flex items-center justify-between text-[9px] md:text-[10px] font-bold">
@@ -61,7 +89,7 @@ export function SystemHealthWidget() {
                 <Database className="h-3 w-3 md:h-3.5 md:w-3.5" />
                 <span className="truncate">DATABASE STATUS</span>
               </div>
-              <span className="text-emerald-400 uppercase shrink-0">Optimized</span>
+              <span className="text-emerald-400 uppercase shrink-0">{health?.dbStatus || "Optimized"}</span>
            </div>
 
            <div className="flex items-center justify-between text-[9px] md:text-[10px] font-bold">
@@ -69,7 +97,7 @@ export function SystemHealthWidget() {
                 <Wifi className="h-3 w-3 md:h-3.5 md:w-3.5" />
                 <span className="truncate">LAN ACCESS</span>
               </div>
-              <span className="text-blue-400 uppercase shrink-0">Active</span>
+              <span className="text-blue-400 uppercase shrink-0">{health?.lanAccess || "Active"}</span>
            </div>
         </div>
 

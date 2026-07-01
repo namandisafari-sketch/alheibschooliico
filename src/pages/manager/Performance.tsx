@@ -19,7 +19,10 @@ import {
   ThumbsUp
 } from "lucide-react";
 import { useAllStaff, STAFF_ROLES } from "@/hooks/useStaff";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { 
   BarChart, 
@@ -44,6 +47,45 @@ const COLORS = ['#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#8b5cf6'];
 
 const Performance = () => {
   const { data: staff, isLoading: loadingStaff } = useAllStaff();
+  const queryClient = useQueryClient();
+  const { user, profile } = useAuth() as any;
+  const { tr } = useLanguage();
+
+  const checkInMutation = useMutation({
+    mutationFn: async () => {
+      // Find employee record (employees.profile_id) or fall back to profile id
+      const { data: empData, error: empErr } = await supabase
+        .from("employees")
+        .select("id,profile_id")
+        .eq("profile_id", profile?.id)
+        .maybeSingle();
+      if (empErr) throw empErr;
+      const employeeId = empData?.id || profile?.id;
+
+      const now = new Date();
+      const dateStr = format(now, "yyyy-MM-dd");
+      const timeStr = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:00`;
+
+      const { error } = await supabase.from("personnel_attendance").upsert(
+        {
+          employee_id: employeeId,
+          date: dateStr,
+          status: "present",
+          check_in_time: timeStr,
+          recorded_by: user?.id,
+        },
+        { onConflict: "employee_id,date" }
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["staff-performance-data"] });
+      toast.success(tr("Checked in successfully"));
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || tr("Failed to check in"));
+    },
+  });
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
 
@@ -248,10 +290,20 @@ const Performance = () => {
             <h1 className="text-3xl font-bold tracking-tight text-gray-900">Staff Performance</h1>
             <p className="text-gray-500">Manager scorecard across teaching and operations</p>
           </div>
-          <Button id="export-report-btn" onClick={handleExport} className="bg-emerald-600 hover:bg-emerald-700">
-            <Download className="mr-2 h-4 w-4" />
-            Quarterly Review Export
-          </Button>
+          <div className="flex gap-3">
+            <Button 
+              onClick={() => checkInMutation.mutate()} 
+              disabled={checkInMutation.isPending || !profile}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              {checkInMutation.isPending ? "Checking in..." : "Self Check-In"}
+            </Button>
+            <Button id="export-report-btn" onClick={handleExport} className="bg-emerald-600 hover:bg-emerald-700">
+              <Download className="mr-2 h-4 w-4" />
+              Quarterly Review Export
+            </Button>
+          </div>
         </div>
 
         <div id="performance-overview-cards" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

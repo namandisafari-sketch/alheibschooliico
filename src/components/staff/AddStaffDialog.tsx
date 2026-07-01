@@ -25,16 +25,10 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { LocationSelector } from "@/components/common/LocationSelector";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { WizardForm, WizardStep } from "@/components/ui/wizard-form";
 
 const formSchema = z.object({
   full_name: z.string().trim().min(2, "Name must be at least 2 characters").max(100),
@@ -50,6 +44,16 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+const STEPS: WizardStep[] = [
+  { id: "basic", title: "Basic Info", description: "Name, role, contact" },
+  { id: "compliance", title: "Compliance", description: "NIN, TIN, NSSF" },
+];
+
+const STEP_FIELDS: (keyof FormValues)[][] = [
+  ["full_name", "role", "phone", "email"],
+  ["nin", "tin", "nssf_number", "qualification", "district_id"],
+];
+
 interface AddStaffDialogProps {
   children: React.ReactNode;
   defaultRole?: StaffRole;
@@ -57,6 +61,7 @@ interface AddStaffDialogProps {
 
 export function AddStaffDialog({ children, defaultRole }: AddStaffDialogProps) {
   const [open, setOpen] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
   const queryClient = useQueryClient();
 
   const form = useForm<FormValues>({
@@ -100,6 +105,7 @@ export function AddStaffDialog({ children, defaultRole }: AddStaffDialogProps) {
       queryClient.invalidateQueries({ queryKey: ["teachers"] });
       form.reset();
       setOpen(false);
+      setCurrentStep(0);
     },
     onError: (error) => {
       toast({
@@ -110,15 +116,21 @@ export function AddStaffDialog({ children, defaultRole }: AddStaffDialogProps) {
     },
   });
 
-  const onSubmit = (values: FormValues) => {
-    mutation.mutate(values);
+  const handleNext = async () => {
+    const fields = STEP_FIELDS[currentStep];
+    const valid = await form.trigger(fields, { shouldFocus: true });
+    if (valid) setCurrentStep((c) => c + 1);
   };
+
+  const handleBack = () => setCurrentStep((c) => Math.max(0, c - 1));
+
+  const onSubmit = (values: FormValues) => mutation.mutate(values);
 
   // Filter out teacher role for this dialog (teachers have their own page)
   const availableRoles = STAFF_ROLES.filter((r) => r.value !== "teacher");
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setCurrentStep(0); }}}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
@@ -129,145 +141,152 @@ export function AddStaffDialog({ children, defaultRole }: AddStaffDialogProps) {
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Basic Info */}
-              <div className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="full_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs font-bold uppercase text-slate-500 tracking-wider">Full Name *</FormLabel>
-                      <FormControl><Input placeholder="Enter full name" {...field} className="h-10" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <WizardForm
+              steps={STEPS}
+              currentStep={currentStep}
+              onNext={handleNext}
+              onBack={handleBack}
+              isFirstStep={currentStep === 0}
+              isLastStep={currentStep === STEPS.length - 1}
+              isLoading={mutation.isPending}
+              submitLabel="Register Staff"
+            >
+              {currentStep === 0 && (
+                <div className="space-y-4 py-2">
+                  <FormField
+                    control={form.control}
+                    name="full_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-bold uppercase text-slate-500 tracking-wider">Full Name *</FormLabel>
+                        <FormControl><Input placeholder="Enter full name" {...field} className="h-10" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={form.control}
-                  name="role"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs font-bold uppercase text-slate-500 tracking-wider">Role *</FormLabel>
-                      <SearchableSelect
-                        value={field.value}
-                        onValueChange={field.onChange}
-                        options={availableRoles.map((role) => ({
-                          value: role.value,
-                          label: role.label
-                        }))}
-                        placeholder="Select role"
-                      />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs font-bold uppercase text-slate-500 tracking-wider">Phone Number *</FormLabel>
-                      <FormControl><Input placeholder="+256 700 123 456" {...field} className="h-10" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs font-bold uppercase text-slate-500 tracking-wider">Email</FormLabel>
-                      <FormControl><Input type="email" placeholder="staff@school.edu" {...field} className="h-10" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="district_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <LocationSelector 
-                          districtValue={field.value} 
-                          onDistrictChange={field.onChange} 
-                          label="Primary District"
+                  <FormField
+                    control={form.control}
+                    name="role"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-bold uppercase text-slate-500 tracking-wider">Role *</FormLabel>
+                        <SearchableSelect
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          options={availableRoles.map((role) => ({
+                            value: role.value,
+                            label: role.label
+                          }))}
+                          placeholder="Select role"
                         />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              {/* Compliance Info */}
-              <div className="space-y-4 p-4 bg-muted/30 rounded-xl border border-dashed">
-                <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[2px] mb-2">Statutory & EMIS</h4>
-                
-                <FormField
-                  control={form.control}
-                  name="nin"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs font-bold text-slate-600">National ID (NIN) *</FormLabel>
-                      <FormControl><Input placeholder="CM123456..." maxLength={14} {...field} className="h-9 font-mono text-sm" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-bold uppercase text-slate-500 tracking-wider">Phone Number *</FormLabel>
+                          <FormControl><Input placeholder="+256 700 123 456" {...field} className="h-10" /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                <FormField
-                  control={form.control}
-                  name="tin"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs font-bold text-slate-600">TIN Number (URA)</FormLabel>
-                      <FormControl><Input placeholder="100..." {...field} className="h-9 font-mono text-sm" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-bold uppercase text-slate-500 tracking-wider">Email</FormLabel>
+                          <FormControl><Input type="email" placeholder="staff@school.edu" {...field} className="h-10" /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+              )}
 
-                <FormField
-                  control={form.control}
-                  name="nssf_number"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs font-bold text-slate-600">NSSF Number</FormLabel>
-                      <FormControl><Input placeholder="12-digit number" {...field} className="h-9 font-mono text-sm" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              {currentStep === 1 && (
+                <div className="space-y-4 py-2 p-4 bg-muted/30 rounded-xl border border-dashed">
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[2px] mb-2">Statutory & EMIS</h4>
+                  
+                  <FormField
+                    control={form.control}
+                    name="nin"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-bold text-slate-600">National ID (NIN) *</FormLabel>
+                        <FormControl><Input placeholder="CM123456..." maxLength={14} {...field} className="h-9 font-mono text-sm" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={form.control}
-                  name="qualification"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs font-bold text-slate-600">Qualification</FormLabel>
-                      <FormControl><Input placeholder="e.g. Diploma in IT" {...field} className="h-9 text-sm" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="tin"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-bold text-slate-600">TIN Number (URA)</FormLabel>
+                          <FormControl><Input placeholder="100..." {...field} className="h-9 font-mono text-sm" /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-            <div className="flex justify-end gap-3 pt-6 border-t">
-              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={mutation.isPending} className="min-w-[140px] shadow-lg shadow-primary/10">
-                {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Register Staff
-              </Button>
-            </div>
+                    <FormField
+                      control={form.control}
+                      name="nssf_number"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-bold text-slate-600">NSSF Number</FormLabel>
+                          <FormControl><Input placeholder="12-digit number" {...field} className="h-9 font-mono text-sm" /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="qualification"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-bold text-slate-600">Qualification</FormLabel>
+                        <FormControl><Input placeholder="e.g. Diploma in IT" {...field} className="h-9 text-sm" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="district_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <LocationSelector 
+                            districtValue={field.value} 
+                            onDistrictChange={field.onChange} 
+                            label="Primary District"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+            </WizardForm>
           </form>
         </Form>
       </DialogContent>

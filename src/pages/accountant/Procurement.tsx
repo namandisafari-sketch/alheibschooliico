@@ -321,14 +321,14 @@ const Procurement = () => {
                           <td className="px-6 py-4 text-center">
                              <span className={cn(
                                "text-lg font-black font-mono",
-                               (item.current_stock || 0) <= (item.min_stock_level || 0) ? "text-red-500" : "text-slate-900"
+                               (item.current_stock || 0) <= (item.min_threshold || 0) ? "text-red-500" : "text-slate-900"
                              )}>
                                 {item.current_stock || 0}
                              </span>
                              <span className="text-[10px] text-slate-400 ml-1 uppercase font-black">{item.unit || 'units'}</span>
                           </td>
                           <td className="px-6 py-4 text-right">
-                             {(item.current_stock || 0) <= (item.min_stock_level || 0) ? (
+                             {(item.current_stock || 0) <= (item.min_threshold || 0) ? (
                                <Badge className="bg-red-100 text-red-600 border-red-200 text-[10px] font-black uppercase">Low Stock</Badge>
                              ) : (
                                <Badge className="bg-emerald-100 text-emerald-600 border-emerald-200 text-[10px] font-black uppercase">Optimal</Badge>
@@ -365,7 +365,7 @@ const Procurement = () => {
            </div>
 
            <div className="grid gap-4">
-              {inventory?.filter(i => (i.current_stock || 0) <= (i.min_stock_level || 0)).map(alert => (
+               {inventory?.filter(i => (i.current_stock || 0) <= (i.min_threshold || 0)).map(alert => (
                 <Card key={alert.id} className="p-5 rounded-[32px] border-red-100 bg-white hover:border-red-300 transition-all flex items-center justify-between">
                    <div className="flex items-center gap-4">
                       <div className="h-12 w-12 rounded-xl bg-slate-50 flex items-center justify-center font-black text-slate-300">
@@ -373,7 +373,7 @@ const Procurement = () => {
                       </div>
                       <div>
                          <h4 className="font-bold text-slate-900">{alert.name}</h4>
-                         <p className="text-[10px] font-black uppercase text-slate-400">{alert.category_name} • Threshold: {alert.min_stock_level}</p>
+                         <p className="text-[10px] font-black uppercase text-slate-400">{alert.category_name} • Threshold: {alert.min_threshold}</p>
                       </div>
                    </div>
 
@@ -388,7 +388,7 @@ const Procurement = () => {
                    </div>
                 </Card>
               ))}
-              {(!inventory?.some(i => (i.current_stock || 0) <= (i.min_stock_level || 0))) && (
+              {(!inventory?.some(i => (i.current_stock || 0) <= (i.min_threshold || 0))) && (
                 <div className="py-20 text-center border-2 border-dashed rounded-[40px] border-slate-100 text-slate-400">
                    <CheckCircle2 className="h-12 w-12 mx-auto mb-4 opacity-10" />
                    <p className="font-bold uppercase tracking-tight text-slate-900">All Stock Levels Optimal</p>

@@ -2,13 +2,134 @@
 // Keys are the EXACT English strings (case-sensitive) that appear in the UI.
 // Add new entries here whenever new visible English text is introduced.
 
+// Ollama translation fallback — local LLM-based machine translation
+// Override via VITE_OLLAMA_URL in .env
+export const OLLAMA_URL =
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_OLLAMA_URL) ||
+  "http://localhost:11434";
+
+// Using qwen2.5:3b — general Qwen2.5 model, good at Arabic translation
+const TRANSLATION_MODEL = "qwen2.5:3b";
+
+// In-memory cache seeded with dictionary entries. Async translations get cached here too.
+export const translationCache = new Map<string, string>();
+
+// LibreTranslate API fallback for when Ollama is unavailable
+const LIBRE_TRANSLATE_URL = "https://libretranslate.com/translate";
+
+async function translateViaLibre(texts: string[]): Promise<Map<string, string>> {
+  const results = new Map<string, string>();
+  for (const text of texts) {
+    try {
+      const res = await fetch(LIBRE_TRANSLATE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ q: text, source: "en", target: "ar", format: "text" }),
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const translated = data.translatedText as string;
+      if (translated && translated !== text) {
+        translationCache.set(text, translated);
+        results.set(text, translated);
+      }
+    } catch {
+      // Silently continue
+    }
+  }
+  return results;
+}
+
+// Translate ALL provided English texts to Arabic in a single Ollama call.
+// Falls back to LibreTranslate if Ollama is unavailable.
+// Returns a Map of original → translated Arabic for every input string.
+export async function fetchTranslations(texts: string[]): Promise<Map<string, string>> {
+  const results = new Map<string, string>();
+  const uncached = texts.filter((t) => !translationCache.has(t));
+
+  // Return cached results immediately
+  for (const t of texts) {
+    const c = translationCache.get(t);
+    if (c) results.set(t, c);
+  }
+
+  if (uncached.length === 0) return results;
+
+  // Build a JSON array of all uncached texts
+  const inputJson = JSON.stringify(uncached);
+
+  const prompt = `You are an expert Arabic translator translating UI text for a web application.
+Rules:
+- Produce fluent, natural Modern Standard Arabic suitable for user interfaces.
+- Keep translations concise and UI-friendly.
+- Preserve numbers, punctuation and placeholders exactly (e.g. '%s', '{count}', '{{name}}'). Do NOT translate them.
+- Do NOT translate or alter code identifiers, file names, or CSS classes.
+- Return ONLY a valid JSON array of translated strings in the SAME ORDER as the input.
+- Every input string MUST have a corresponding Arabic translation in the output.
+
+Input JSON array: ${inputJson}
+
+Output JSON array:`;
+
+  // Try Ollama first
+  let ollamaFailed = false;
+  try {
+    const res = await fetch(`${OLLAMA_URL}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: TRANSLATION_MODEL,
+        prompt,
+        stream: false,
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const raw = data.response as string;
+      const jsonMatch = raw.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const translations = JSON.parse(jsonMatch[0]) as string[];
+        if (Array.isArray(translations)) {
+          for (let i = 0; i < uncached.length && i < translations.length; i++) {
+            const translated = translations[i]?.trim();
+            if (translated) {
+              translationCache.set(uncached[i], translated);
+              results.set(uncached[i], translated);
+            }
+          }
+          return results;
+        }
+      }
+    }
+    ollamaFailed = true;
+  } catch {
+    ollamaFailed = true;
+  }
+
+  // Fallback: LibreTranslate for each uncached text
+  if (ollamaFailed && uncached.length > 0) {
+    const libreResults = await translateViaLibre(uncached);
+    for (const [k, v] of libreResults) results.set(k, v);
+  }
+
+  return results;
+}
+
 export const enToAr: Record<string, string> = {
   // Brand & shared
   "Alheb Islamic": "الحبيب الإسلامية",
   "Alheib Mixed Day & Boarding School": "مدرسة الحبيب المختلطة النهارية والداخلية",
+  "School Management System - Uganda New Curriculum": "نظام إدارة المدرسة - المنهج الأوغندي الجديد",
+  "For Parents": "لأولياء الأمور",
+  "Parents": "أولياء الأمور",
+  "For Teachers": "للمعلمين",
+  "Teachers": "المعلمون",
   "Parent Portal": "بوابة ولي الأمر",
   "Welcome back! Term 3, 2024 - Alheib Mixed Day & Boarding School": "مرحبًا بعودتك! الفصل الثالث، 2024 - مدرسة الحبيب المختلطة النهارية والداخلية",
   "Welcome Back!": "مرحبًا بعودتك!",
+  "What you can do here": "ما يمكنك فعله هنا",
   "Track your children's progress and stay connected with the school": "تابع تقدم أبنائك وابقَ على تواصل مع المدرسة",
   "No Children Linked": "لا يوجد أبناء مرتبطون",
   "Your account hasn't been linked to any learners yet. Please contact the school administration to link your children to your account.":
@@ -24,6 +145,7 @@ export const enToAr: Record<string, string> = {
   "My Profile": "ملفي الشخصي",
   "Learning Roadmap": "خارطة طريق التعلم",
   "Teacher Workspace": "مساحة عمل المعلم",
+  "Loading live performance metrics...": "جاري تحميل مقاييس الأداء المباشرة...",
   "Manage your classes and learner progress": "إدارة فصولك وتقدم المتعلمين",
   "Islamic Studies Progress": "تقدم الدراسات الإسلامية",
   "Quran & Hifdh Completion": "إكمال القرآن والحفظ",
@@ -100,7 +222,6 @@ export const enToAr: Record<string, string> = {
 
   // Sidebar / nav
   "Learners": "المتعلمون",
-  "Teachers": "المعلمون",
   "Staff & Workers": "الموظفون والعمال",
   "Marks Entry": "إدخال الدرجات",
   "Reports": "التقارير",
@@ -127,7 +248,90 @@ export const enToAr: Record<string, string> = {
 
   // Header
   "Search students, teachers...": "ابحث عن الطلاب، المعلمين...",
+  "Password": "كلمة المرور",
+  "Remember me": "تذكرني",
+  "Sign In": "تسجيل الدخول",
+  "New to the system?": "جديد في النظام؟",
   "Admin User": "المستخدم المسؤول",
+
+  // Common auth / form placeholders
+  "Your email": "بريدك الإلكتروني",
+  "Your password": "كلمة مرورك",
+  "your@email.com": "بريدك@الإلكتروني.com",
+  "••••••••": "••••••••",
+  "Enter your full name": "أدخل اسمك الكامل",
+  "Minimum 6 characters": "6 أحرف على الأقل",
+  "Select your role": "اختر دورك",
+  "user@alheib.org": "user@alheib.org",
+  "+256 700 123 456": "+256 700 123 456",
+  "Leave blank to keep current password": "اتركه فارغًا للاحتفاظ بكلمة المرور الحالية",
+  "Leave blank for 1234school.com": "اتركه فارغًا لاستخدام 1234school.com",
+
+  // Select placeholders
+  "Select class": "اختر الفصل",
+  "Select subject": "اختر المادة",
+  "Select category": "اختر الفئة",
+  "Select status": "اختر الحالة",
+  "Select type": "اختر النوع",
+  "Select grading type": "اختر نوع التقييم",
+  "Select learner": "اختر متعلمًا",
+  "Select number of terms": "اختر عدد الفصول",
+  "Select active term": "اختر الفصل النشط",
+  "Choose a teacher": "اختر معلمًا",
+  "Choose a class to track": "اختر فصلًا للمتابعة",
+  "All classes": "جميع الفصول",
+  "All subjects": "جميع المواد",
+  "Filter by class...": "تصفية حسب الفصل...",
+  "Select learner...": "اختر متعلمًا...",
+  "Select candidate...": "اختر مرشحًا...",
+  "Select subject...": "اختر مادة...",
+
+  // Search placeholders
+  "Search...": "بحث...",
+  "Search subjects...": "ابحث عن مواد...",
+  "Search by name, email, role…": "ابحث بالاسم أو البريد الإلكتروني أو الدور...",
+  "Search teacher or title...": "ابحث عن معلم أو عنوان...",
+  "Search purpose…": "ابحث عن الغرض...",
+  "Type name or ADM...": "اكتب الاسم أو رقم القبول...",
+  "Search witness name...": "ابحث عن اسم الشاهد...",
+  "Search victim name...": "ابحث عن اسم الضحية...",
+  "Search inventory...": "ابحث في المخزون...",
+  "Search learners...": "ابحث عن متعلمين...",
+  "Search users...": "ابحث عن مستخدمين...",
+  "Search staff...": "ابحث عن موظف...",
+  "Search students, teachers...": "ابحث عن الطلاب، المعلمين...",
+
+  // Field labels as placeholders
+  "Full name": "الاسم الكامل",
+  "Explain your appeal (minimum 10 characters)...": "اشرح سبب استئنافك (10 أحرف على الأقل)...",
+  "Optional notes regarding this entry...": "ملاحظات اختيارية حول هذا الإدخال...",
+  "Provide details of what happened...": "قدم تفاصيل عما حدث...",
+  "Provide guidance or reasons for approval/rejection...": "قدم توجيهًا أو أسباب الموافقة/الرفض...",
+  "Scan student ID QR code or enter admission number": "امسح رمز QR لبطاقة الطالب أو أدخل رقم القبول",
+  "Scan badge or search visitor...": "امسح الشارة أو ابحث عن زائر...",
+
+  // Common "e.g." hints
+  "e.g. MATH": "مثال: MATH",
+  "e.g. Mathematics": "مثال: الرياضيات",
+  "e.g. Term I Opening Ceremony": "مثال: حفل افتتاح الفصل الأول",
+  "e.g. Addition of Fractions": "مثال: جمع الكسور",
+  "e.g. Fuel for school van": "مثال: وقود لحافلة المدرسة",
+  "e.g. Bullying": "مثال: تنمر",
+  "e.g. Discuss learner progress": "مثال: مناقشة تقدم المتعلم",
+  "e.g. Bachelor of Education, Diploma": "مثال: بكالوريوس تربية، دبلوم",
+  "e.g. 5 Years": "مثال: 5 سنوات",
+  "e.g. 1995": "مثال: 1995",
+  "e.g., UMSC-001": "مثال: UMSC-001",
+  "e.g., IPLE-2026-001": "مثال: IPLE-2026-001",
+
+  // Other utils
+  "Reason shown to user…": "السبب المعروض للمستخدم...",
+  "Your message…": "رسالتك...",
+  "Share your experience...": "شارك تجربتك...",
+  "Comma-separated sub-topics": "مواضيع فرعية مفصولة بفواصل",
+  "Here": "هنا",
+  "Title": "العنوان",
+  "Message": "الرسالة",
 
   // Common verbs / labels
   "Add": "إضافة",
@@ -303,6 +507,7 @@ export const enToAr: Record<string, string> = {
   "Scheduled Notifications": "الإشعارات المجدولة",
   "Manage visitor appointments scheduled by reception": "إدارة مواعيد الزوار المجدولة من الاستقبال",
   "Upcoming": "القادمة",
+  "Upcoming Sessions": "الجلسات القادمة",
   "Scheduled": "مجدولة",
   "Completed": "مكتملة",
   "All Appointments": "كل المواعيد",
@@ -517,7 +722,6 @@ export const enToAr: Record<string, string> = {
   "Select a learner to link to this parent account": "اختر متعلمًا لربطه بحساب ولي الأمر هذا",
   "Select learner": "اختر متعلمًا",
   "Administrators": "المسؤولون",
-  "Parents": "أولياء الأمور",
   "Staffs": "موظفون",
 
   // Misc
@@ -608,33 +812,467 @@ export const enToAr: Record<string, string> = {
   "Verified": "تم التحقق",
   "Asset Clearance": "تخليص الأصول",
   "Security Dashboard": "لوحة تحكم الأمن",
+
+  // Gate & Visitor
+  "Gate Control Center": "مركز التحكم في البوابة",
+  "Physical security and visitor access management": "الأمن المادي وإدارة دخول الزوار",
+  "Check In Visitor": "تسجيل دخول زائر",
+  "From scheduled appointment": "من موعد مجدول",
+  "Walk-in visitor": "زائر بدون موعد",
+  "Recurring visitor": "زائر متكرر",
+  "Recurring visitor (vendor, contractor, etc.)": "زائر متكرر (مورد، مقاول، إلخ)",
+  "Reusable record for recurring visitors": "سجل قابل لإعادة الاستخدام للزوار المتكررين",
+  "Scan National ID": "مسح بطاقة الهوية الوطنية",
+  "Scan Uganda National ID": "مسح بطاقة الهوية الوطنية الأوغندية",
+  "Scan ID barcode...": "امسح الباركود...",
+  "or type manually": "أو اكتب يدويًا",
+  "Visitor saved": "تم حفظ الزائر",
+  "Visitor checked in": "تم تسجيل دخول الزائر",
+  "Day pass issued": "تم إصدار تصريح اليوم",
+  "Name required": "الاسم مطلوب",
+  "Visitor name required": "اسم الزائر مطلوب",
+  "Add Visitor": "إضافة زائر",
+  "New Visitor": "زائر جديد",
+  "Student Gate Scan": "مسح بوابة الطالب",
+  "Learner Identity Verification": "التحقق من هوية المتعلم",
+  "Scan the student barcode or ID card to verify access": "امسح الباركود أو بطاقة هوية الطالب للتحقق من الوصول",
+  "Scan student barcode...": "امسح باركود الطالب...",
+  "Verified Student": "تم التحقق من الطالب",
+  "View All": "عرض الكل",
+  "Search staff...": "بحث عن موظف...",
+  "No incidents reported recently.": "لا توجد حوادث مسجلة مؤخرًا.",
+  "Infirmary Visits": "زيارات العيادة",
+  "On Medication": "تحت العلاج",
+  "Pending Alerts": "تنبيهات معلقة",
+  "Recent Incidents": "الحوادث الأخيرة",
+  "Latest medical occurrences reported": "آخر الحوادث الطبية المسجلة",
+  "Active Medications": "الأدوية النشطة",
+  "Most recently dispensed medication": "آخر دواء تم صرفه",
+  "No medication dispensed yet today.": "لم يتم صرف أي دواء اليوم حتى الآن.",
+  "Manage Medications": "إدارة الأدوية",
+  "Medical Center": "المركز الطبي",
+  "School Infirmary & Health Management": "العيادة المدرسية وإدارة الصحة",
+  "Gate Security — Barcode Scanner": "أمن البوابة — ماسح الباركود",
+  "Point scanner at ID barcode": "وجه الماسح نحو باركود الهوية",
+  "Use the handheld barcode scanner on the PDF417 barcode on the back of the Uganda National ID": "استخدم ماسح الباركود المحمول على باركود PDF417 الموجود خلف بطاقة الهوية الوطنية الأوغندية",
+  "Scanner output appears here...": "يظهر ناتج المسح هنا...",
+  "Confirm Identity": "تأكيد الهوية",
+  "Rescan": "إعادة مسح",
+  "Scanned Identity": "الهوية الممسوحة",
+  "National ID Verified": "تم التحقق من الهوية الوطنية",
+  "Barcode Scanned": "تم مسح الباركود",
+  "Clinic Management": "إدارة العيادة",
+  "School Sick Bay & Student Health Log": "العيادة المدرسية وسجل صحة الطلاب",
+  "Health Incidents": "الحوادث الصحية",
+  "Record and Track Medical Occurrences": "تسجيل وتتبع الحوادث الطبية",
+  "Log Visit": "تسجيل زيارة",
+  "Dispense Medicine": "صرف دواء",
+  "Medication Register": "سجل الأدوية",
+  "Dispensing & Pharmacy Control": "الصرف والتحكم في الصيدلية",
+  "New Visit": "زيارة جديدة",
+  "Log Trauma": "تسجيل حادث",
+  "Health Screen": "فحص صحي",
+  "Immunization": "تطعيم",
+  "Open Infirmary Hours": "ساعات عمل العيادة",
+  "Morning Surgery": "العيادة الصباحية",
+  "Emergency Cover": "تغطية الطوارئ",
+  "24 Hours": "24 ساعة",
+  "Medication Review": "مراجعة الأدوية",
+  "Recently dispensed medication": "آخر الأدوية المصروفة",
+  "Select District": "اختر المنطقة",
+  "Select Sub-county": "اختر المقاطعة الفرعية",
+  "Select Parish": "اختر الرعية",
+  "Select Village": "اختر القرية",
+  "Street / Landmark": "الشارع / المَعلم",
+  "Select District first": "اختر المنطقة أولاً",
+  "Select Sub-county first": "اختر المقاطعة الفرعية أولاً",
+  "Select Parish first": "اختر الرعية أولاً",
+
+  // Auth & Login Page
+  "Sign in to access the school management system": "سجّل دخولك للوصول إلى نظام إدارة المدرسة",
+  "accounts are created when you register your child at the school office": "يتم إنشاء الحسابات عند تسجيل طفلك في مكتب المدرسة",
+  "accounts are created by administration": "يتم إنشاء الحسابات من قبل الإدارة",
+  "For Administration": "للإدارة",
+  "Track your child's attendance, grades, and communicate with teachers": "تابع حضور طفلك ودرجاته والتواصل مع المعلمين",
+  "Manage classes, take attendance, and record learner progress": "إدارة الفصول وتسجيل الحضور وتسجيل تقدم المتعلمين",
+  "Full access to manage all school operations and staff": "الوصول الكامل لإدارة جميع عمليات المدرسة والموظفين",
+  "Account Settings": "إعدادات الحساب",
+  "Accountant Dashboard": "لوحة تحكم المحاسب",
+  "Active Learners": "المتعلمون النشطون",
+  "Add Book": "إضافة كتاب",
+  "Add Dormitory": "إضافة مهجع",
+  "Add Fee": "إضافة رسوم",
+  "Add Fee Structure": "إضافة هيكل رسوم",
+  "Add learners to this class first.": "أضف المتعلمين إلى هذا الفصل أولاً.",
+  "Add New Class": "إضافة فصل جديد",
+  "All classes": "جميع الفصول",
+  "All Classes": "جميع الفصول",
+  "All Learners": "جميع المتعلمين",
+  "Attendance %": "نسبة الحضور",
+  "Attendance Today": "حضور اليوم",
+  "Attendance saved successfully": "تم حفظ الحضور بنجاح",
+  "Attendance updated": "تم تحديث الحضور",
+  "Board Members": "أعضاء المجلس",
+  "Board members list is not initialized.": "قائمة أعضاء المجلس غير مهيأة.",
+  "Behind Schedule": "متأخر عن الجدول",
+  "Board Members": "أعضاء المجلس",
+  "Board members list is not initialized.": "قائمة أعضاء المجلس غير مهيأة.",
+  "Class Schedule": "الجدول الدراسي",
+  "Class Level": "مستوى الفصل",
+  "Confirm Attendance": "تأكيد الحضور",
+  "Constitution": "الدستور",
+  "Create Class": "إنشاء فصل",
+  "Cross-team performance pulse": "مؤشر أداء الفرق المتعددة",
+  "Delete All": "حذف الكل",
+  "Department KPIs": "مؤشرات أداء القسم",
+  "Deputy Head Teacher": "نائب مدير المدرسة",
+  "Director": "المدير",
+  "Director Dashboard": "لوحة تحكم المدير",
+  "Document Details": "تفاصيل الوثيقة",
+  "Edit Book": "تعديل الكتاب",
+  "Edit Subject": "تعديل المادة",
+  "Edit Template": "تعديل القالب",
+  "Email is required": "البريد الإلكتروني مطلوب",
+  "Email or Phone": "البريد الإلكتروني أو الهاتف",
+  "Error:": "خطأ:",
+  "Executive Reports": "التقارير التنفيذية",
+  "Export by class": "تصدير حسب الفصل",
+  "Failed to add teacher": "فشل إضافة المعلم",
+  "Failed to cancel": "فشل الإلغاء",
+  "Failed to create": "فشل الإنشاء",
+  "Fetching staff performance, attendance, discipline, and lesson plan progress.": "جاري جلب أداء الموظفين والحضور والانضباط وتقدم خطط الدروس.",
+  "Fees Management": "إدارة الرسوم",
+  "Finance & Administration": "المالية والإدارة",
+  "Fully Compliant": "متوافق بالكامل",
+
+  // Navigation sections & items
+  "Executive & Governance": "الإدارة التنفيذية والحوكمة",
+  "Academic Control": "الرقابة الأكاديمية",
+  "Theology & IPLE": "اللاهوت و IPLE",
+  "Finance & Accounts": "المالية والحسابات",
+  "Campus Operations": "عمليات الحرم المدرسي",
+  "Residential Life": "الحياة السكنية",
+  "Systems & HR": "الأنظمة والموارد البشرية",
+  "Personal Workspace": "مساحة العمل الشخصية",
+
+  "Director Dashboard": "لوحة تحكم المدير",
+  "Director Users": "مستخدمو المدير",
+  "Approval Workflow": "سير عمل الموافقات",
+  "Headteacher Hub": "مركز ناظر المدرسة",
+  "Manager Command": "مركز المدير",
+  "Staff Performance": "أداء الموظفين",
+  "Governance Board": "مجلس الحوكمة",
+  "Ministry & Compliance": "الوزارة والامتثال",
+  "Manager Approvals": "موافقات المدير",
+  "DOS Command Center": "مركز قيادة مدير الدراسات",
+  "Theology DOS Hub": "مركز مدير دراسات اللاهوت",
+  "IPLE Management": "إدارة IPLE",
+  "Subjects": "المواد الدراسية",
+  "Learner Management": "إدارة المتعلمين",
+  "Staff & Teacher Hub": "مركز الموظفين والمعلمين",
+  "Academic Oversight": "الإشراف الأكاديمي",
+  "Active Learners": "المتعلمون النشطون",
+  "Active Staff": "الموظفون النشطون",
+  "Agenda items set": "تم تحديد بنود جدول الأعمال",
+  "Approvals & Compliance": "الموافقات والامتثال",
+  "Audit: Satisfactory": "التدقيق: مرضٍ",
+  "Academic Classes": "الفصول الأكاديمية",
+  "Madrasa & Islamic": "المدرسة الإسلامية",
+  "Digital Homework": "الواجبات الرقمية",
+  "Enter Marks": "إدخال الدرجات",
+  "School Timetables": "الجداول المدرسية",
+  "Curriculum Coverage": "تغطية المنهج",
+  "Exams & Grading": "الامتحانات والتقييم",
+  "Marks & Reports": "الدرجات والتقارير",
+  "Learner Attendance": "حضور المتعلمين",
+  "P7 Management": "إدارة P7",
+  "Lesson Tracking": "تتبع الدروس",
+  "Curriculum Setup": "إعداد المنهج",
+  "Scheme of Work": "خطة العمل",
+  "Syllabus Coverage": "تغطية المنهج",
+  "Syllabus Reports": "تقارير المنهج",
+  "My Theology Dashboard": "لوحة تحكم اللاهوت",
+  "Islamic Marks Entry": "إدخال الدرجات الإسلامية",
+  "Madrasa & Quran": "المدرسة والقرآن",
+  "Oral Assessments": "التقييمات الشفوية",
+  "Islamic Learners": "المتعلمون الإسلاميون",
+  "Items awaiting your decision": "عناصر تنتظر قرارك",
+  "Lesson Register": "سجل الدروس",
+  "Lesson Planner": "مخطط الدروس",
+  "Class Teacher": "معلم الفصل",
+  "Finance Overview": "نظرة مالية",
+  "Financial Accounts": "الحسابات المالية",
+  "Fees & Collections": "الرسوم والتحصيلات",
+  "Procurement & Store": "المشتريات والمخزن",
+  "Payroll & Salaries": "الرواتب والأجور",
+  "HR & Payroll": "الموارد البشرية والرواتب",
+  "Budget Planning": "تخطيط الميزانية",
+  "Petty Cash Management": "إدارة النثرية",
+  "Fees Tracking": "تتبع الرسوم",
+  "Reconciliation": "التسوية",
+  "Expense Approvals": "موافقات المصروفات",
+  "Tax Reports": "تقارير الضرائب",
+  "Finance Audit Log": "سجل تدقيق المالية",
+  "Store & Inventory Hub": "مركز المخزن والمخزون",
+  "Resource Inventory": "مخزون الموارد",
+  "Receiving & Internal": "الاستلام والداخلي",
+  "Stock Alerts": "تنبيهات المخزون",
+  "Supplier Database": "قاعدة بيانات الموردين",
+  "Gate Control Hub": "مركز التحكم في البوابة",
+  "Vehicle Log": "سجل المركبات",
+  "Exit Passes": "تصاريح الخروج",
+  "Gate Handover": "تسليم البوابة",
+  "Office Management": "إدارة المكتب",
+  "Official Documents": "الوثائق الرسمية",
+  "Print Orders": "طلبات الطباعة",
+  "Delivery Log": "سجل التوصيل",
+  "Comms & Circulars": "الاتصالات والتعاميم",
+  "Medical Infirmary Hub": "مركز العيادة الطبية",
+  "Prescriptions": "الوصفات الطبية",
+  "Pharmacy Inventory": "مخزون الصيدلية",
+  "Pharmacy Reports": "تقارير الصيدلية",
+  "Health Records": "السجلات الصحية",
+  "Residential Hostels": "المهاجع السكنية",
+  "Orphanage Services": "خدمات الأيتام",
+  "Discipline & Conduct": "الانضباط والسلوك",
+  "Library": "المكتبة",
+  "Kitchen Operations": "عمليات المطبخ",
+  "Store Orders": "طلبات المخزن",
+  "Food Inventory": "مخزون الطعام",
+  "Meal Log": "سجل الوجبات",
+  "Weekly Menu": "القائمة الأسبوعية",
+  "Matron Dashboard": "لوحة تحكم المشرفة",
+  "Dormitories": "المهاجع",
+  "Residents": "المقيمون",
+  "Essentials": "المستلزمات الأساسية",
+  "Supplies": "الإمدادات",
+  "Washing & Laundry": "الغسيل والتنظيف",
+  "Holiday Arrivals": "وصول العطلات",
+  "HR Management": "إدارة الموارد البشرية",
+  "Staff Daily Attendance": "حضور الموظفين اليومي",
+  "Staff Assignments": "تعيينات الموظفين",
+  "Asset & Item Tracking": "تتبع الأصول والأصناف",
+  "ID Card System": "نظام بطاقات الهوية",
+  "Access Control": "التحكم في الوصول",
+  "Compliance Portal": "بوابة الامتثال",
+  "My Dashboard": "لوحة التحكم",
+  "Staff Messaging": "رسائل الموظفين",
+  "My Managed Classes": "فصولي المدارة",
+  "Learner Gradebook": "سجل درجات المتعلمين",
+  "Parent Communication": "التواصل مع أولياء الأمور",
+  "Staff Letters": "خطابات الموظفين",
+  "My Attendance": "حضوري",
+  "Next Session": "الجلسة القادمة",
+  "No documents uploaded.": "لم يتم رفع أي مستندات.",
+  "No items pending": "لا توجد عناصر معلقة",
+  "No scheduled sessions": "لا توجد جلسات مجدولة",
+  "My Leave Requests": "طلبات الإجازة",
+  "Class Schedule": "الجدول الدراسي",
+  "Events Calendar": "تقويم الأحداث",
+  "Personal Finance": "المالية الشخصية",
+  "Account Settings": "إعدادات الحساب",
+  "System Settings": "إعدادات النظام",
+  "Attendance Device": "جهاز الحضور",
+
+  // Page titles
+  "Learners": "المتعلمون",
+  "Teachers": "المعلمون",
+  "Staff & Workers": "الموظفون والعمال",
+  "Marks Entry": "إدخال الدرجات",
+  "Reports": "التقارير",
+  "Visitors": "الزوار",
+  "Fee Management": "إدارة الرسوم",
+  "Salary Management": "إدارة الرواتب",
+  "ID Cards": "بطاقات الهوية",
+  "User Management": "إدارة المستخدمين",
+  "Notifications": "الإشعارات",
+  "Logout": "تسجيل الخروج",
+  "Policies Active": "السياسات النشطة",
+  "Policy Library": "مكتبة السياسات",
+  "Primary decision-making body and executive committee": "الهيئة الرئيسية لاتخاذ القرارات واللجنة التنفيذية",
+  "Visitor IDs": "بطاقات هوية الزوار",
+  "Security Dashboard": "لوحة تحكم الأمن",
+  "Clinic Management": "إدارة العيادة",
+  "Inventory & Assets": "المخزون والأصول",
+  "Gate Control Center": "مركز التحكم في البوابة",
+  "Schedule": "الجدول",
+  "Calendar": "التقويم",
+  "Madrasa": "المدرسة الإسلامية",
+  "Homework": "الواجبات",
+  "Hostel": "المهجع",
+  "Budget": "الميزانية",
+  "School Management Board (SMB)": "مجلس إدارة المدرسة (SMB)",
+  "Staff Administration": "إدارة الموظفين",
+  "Strategic dashboards for the center director": "لوحات معلومات استراتيجية لمدير المركز",
+  "Strategic Oversight, Policy Framework & SMB Operations": "الإشراف الاستراتيجي، إطار السياسات وعمليات مجلس إدارة المدرسة",
+  "Strategic Score": "الدرجة الاستراتيجية",
+  "Student Welfare & Conduct": "رعاية الطلاب والسلوك",
+  "Top & bottom performers": "الأفضل والأقل أداءً",
+  "View All Frameworks": "عرض جميع الأطر",
+
+  // Auth / Login
+  "Sign In": "تسجيل الدخول",
+  "Sign in to access the school management system": "سجل دخولك للوصول إلى نظام إدارة المدرسة",
+  "Email address": "البريد الإلكتروني",
+  "Password": "كلمة المرور",
+  "Remember me": "تذكرني",
+  "Forgot password?": "نسيت كلمة المرور؟",
+  "Parent Portal": "بوابة ولي الأمر",
+  "For Parents": "لأولياء الأمور",
+  "For Teachers": "للمعلمين",
+  "For Administration": "للإدارة",
+
+  // Common actions
+  "Save Changes": "حفظ التغييرات",
+  "Are you sure?": "هل أنت متأكد؟",
+  "This action cannot be undone.": "لا يمكن التراجع عن هذا الإجراء.",
+  "Continue": "متابعة",
+  "Back": "رجوع",
+  "Confirm": "تأكيد",
+  "Yes": "نعم",
+  "No": "لا",
+  "OK": "حسناً",
+  "Learn more": "اعرف المزيد",
+  "Show more": "عرض المزيد",
+  "Show less": "عرض أقل",
+  "View all": "عرض الكل",
+  "More info": "مزيد من المعلومات",
+  "No results": "لا توجد نتائج",
+  "No items": "لا توجد عناصر",
+  "Type here...": "اكتب هنا...",
+  "Select...": "اختر...",
+  "Choose...": "اختر...",
+  "Loading": "جاري التحميل",
+  "Saving": "جاري الحفظ",
+  "Processing": "جاري المعالجة",
+  "Done": "تم",
+  "Updated": "تم التحديث",
+  "Created": "تم الإنشاء",
+  "Removed": "تم الإزالة",
+  "Canceled": "ملغي",
+  "On Hold": "معلق",
+  "Open Issues": "القضايا المفتوحة",
+  "Open queue": "فتح قائمة الانتظار",
+  "Open scorecards": "فتح بطاقات الأداء",
+  "In Progress": "قيد التنفيذ",
+  "Awaiting": "قيد الانتظار",
+  "Approved": "تمت الموافقة",
+  "Rejected": "مرفوض",
+  "Submitted": "تم الإرسال",
+
+  // Page Tour
+  "Page Tour": "جولة في الصفحة",
+  "Welcome to Alheib": "مرحباً بك في الحبيب",
+  "Alheib Command Center": "مركز قيادة الحبيب",
+  "Smart Navigation": "التنقل الذكي",
+  "Operational Pulse": "نبض العمليات",
+  "Financial Overview": "نظرة مالية",
+  "Quick Action Center": "مركز الإجراءات السريعة",
+  "Theology Teacher Dashboard": "لوحة تحكم معلم اللاهوت",
+  "Quick Access Links": "روابط الوصول السريع",
+  "IPLE Core Subjects": "المواد الأساسية لـ IPLE",
+
+  // Empty states
+  "No data": "لا توجد بيانات",
+  "Nothing here yet": "لا يوجد شيء هنا بعد",
+  "Get started": "ابدأ الآن",
+  "Start by adding": "ابدأ بإضافة",
+  "Start by creating": "ابدأ بإنشاء",
+
+  // Weekdays
+  "Monday": "الإثنين",
+  "Tuesday": "الثلاثاء",
+  "Wednesday": "الأربعاء",
+  "Thursday": "الخميس",
+  "Friday": "الجمعة",
+  "Saturday": "السبت",
+  "Sunday": "الأحد",
+  "Mon": "إثن",
+  "Tue": "ثلاث",
+  "Wed": "أربع",
+  "Thu": "خميس",
+  "Fri": "جمعة",
+  "Sat": "سبت",
+  "Sun": "أحد",
+
+  // Manager Performance
+  "Approvals Queue": "قائمة الموافقات",
+  "Supervisor / Head of Department sign-off": "اعتماد المشرف / رئيس القسم",
+  "Checked in successfully": "تم تسجيل الحضور بنجاح",
+  "Failed to check in": "فشل تسجيل الحضور",
+  "Loading live performance metrics...": "جاري تحميل مقاييس الأداء المباشرة...",
+  "Fetching staff performance, attendance, discipline, and lesson plan progress.": "جلب أداء الموظفين والحضور والانضباط وتقدم خطط الدروس.",
+  "Unable to load performance data.": "تعذر تحميل بيانات الأداء.",
+  "Please refresh to retry.": "يرجى التحديث لإعادة المحاولة.",
+  "Manager scorecard across teaching and operations": "بطاقة أداء المدير عبر التدريس والعمليات",
+  "Checking in...": "جاري تسجيل الحضور...",
+  "Self Check-In": "تسجيل حضور ذاتي",
+  "Quarterly Review Export": "تصدير المراجعة الربعية",
+  "Avg. Attendance": "متوسط الحضور",
+  "+2.1% from last month": "+2.1% عن الشهر الماضي",
+  "On track for Term 2": "ضمن الخطة للفصل الثاني",
+  "Parent Feedback": "تقييم أولياء الأمور",
+  "Based on live feedback metrics": "بناءً على مقاييس التقييم المباشرة",
+  "Cases Handled": "الحالات التي تم التعامل معها",
+  "Live disciplinary case count": "عدد حالات الانضباط المباشرة",
+  "Performance Overview": "نظرة عامة على الأداء",
+  "Aggregate metrics comparison": "مقارنة المقاييس الإجمالية",
+  "Staff Scorecards": "بطاقات أداء الموظفين",
+  "Detailed individual metrics": "مقاييس فردية مفصلة",
+  "All roles": "جميع الأدوار",
+  "Ops Reliability": "موثوقية العمليات",
+  "No staff members found matching your filters": "لم يتم العثور على موظفين يطابقون عوامل التصفية",
+  "Attendance Reliability Trend": "اتجاه موثوقية الحضور",
+  "Monthly average across all departments": "المتوسط الشهري عبر جميع الأقسام",
+  "Syllabus Completion by Grade": "إكمال المنهج حسب الصف",
+  "Estimated progress against curriculum": "التقدم المقدر وفق المنهج الدراسي",
+  "N/A": "غ.م",
+  "cases": "حالات",
+
+  // Months
+  "January": "يناير",
+  "February": "فبراير",
+  "March": "مارس",
+  "April": "أبريل",
+  "May": "مايو",
+  "June": "يونيو",
+  "July": "يوليو",
+  "August": "أغسطس",
+  "September": "سبتمبر",
+  "October": "أكتوبر",
+  "November": "نوفمبر",
+  "December": "ديسمبر",
 };
+
+// Seed the async cache with all dictionary entries
+for (const [k, v] of Object.entries(enToAr)) {
+  translationCache.set(k, v);
+}
 
 // Convert ASCII digits to Arabic-Indic digits (٠١٢٣٤٥٦٧٨٩) — used in Arabic mode.
 const arDigits = "٠١٢٣٤٥٦٧٨٩";
 export const toArabicDigits = (input: string): string =>
   input.replace(/[0-9]/g, (d) => arDigits[Number(d)]);
 
-// Translate any plain string. Falls back to original (with digits converted) when no mapping exists.
+// Translate any plain string. Only does exact full-string matches (no partial token replacement
+// that would produce embarrassing mixed Arabic/English text). Unknown strings stay English
+// until the async Ollama/LibreTranslate pass translates them in full.
+// Also checks translationCache so previously-async-translated strings resolve instantly
+// on subsequent React re-renders.
 export const translateText = (raw: string, lang: "en" | "ar"): string => {
   if (lang !== "ar") return raw;
   const trimmed = raw.trim();
   if (!trimmed) return raw;
-  // Whole-string match first
+  // Don't attempt to translate URLs, markdown links, or code-like tokens
+  if (/https?:\/\//.test(raw) || /\[[^\]]+\]\([^\)]+\)/.test(raw) || /^[_A-Za-z0-9\-]+$/.test(trimmed)) return raw;
+  // If already Arabic, just convert digits
+  if (/[\u0600-\u06FF]/.test(raw) && !/[A-Za-z]/.test(raw)) return toArabicDigits(raw);
+  // Exact full-string dictionary match only
   const direct = enToAr[trimmed];
-  if (direct) {
-    // Preserve surrounding whitespace
-    return raw.replace(trimmed, toArabicDigits(direct));
-  }
-  // Token replacement: split on word boundaries, translate longest matching phrases.
-  // Try multi-word phrases up to 6 words for substring matches.
-  let out = trimmed;
-  // Replace any English phrase that exists in dictionary as a substring.
-  for (const [en, ar] of Object.entries(enToAr)) {
-    if (en.length < 3) continue;
-    if (out.includes(en)) {
-      out = out.split(en).join(ar);
-    }
-  }
-  return toArabicDigits(raw.replace(trimmed, out));
+  if (direct) return raw.replace(trimmed, toArabicDigits(direct));
+  // Check async cache (populated by previous Ollama/LibreTranslate passes)
+  const cached = translationCache.get(trimmed);
+  if (cached) return raw.replace(trimmed, toArabicDigits(cached));
+  // If mixed Arabic/English, leave as-is (async pass will translate the whole string)
+  return raw;
 };

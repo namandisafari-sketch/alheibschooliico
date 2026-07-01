@@ -6,7 +6,7 @@ import { QuickActions } from "@/components/dashboard/QuickActions";
 import { ClassOverview } from "@/components/dashboard/ClassOverview";
 import { UpcomingEvents } from "@/components/dashboard/UpcomingEvents";
 import { FeeCollectionSummary, RecentFeePayments, OutstandingBalancesWidget } from "@/components/dashboard/FeeWidgets";
-import { Users, GraduationCap, BookOpen, ClipboardCheck, Monitor, LayoutDashboard, Activity, Wallet, Zap } from "lucide-react";
+import { Users, GraduationCap, BookOpen, ClipboardCheck } from "lucide-react";
 import { useLearners } from "@/hooks/useLearners";
 import { useTeachers } from "@/hooks/useTeachers";
 import { useClasses } from "@/hooks/useClasses";
@@ -15,26 +15,35 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subDays } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { SecurityDashboard } from "@/components/dashboard/SecurityDashboard";
 import { TeacherDashboard } from "@/components/dashboard/TeacherDashboard";
+import { QuickNavBar } from "@/components/dashboard/QuickNavBar";
 import { AccountantDashboard } from "@/components/dashboard/AccountantDashboard";
-import { DirectorDashboard as HeadTeacherDashboard } from "@/components/dashboard/DirectorDashboard";
+import { HeadTeacherDashboard } from "@/components/dashboard/HeadTeacherDashboard";
 import { OfficeDashboard as StaffDashboard } from "@/components/dashboard/OfficeDashboard";
+import { GatemanDashboard } from "@/components/dashboard/GatemanDashboard";
 import { Navigate } from "react-router-dom";
 import { InventorySummaryWidget } from "@/components/dashboard/InventoryWidgets";
 import { SystemHealthWidget } from "@/components/dashboard/SystemHealthWidget";
 import { HealthStatusWidget } from "@/components/dashboard/HealthStatusWidget";
 import { DisciplineTrackerWidget } from "@/components/dashboard/DisciplineTrackerWidget";
 import { BoardingIslamicWidget } from "@/components/dashboard/BoardingIslamicWidget";
+import { DormitoryStatusWidget } from "@/components/dashboard/DormitoryStatusWidget";
 import { DynamicAcademicProgress } from "@/components/dashboard/DynamicAcademicProgress";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageGuide } from "@/components/common/PageGuide";
-import { DatabaseHealthCheck } from "@/components/dashboard/DatabaseHealthCheck";
 import { RegistrationTrackerWidget } from "@/components/dashboard/RegistrationTrackerWidget";
 import { StudentDashboard } from "@/components/dashboard/StudentDashboard";
 import { IslamicDashboard } from "@/components/dashboard/IslamicDashboard";
 import { ExecutiveDashboard } from "@/components/dashboard/ExecutiveDashboard";
+import { SecretaryDashboard } from "@/components/dashboard/SecretaryDashboard";
+import { DirectorDashboard } from "@/components/dashboard/DirectorDashboard";
+import { ManagerDashboard } from "@/components/dashboard/ManagerDashboard";
+import { HeadOfInternalDashboard } from "@/components/dashboard/HeadOfInternalDashboard";
+import { AssetUnderMyCustody } from "@/components/dashboard/AssetUnderMyCustody";
 
 const useAttendanceStats = () => {
   return useQuery({
@@ -70,11 +79,11 @@ const Index = () => {
   const { data: attStats } = useAttendanceStats();
   const { data: academicSettings } = useAcademicSettings();
 
-  const currentYear = academicSettings?.current_year ?? 2024;
-  const currentTermId = academicSettings?.current_term_id ?? "term_3";
+  const currentYear = academicSettings?.current_year ?? new Date().getFullYear();
+  const currentTermId = academicSettings?.current_term_id ?? "term_1";
   const terms = academicSettings?.terms ?? [];
-  const activeTerm = terms.find(t => t.id === currentTermId)?.name ?? "Term III";
-  const currentWeek = academicSettings?.current_week ?? 8;
+  const activeTerm = terms.find(t => t.id === currentTermId)?.name ?? "Term I";
+  const currentWeek = academicSettings?.current_week ?? 1;
   const totalWeeks = academicSettings?.total_weeks ?? 14;
 
   const totalLearners = learners?.length ?? 0;
@@ -86,6 +95,30 @@ const Index = () => {
       ? attStats.todayRate - attStats.lastWeekRate
       : null;
 
+  if (role === "gateman") {
+    return (
+      <DashboardLayout
+        title="Gate Control Hub"
+        subtitle="Campus security and visitor management"
+      >
+        <GatemanDashboard />
+        <AssetUnderMyCustody />
+      </DashboardLayout>
+    );
+  }
+
+  if (role === "secretary" || role === "office_manager") {
+    return (
+      <DashboardLayout
+        title="Secretary Hub"
+        subtitle="Office operations, communications & document management"
+      >
+        <SecretaryDashboard />
+        <AssetUnderMyCustody />
+      </DashboardLayout>
+    );
+  }
+
   if (role === "security") {
     return (
       <DashboardLayout 
@@ -93,6 +126,7 @@ const Index = () => {
         subtitle="Security & Visitor Management - Alheib Mixed Day & Boarding School"
       >
         <SecurityDashboard />
+        <AssetUnderMyCustody />
       </DashboardLayout>
     );
   }
@@ -108,6 +142,7 @@ const Index = () => {
         subtitle="Manage your classes and learner progress"
       >
         <TeacherDashboard />
+        <AssetUnderMyCustody />
       </DashboardLayout>
     );
   }
@@ -116,6 +151,7 @@ const Index = () => {
     return (
       <DashboardLayout title="Finance Hub" subtitle="Alheib Financial Ecosystem & Procurement Control">
         <AccountantDashboard />
+        <AssetUnderMyCustody />
       </DashboardLayout>
     );
   }
@@ -124,6 +160,18 @@ const Index = () => {
     return (
       <DashboardLayout title="Head Teacher Dashboard" subtitle="Academic oversight & school operations">
         <HeadTeacherDashboard />
+        <AssetUnderMyCustody />
+      </DashboardLayout>
+    );
+  }
+
+  if (role === "head_of_internal") {
+    return (
+      <DashboardLayout
+        title="Internal Affairs Dashboard"
+        subtitle="Staff oversight, discipline & internal operations"
+      >
+        <HeadOfInternalDashboard />
       </DashboardLayout>
     );
   }
@@ -132,21 +180,54 @@ const Index = () => {
     return (
       <DashboardLayout title="Staff Workspace" subtitle="Daily operations & support tasks">
         <StaffDashboard />
+        <AssetUnderMyCustody />
       </DashboardLayout>
     );
   }
 
+  if (role === "direct_manager") {
+    return (
+      <DashboardLayout
+        title="Direct Manager"
+        subtitle="Cross-department oversight & approvals"
+      >
+        <ManagerDashboard />
+        <AssetUnderMyCustody />
+      </DashboardLayout>
+    );
+  }
+
+  if (role === "center_director") {
+    return (
+      <DashboardLayout
+        title="Center Director"
+        subtitle="Strategic oversight & executive command"
+      >
+        <DirectorDashboard />
+        <AssetUnderMyCustody />
+      </DashboardLayout>
+    );
+  }
+
+  if (role === "orphan_supervisor") {
+    return <Navigate to="/hostel" replace />;
+  }
+
+  const { data: siteSettings } = useSiteSettings();
+  const { t } = useLanguage();
+  const schoolName = siteSettings?.landing_hero?.school_name ?? t("Alheib Mixed Day & Boarding School");
+
   return (
     <DashboardLayout 
-      title="Dashboard" 
-      subtitle={`Welcome back! ${activeTerm}, ${currentYear} - Alheib Mixed Day & Boarding School`}
+      title={t("Dashboard")} 
+      subtitle={`${t("Welcome Back!")} ${activeTerm}, ${currentYear} - ${schoolName}`}
     >
       {/* Term Banner */}
       <div className="mb-4 lg:mb-6 rounded-xl border border-primary/20 bg-primary/5 p-3 lg:p-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
-            <p className="font-display text-sm lg:text-base font-semibold text-primary">Uganda New Curriculum</p>
-            <p className="text-xs lg:text-sm text-muted-foreground">P1-P7 Competency-Based Education System</p>
+            <p className="font-display text-sm lg:text-base font-semibold text-primary">{t("Uganda New Curriculum")}</p>
+            <p className="text-xs lg:text-sm text-muted-foreground">{siteSettings?.landing_hero?.tagline ?? t("P1-P7 Competency-Based Education System")}</p>
           </div>
           <div className="sm:text-right">
             <p className="text-xs lg:text-sm font-medium text-foreground">{activeTerm}, {currentYear}</p>
@@ -154,6 +235,9 @@ const Index = () => {
           </div>
         </div>
       </div>
+
+      {/* Quick Navigation */}
+      <QuickNavBar />
 
       {/* Stats Grid */}
       <div className="grid gap-3 sm:gap-4 lg:gap-6 grid-cols-2 lg:grid-cols-4">
@@ -206,6 +290,7 @@ const Index = () => {
           <SystemHealthWidget />
           <DynamicAcademicProgress />
           <HealthStatusWidget />
+          <DormitoryStatusWidget />
           <BoardingIslamicWidget />
         </div>
 
@@ -227,29 +312,11 @@ const Index = () => {
           <DisciplineTrackerWidget />
           <OutstandingBalancesWidget />
           <UpcomingEvents />
-          
-          <Card className="border-2 border-slate-100 shadow-sm p-5 bg-blue-50/30">
-             <div className="flex items-center gap-3 mb-4">
-                <div className="h-10 w-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                   <Monitor className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                   <h4 className="text-xs font-black uppercase text-blue-900">Remote Access</h4>
-                   <p className="text-[10px] font-bold text-blue-500">VPN Tunnel Active</p>
-                </div>
-             </div>
-             <Button variant="outline" size="sm" className="w-full border-blue-200 text-blue-700 hover:bg-blue-100 text-[10px] font-black uppercase tracking-widest">
-                Configure Gateway
-             </Button>
-          </Card>
+          <AssetUnderMyCustody />
         </div>
       </div>
       
-      {role === "admin" && (
-        <div className="mt-8 pt-8 border-t border-dashed border-slate-200">
-          <DatabaseHealthCheck />
-        </div>
-      )}
+
     </DashboardLayout>
   );
 };

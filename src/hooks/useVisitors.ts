@@ -23,6 +23,8 @@ export interface VisitorVisit {
   visitor_phone: string | null;
   visitor_photo_url: string | null;
   purpose: string | null;
+  visit_reason_id: string | null;
+  visitor_category_id: string | null;
   host_staff_id: string | null;
   host_name: string | null;
   learner_id: string | null;

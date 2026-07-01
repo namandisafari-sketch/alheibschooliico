@@ -20,6 +20,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Package,
   Plus,
   Search,
@@ -44,12 +51,15 @@ import { RestockItemDialog } from "@/components/inventory/RestockItemDialog";
 import { AssetDialog } from "@/components/inventory/AssetDialog";
 import { BulkIssueDialog } from "@/components/inventory/BulkIssueDialog";
 import { GatePassDialog } from "@/components/inventory/GatePassDialog";
+import { InventoryWhatsAppPanel } from "@/components/inventory/InventoryWhatsAppPanel";
+import { AssetInventoryForm } from "@/components/inventory/AssetInventoryForm";
+import { sendIssuanceApprovalNotification, sendGatePassAlert } from "@/services/inventoryWhatsAppService";
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
 import { useRealtime } from "@/hooks/useRealtime";
 import { DataTable } from "@/components/ui/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
-import { LayoutGrid, List as ListIcon } from "lucide-react";
+import { LayoutGrid, List as ListIcon, Phone } from "lucide-react";
 
 const Inventory = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -59,6 +69,7 @@ const Inventory = () => {
   const [isRestockOpen, setIsRestockOpen] = useState(false);
   const [isGatePassOpen, setIsGatePassOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const [showAssetForm, setShowAssetForm] = useState(false);
   
   const { items, categories } = useInventory();
   const { data: assets } = useAssets();
@@ -85,7 +96,7 @@ const Inventory = () => {
           </div>
           <div>
             <div className="font-bold text-xs uppercase tracking-tight">{row.original.name}</div>
-            <div className="text-[10px] text-muted-foreground font-mono">{row.original.category?.name || "General"}</div>
+            <div className="text-[10px] text-muted-foreground font-mono">{row.original.category || "General"}</div>
           </div>
         </div>
       )
@@ -94,8 +105,8 @@ const Inventory = () => {
       accessorKey: "quantity",
       header: "Stock",
       cell: ({ row }) => {
-        const qty = row.original.stock?.[0]?.quantity || 0;
-        const low = qty <= row.original.min_stock_level;
+        const qty = row.original.quantity || 0;
+        const low = qty <= row.original.min_threshold;
         return (
           <div className="flex items-baseline gap-1">
             <span className={cn("font-black text-sm", low ? "text-destructive" : "text-slate-900")}>{qty}</span>
@@ -198,7 +209,7 @@ const Inventory = () => {
   );
 
   const lowStockCount = items.data?.filter((item: any) => 
-    (item.stock?.[0]?.quantity || 0) <= item.min_stock_level
+    (item.quantity || 0) <= item.min_threshold
   ).length;
 
   const handleIssue = (item: any) => {
@@ -237,6 +248,17 @@ const Inventory = () => {
       toast({ title: "Approved", description: `Request moved to ${nextStatus.replace('_', ' ')}.` });
       queryClient.invalidateQueries({ queryKey: ["inventory-history"] });
       queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
+      
+      // Send WhatsApp notification on approval
+      const trans = history?.find(h => h.id === id);
+      if (trans) {
+        sendIssuanceApprovalNotification(
+          trans.item?.name || "Item",
+          trans.quantity,
+          trans.learner?.full_name || trans.staff?.full_name || "General",
+          trans.tracking_number || id.slice(0, 8)
+        );
+      }
     }
   };
 
@@ -291,7 +313,7 @@ const Inventory = () => {
           <div className="flex items-start justify-between">
             <div className="min-w-0">
               <p className="text-[10px] md:text-sm text-muted-foreground uppercase font-black tracking-widest truncate">Total Assets</p>
-              <p className="text-xl md:text-2xl font-black mt-1 text-blue-600 truncate">{assets?.length || 0}</p>
+              <p className="text-xl md:text-2xl font-black mt-1 text-blue-600 truncate">{assets?.reduce((s, a) => s + (a.quantity || 1), 0) || 0}</p>
             </div>
             <div className="h-7 w-7 md:h-9 md:w-9 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
               <Truck className="h-4 w-4 md:h-5 md:w-5 text-blue-500" />
@@ -312,31 +334,33 @@ const Inventory = () => {
         </Card>
       </div>
 
-      <Tabs defaultValue="stock" className="w-full">
-        <TabsList className="flex w-full mb-6 overflow-x-auto no-scrollbar justify-start md:grid md:grid-cols-5 p-1 bg-slate-100/50 rounded-xl h-auto">
-          <TabsTrigger value="stock" className="flex-shrink-0 md:flex-shrink gap-2 px-4 py-2 text-[10px] md:text-xs">
-            <Box className="h-4 w-4" /> Stock
-          </TabsTrigger>
-          {isAdmin && (
-            <TabsTrigger value="pending" className="flex-shrink-0 md:flex-shrink gap-2 px-4 py-2 text-[10px] md:text-xs relative">
-              <ShieldCheck className="h-4 w-4" /> Pending
-              {pendingRequests && pendingRequests.length > 0 && (
-                <Badge variant="destructive" className="ml-1 h-4 w-4 md:h-5 md:w-5 flex items-center justify-center p-0 text-[8px] md:text-[10px] absolute -top-1 -right-1">
-                  {pendingRequests.length}
-                </Badge>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="md:col-span-3">
+          <Tabs defaultValue="stock" className="w-full">
+            <TabsList className="flex w-full overflow-x-auto no-scrollbar justify-start md:grid md:grid-cols-5 p-1 bg-slate-100/50 rounded-xl h-auto">
+              <TabsTrigger value="stock" className="flex-shrink-0 md:flex-shrink gap-2 px-4 py-2 text-[10px] md:text-xs">
+                <Box className="h-4 w-4" /> Stock
+              </TabsTrigger>
+              {isAdmin && (
+                <TabsTrigger value="pending" className="flex-shrink-0 md:flex-shrink gap-2 px-4 py-2 text-[10px] md:text-xs relative">
+                  <ShieldCheck className="h-4 w-4" /> Pending
+                  {pendingRequests && pendingRequests.length > 0 && (
+                    <Badge variant="destructive" className="ml-1 h-4 w-4 md:h-5 md:w-5 flex items-center justify-center p-0 text-[8px] md:text-[10px] absolute -top-1 -right-1">
+                      {pendingRequests.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
               )}
-            </TabsTrigger>
-          )}
-          <TabsTrigger value="assets" className="flex-shrink-0 md:flex-shrink gap-2 px-4 py-2 text-[10px] md:text-xs">
-            <Truck className="h-4 w-4" /> Assets
-          </TabsTrigger>
-          <TabsTrigger value="purchases" className="flex-shrink-0 md:flex-shrink gap-2 px-4 py-2 text-[10px] md:text-xs text-indigo-600">
-            <ShoppingCart className="h-4 w-4" /> Purchases
-          </TabsTrigger>
-          <TabsTrigger value="history" className="flex-shrink-0 md:flex-shrink gap-2 px-4 py-2 text-[10px] md:text-xs">
-            <History className="h-4 w-4" /> History
-          </TabsTrigger>
-        </TabsList>
+              <TabsTrigger value="assets" className="flex-shrink-0 md:flex-shrink gap-2 px-4 py-2 text-[10px] md:text-xs">
+                <Truck className="h-4 w-4" /> Assets
+              </TabsTrigger>
+              <TabsTrigger value="purchases" className="flex-shrink-0 md:flex-shrink gap-2 px-4 py-2 text-[10px] md:text-xs text-indigo-600">
+                <ShoppingCart className="h-4 w-4" /> Purchases
+              </TabsTrigger>
+              <TabsTrigger value="history" className="flex-shrink-0 md:flex-shrink gap-2 px-4 py-2 text-[10px] md:text-xs">
+                <History className="h-4 w-4" /> History
+              </TabsTrigger>
+            </TabsList>
 
         <TabsContent value="stock" className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
@@ -377,6 +401,13 @@ const Inventory = () => {
               </Button>
               <Button 
                 variant="outline" 
+                className="flex-1 sm:flex-none border-emerald-200 bg-emerald-50/30 hover:bg-emerald-50 text-emerald-700"
+                onClick={() => setShowAssetForm(true)}
+              >
+                <FileText className="mr-2 h-4 w-4" /> Print Form
+              </Button>
+              <Button 
+                variant="outline" 
                 className="flex-1 sm:flex-none border-blue-200 bg-blue-50/30 hover:bg-blue-50 text-blue-700"
                 onClick={() => window.location.href = '/visitors'}
               >
@@ -398,8 +429,8 @@ const Inventory = () => {
           {viewMode === "grid" ? (
             <div id="inventory-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredItems?.map((item: any) => {
-                const quantity = item.stock?.[0]?.quantity || 0;
-                const isLow = quantity <= item.min_stock_level;
+                const quantity = item.quantity || 0;
+                const isLow = quantity <= item.min_threshold;
                 
                 return (
                     <div 
@@ -420,7 +451,7 @@ const Inventory = () => {
                           <div className="min-w-0">
                             <h4 className="font-bold text-base truncate leading-none mb-1">{item.name}</h4>
                             <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-tighter">
-                              {item.category?.name || "General"} • {item.unit}
+                              {item.category || "General"} • {item.unit}
                             </p>
                           </div>
                         </div>
@@ -444,7 +475,7 @@ const Inventory = () => {
                           </div>
                           <div className="text-right">
                             <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1">Threshold</p>
-                            <p className="text-sm font-semibold">{item.min_stock_level || 0}</p>
+                            <p className="text-sm font-semibold">{item.min_threshold || 0}</p>
                           </div>
                         </div>
 
@@ -452,7 +483,7 @@ const Inventory = () => {
                         <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
                           <div 
                             className={cn("h-full transition-all duration-500", isLow ? "bg-destructive" : "bg-primary")} 
-                            style={{ width: `${Math.min(100, (quantity / ((item.min_stock_level || 1) * 3)) * 100)}%` }}
+                            style={{ width: `${Math.min(100, (quantity / ((item.min_threshold || 1) * 3)) * 100)}%` }}
                           />
                         </div>
                       </div>
@@ -551,11 +582,16 @@ const Inventory = () => {
             {assets?.map((asset: any) => (
               <div key={asset.id} className="rounded-xl border border-border bg-card p-4 hover:shadow-sm transition-all">
                 <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h4 className="font-bold">{asset.name}</h4>
-                    <p className="text-[10px] font-mono text-muted-foreground">{asset.serial_number || asset.asset_tag_id || "NO SERIAL"}</p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold truncate">{asset.name}</h4>
+                      <Badge variant="secondary" className="shrink-0 h-5 px-1.5 text-[10px] font-bold">
+                        x{asset.quantity || 1}
+                      </Badge>
+                    </div>
+                    <p className="text-[10px] font-mono text-muted-foreground truncate">{asset.serial_number || asset.asset_tag_id || "—"}</p>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 shrink-0">
                     <AssetDialog asset={asset} mode="edit">
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-primary">
                         <Edit className="h-3.5 w-3.5" />
@@ -568,11 +604,11 @@ const Inventory = () => {
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Assigned To:</span>
-                    <span className="font-medium">{asset.assigned_staff?.full_name || "Unassigned"}</span>
+                    <span className="font-medium truncate ml-1">{asset.assigned_staff?.full_name || "Unassigned"}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Location:</span>
-                    <span className="font-medium">{asset.location || "General"}</span>
+                    <span className="font-medium truncate ml-1">{asset.location || "General"}</span>
                   </div>
                 </div>
               </div>
@@ -629,6 +665,24 @@ const Inventory = () => {
           </div>
         </TabsContent>
       </Tabs>
+      </div> {/* end tabs wrapper col-span-3 */}
+
+      {/* WhatsApp Panel */}
+      <div className="md:col-span-1">
+        <InventoryWhatsAppPanel 
+          lowStockItems={
+            items.data?.filter((item: any) => 
+              (item.quantity || 0) <= item.min_threshold
+            ).map((item: any) => ({
+              name: item.name,
+              qty: item.quantity || 0,
+              minStock: item.min_threshold,
+              unit: item.unit,
+            })) || []
+          }
+        />
+      </div>
+      </div> {/* end grid */}
 
       {selectedItem && (
         <>
@@ -652,6 +706,26 @@ const Inventory = () => {
           onOpenChange={setIsGatePassOpen}
         />
       )}
+
+      {/* Asset Inventory Form Dialog */}
+      <Dialog open={showAssetForm} onOpenChange={setShowAssetForm}>
+        <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Asset Inventory Form</DialogTitle>
+            <DialogDescription>
+              Printable form matching the official Alheib Center inventory sheet.
+            </DialogDescription>
+          </DialogHeader>
+          <AssetInventoryForm
+            items={items.data || []}
+            assets={assets || []}
+            department="General Store"
+            custodianName={user?.user_metadata?.full_name || ""}
+            jobTitle={role || ""}
+            inventoryDate=""
+          />
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };

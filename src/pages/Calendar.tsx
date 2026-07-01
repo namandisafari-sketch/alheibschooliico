@@ -3,6 +3,7 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useCalendar, useUpsertCalendarEvent, CalendarEvent } from "@/hooks/useCalendar";
 import { Printer, Plus, Calendar as CalendarIcon, ChevronLeft, ChevronRight, School, Palmtree, Loader2, ClipboardList, AlertCircle, RefreshCw } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWithinInterval, parseISO, isAfter, isBefore } from "date-fns";
@@ -19,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
+import { useAcademicSettings } from "@/hooks/useAcademicSettings";
 import { useIdCardSettings } from "@/hooks/useIdCardSettings";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
@@ -99,10 +101,15 @@ const Calendar = () => {
   const { data: events = [], isLoading, isError, error } = useCalendar();
   const { role } = useAuth();
   const isAdmin = role === "admin" || role === "head_teacher";
+  const pageTitle = role === "gateman" ? "Gate Events Calendar" : "Academic Calendar";
+  const pageSubtitle = role === "gateman"
+    ? "Campus entry schedule and visitor events overview"
+    : "School Program & Yearly Itinerary";
   const { data: idSettings } = useIdCardSettings();
+  const { data: academicSettings } = useAcademicSettings();
   const upsertEvent = useUpsertCalendarEvent();
 
-  const [academicYear, setAcademicYear] = useState(2025);
+  const [academicYear, setAcademicYear] = useState(academicSettings?.current_year ?? new Date().getFullYear());
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"yearly" | "termly" | "monthly" | "weekly">("yearly");
@@ -120,7 +127,7 @@ const Calendar = () => {
 
   if (isLoading) {
     return (
-      <DashboardLayout title="Academic Calendar" subtitle="School Program & Yearly Itinerary">
+      <DashboardLayout title={pageTitle} subtitle={pageSubtitle}>
         <div className="flex h-[60vh] flex-col items-center justify-center space-y-6">
           <div className="relative">
             <div className="h-24 w-24 rounded-full border-t-2 border-[#16b2b4] animate-spin" />
@@ -141,7 +148,7 @@ const Calendar = () => {
 
   if (isError) {
     return (
-      <DashboardLayout title="Academic Calendar" subtitle="School Program & Yearly Itinerary">
+      <DashboardLayout title={pageTitle} subtitle={pageSubtitle}>
         <div className="flex h-[60vh] flex-col items-center justify-center space-y-4 p-8 text-center">
           <div className="h-16 w-16 rounded-full bg-red-50 flex items-center justify-center text-red-500 mb-2">
             <AlertCircle className="h-8 w-8" />
@@ -367,7 +374,7 @@ const Calendar = () => {
   };
 
   return (
-    <DashboardLayout title="Academic Center" subtitle="Alheib Primary Portfolio">
+    <DashboardLayout title={pageTitle} subtitle={pageSubtitle}>
       <div className="mb-8 flex flex-wrap gap-4 print:hidden print-hidden">
         <div className="flex bg-white p-1 rounded-2xl border border-[#008284]/10 shadow-sm overflow-hidden">
           {(["yearly", "termly", "monthly", "weekly"] as const).map((mode) => (
@@ -416,9 +423,9 @@ const Calendar = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="rounded-2xl border-[#008284]/20">
-              <SelectItem value="2024">CY 2024</SelectItem>
-              <SelectItem value="2025">CY 2025</SelectItem>
-              <SelectItem value="2026">CY 2026</SelectItem>
+              {[academicYear - 1, academicYear, academicYear + 1].map((y) => (
+                <SelectItem key={y} value={y.toString()}>CY {y}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

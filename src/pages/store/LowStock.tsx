@@ -15,18 +15,12 @@ const LowStock = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select(`
-          *,
-          category:inventory_categories(name),
-          stock:inventory_stock(quantity)
-        `);
+        .select("*");
       if (error) throw error;
       
-      // Filter manually for items where stock quantity < min_stock_level
-      // (PostgREST doesn't easily support cross-table comparison in eq)
       return (data || []).filter(item => {
-        const qty = item.stock?.[0]?.quantity || 0;
-        return qty <= item.min_stock_level;
+        const qty = item.quantity || 0;
+        return qty <= item.min_threshold;
       });
     },
   });
@@ -39,7 +33,7 @@ const LowStock = () => {
             <CardContent className="pt-4 flex items-center justify-between">
               <div>
                 <p className="text-xs font-bold text-red-600 uppercase">Critical Depletion</p>
-                <p className="text-2xl font-bold">{lowStockItems.filter(i => (i.stock?.[0]?.quantity || 0) === 0).length}</p>
+                <p className="text-2xl font-bold">{lowStockItems.filter(i => (i.quantity || 0) === 0).length}</p>
               </div>
               <AlertTriangle className="h-8 w-8 text-red-200" />
             </CardContent>
@@ -97,27 +91,27 @@ const LowStock = () => {
                 </TableHeader>
                 <TableBody>
                   {lowStockItems.map((item) => {
-                    const qty = item.stock?.[0]?.quantity || 0;
-                    const diff = item.min_stock_level - qty;
-                    const suggested = diff > 0 ? diff * 2 : item.min_stock_level;
+                    const qty = item.quantity || 0;
+                    const diff = item.min_threshold - qty;
+                    const suggested = diff > 0 ? diff * 2 : item.min_threshold;
 
                     return (
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">
                           <div className="flex flex-col">
                             <span>{item.name}</span>
-                            <span className="text-[10px] text-muted-foreground uppercase">{item.sku}</span>
+                            <span className="text-[10px] text-muted-foreground uppercase">{item.id?.slice(0, 8)}</span>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="text-[10px]">{item.category?.name}</Badge>
+                          <Badge variant="outline" className="text-[10px]">{item.category}</Badge>
                         </TableCell>
                         <TableCell>
                           <span className={`font-bold ${qty === 0 ? 'text-red-600' : 'text-orange-600'}`}>
                             {qty} {item.unit}
                           </span>
                         </TableCell>
-                        <TableCell className="text-xs">{item.min_stock_level} {item.unit}</TableCell>
+                        <TableCell className="text-xs">{item.min_threshold} {item.unit}</TableCell>
                         <TableCell>
                           <Badge className="bg-blue-600 text-[10px]">+{suggested} {item.unit}</Badge>
                         </TableCell>

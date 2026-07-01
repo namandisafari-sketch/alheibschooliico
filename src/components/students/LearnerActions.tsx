@@ -8,10 +8,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Trash2, User, ArrowUpCircle, FileText, Printer } from "lucide-react";
-import { useDeleteLearner, Learner } from "@/hooks/useLearners";
+import { MoreHorizontal, Pencil, Trash2, User, ArrowUpCircle, FileText, Printer, LogOut, Archive, RotateCcw } from "lucide-react";
+import { useDeleteLearner, useUpdateLearner, Learner } from "@/hooks/useLearners";
+import { useAuth } from "@/hooks/useAuth";
+import { useMarkOrphan } from "@/hooks/useOrphanage";
+import { Heart } from "lucide-react";
 import { EditLearnerDialog } from "./EditLearnerDialog";
 import { LearnerDetailsDialog } from "./LearnerDetailsDialog";
+import { LeaverDialog } from "./LeaverDialog";
 import { CircularDialog } from "@/components/reports/CircularDialog";
 import {
   AlertDialog,
@@ -30,11 +34,16 @@ interface LearnerActionsProps {
 }
 
 export const LearnerActions = ({ learner }: LearnerActionsProps) => {
+  const { role } = useAuth();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showCircularDialog, setShowCircularDialog] = useState(false);
   const [showDossierDialog, setShowDossierDialog] = useState(false);
+  const [showLeaverDialog, setShowLeaverDialog] = useState(false);
+  const [showStatusDialog, setShowStatusDialog] = useState(false);
   const deleteLearner = useDeleteLearner();
+  const updateLearner = useUpdateLearner();
+  const markOrphan = useMarkOrphan();
 
   if (!learner) return null;
 
@@ -73,16 +82,46 @@ export const LearnerActions = ({ learner }: LearnerActionsProps) => {
           <DropdownMenuItem onClick={() => toast({ title: "Promote coming soon" })}>
             <ArrowUpCircle className="mr-2 h-4 w-4" /> Promote Class
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem 
-            className="text-destructive focus:text-destructive"
-            onClick={() => setShowDeleteDialog(true)}
-          >
-            <Trash2 className="mr-2 h-4 w-4" /> Delete Learner
+          <DropdownMenuItem onClick={() => setShowLeaverDialog(true)}>
+            <LogOut className="mr-2 h-4 w-4" /> Mark as Left
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setShowStatusDialog(true)}>
+            {learner.status === "active" ? (
+              <><Archive className="mr-2 h-4 w-4" /> Close File</>
+            ) : (
+              <><RotateCcw className="mr-2 h-4 w-4" /> Reopen File</>
+            )}
+          </DropdownMenuItem>
+          {role === "orphan_supervisor" && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => markOrphan.mutateAsync({
+                  learnerId: learner.id,
+                  isOrphan: learner.pupil_status !== "Orphan",
+                  orphanStatus: learner.pupil_status === "Orphan" ? undefined : "registered",
+                })}
+              >
+                <Heart className={`mr-2 h-4 w-4 ${learner.pupil_status === "Orphan" ? "fill-red-500 text-red-500" : "text-slate-400"}`} />
+                {learner.pupil_status === "Orphan" ? "Remove Orphan Status" : "Mark as Orphan"}
+              </DropdownMenuItem>
+            </>
+          )}
+          {role !== "orphan_supervisor" && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                className="text-destructive focus:text-destructive"
+                onClick={() => setShowDeleteDialog(true)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete Learner
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
+      {role !== "orphan_supervisor" && (
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -103,6 +142,7 @@ export const LearnerActions = ({ learner }: LearnerActionsProps) => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      )}
 
       <EditLearnerDialog 
         learner={learner} 
@@ -121,6 +161,49 @@ export const LearnerActions = ({ learner }: LearnerActionsProps) => {
         open={showDossierDialog}
         onOpenChange={setShowDossierDialog}
       />
+
+      <LeaverDialog
+        learner={learner}
+        open={showLeaverDialog}
+        onOpenChange={setShowLeaverDialog}
+      />
+
+      <AlertDialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {learner.status === "active" ? "Close this file?" : "Reopen this file?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {learner.status === "active"
+                ? `${learner.full_name} will be marked as inactive and hidden from most views. You can reopen the file later.`
+                : `${learner.full_name} will be restored to active status.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                try {
+                  await updateLearner.mutateAsync({
+                    id: learner.id,
+                    status: learner.status === "active" ? "inactive" : "active",
+                  });
+                  toast({
+                    title: learner.status === "active" ? "File closed" : "File reopened",
+                    description: `${learner.full_name} is now ${learner.status === "active" ? "inactive" : "active"}.`,
+                  });
+                } catch (e: any) {
+                  toast({ title: "Error", description: e.message, variant: "destructive" });
+                }
+                setShowStatusDialog(false);
+              }}
+            >
+              {learner.status === "active" ? "Close File" : "Reopen File"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

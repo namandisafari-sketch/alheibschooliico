@@ -2,9 +2,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export const useCurriculumPlans = (classId?: string, subjectId?: string) => {
+export const useCurriculumPlans = (classId?: string, subjectId?: string, term?: string, academicYear?: number) => {
   return useQuery({
-    queryKey: ["curriculum-plans", classId, subjectId],
+    queryKey: ["curriculum-plans", classId, subjectId, term, academicYear],
     queryFn: async () => {
       let query = supabase
         .from("curriculum_plans")
@@ -18,6 +18,8 @@ export const useCurriculumPlans = (classId?: string, subjectId?: string) => {
       
       if (classId) query = query.eq("class_id", classId);
       if (subjectId) query = query.eq("subject_id", subjectId);
+      if (term) query = query.eq("term", term);
+      if (academicYear) query = query.eq("academic_year", academicYear);
       
       const { data, error } = await query;
       if (error) throw error;

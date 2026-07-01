@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Receipt, Check, X, Loader2, Plus, Search, Wallet, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
+import { Receipt, Check, X, Loader2, Plus, Search, Wallet, AlertTriangle, Clock, CheckCircle2, ChevronsUpDown } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -182,9 +183,13 @@ const ExpenseApprovals = () => {
             <div><Label>Purpose</Label><Input value={form.purpose} onChange={(e) => setForm({...form, purpose: e.target.value})} placeholder="e.g. Fuel for school van" /></div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Category</Label>
-                <select className="w-full border rounded-md h-10 px-3" value={form.category} onChange={(e) => setForm({...form, category: e.target.value})}>
-                  {["supplies","transport","utilities","repairs","food","medical","training","other"].map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+                <SearchableSelect
+                  options={["supplies","transport","utilities","repairs","food","medical","training","other"].map(c => ({ value: c, label: c }))}
+                  value={form.category}
+                  onValueChange={(v) => setForm({...form, category: v})}
+                  placeholder="Select category"
+                  searchPlaceholder="Search category…"
+                />
               </div>
               <div><Label>Amount (UGX)</Label><Input type="number" value={form.amount} onChange={(e) => setForm({...form, amount: e.target.value})} /></div>
             </div>

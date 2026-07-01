@@ -17,7 +17,9 @@ import {
   BookOpen
 } from "lucide-react";
 import { useLessonPlans, useUpdateLessonPlan } from "@/hooks/useLessonPlans";
+import { useAcademicSettings } from "@/hooks/useAcademicSettings";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Dialog, 
   DialogContent, 
@@ -33,10 +35,17 @@ import { format } from "date-fns";
 const LessonTracking = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [filterTerm, setFilterTerm] = useState<string>("all");
+  const [filterYear, setFilterYear] = useState<string>("all");
   const [reviewPlan, setReviewPlan] = useState<any>(null);
   const [feedback, setFeedback] = useState("");
   
-  const { data: allPlans = [], isLoading } = useLessonPlans();
+  const { data: academicSettings } = useAcademicSettings();
+  const currentYear = academicSettings?.current_year ?? new Date().getFullYear();
+  const filters: any = {};
+  if (filterTerm !== "all") filters.term = filterTerm;
+  if (filterYear !== "all") filters.academicYear = parseInt(filterYear);
+  const { data: allPlans = [], isLoading } = useLessonPlans(filters);
   const updatePlan = useUpdateLessonPlan();
 
   const filteredPlans = allPlans.filter(p => {
@@ -57,6 +66,18 @@ const LessonTracking = () => {
         approved_at: status === 'approved' ? new Date().toISOString() : null
       });
       toast.success(`Lesson plan ${status}`);
+      fetch("/api/notify/lesson-plan-reviewed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          teacherEmail: reviewPlan.teacher?.email,
+          teacherName: reviewPlan.teacher?.full_name,
+          planTitle: reviewPlan.title,
+          status,
+          dosComments: feedback || undefined,
+          teacherPhone: reviewPlan.teacher?.phone || undefined,
+        }),
+      }).catch(() => {});
       setReviewPlan(null);
       setFeedback("");
     } catch (error: any) {
@@ -78,6 +99,24 @@ const LessonTracking = () => {
              />
            </div>
            <div className="flex gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+            <Select value={filterTerm} onValueChange={setFilterTerm}>
+              <SelectTrigger className="h-8 w-28 text-xs"><SelectValue placeholder="Term" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Terms</SelectItem>
+                {(academicSettings?.terms ?? []).map((t: any) => (
+                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filterYear} onValueChange={setFilterYear}>
+              <SelectTrigger className="h-8 w-28 text-xs"><SelectValue placeholder="Year" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Years</SelectItem>
+                {[currentYear - 1, currentYear, currentYear + 1].map(y => (
+                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
              {['all', 'pending', 'approved', 'rejected'].map((status) => (
                 <Button
                   key={status}

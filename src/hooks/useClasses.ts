@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface ClassWithDetails {
@@ -49,6 +49,19 @@ export const useClasses = () => {
         teacher_name: cls.teacher_id ? profileMap.get(cls.teacher_id) : null,
         student_count: studentCounts[cls.id] || 0,
       })) as ClassWithDetails[];
+    },
+  });
+};
+
+export const useDeleteClass = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("classes").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["classes"] });
     },
   });
 };

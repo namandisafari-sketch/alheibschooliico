@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -89,35 +90,30 @@ const Medication = () => {
                 <form onSubmit={handleDispenseSubmit} className="space-y-4 mt-4">
                   <div className="space-y-2">
                     <Label>Active Clinic Visit</Label>
-                    <Select onValueChange={(v) => setDispenseFormData(prev => ({ ...prev, visit_id: v }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select student visit" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {activeVisits.length === 0 ? (
-                          <SelectItem value="_none" disabled>No active visits found</SelectItem>
-                        ) : (
-                          activeVisits.map(v => (
-                            <SelectItem key={v.id} value={v.id}>{v.learner?.full_name} ({v.diagnosis || "No diagnosis"})</SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
+                    {activeVisits.length === 0 ? (
+                      <Select>
+                        <SelectTrigger><SelectValue placeholder="No active visits found" /></SelectTrigger>
+                        <SelectContent><SelectItem value="_none" disabled>No active visits found</SelectItem></SelectContent>
+                      </Select>
+                    ) : (
+                      <SearchableSelect
+                        options={activeVisits.map(v => ({ value: v.id, label: `${v.learner?.full_name} (${v.diagnosis || "No diagnosis"})`, searchTerms: [v.learner?.full_name || "", v.diagnosis || ""] }))}
+                        value={dispenseFormData.visit_id}
+                        onValueChange={(v) => setDispenseFormData(prev => ({ ...prev, visit_id: v }))}
+                        placeholder="Select student visit..."
+                        searchPlaceholder="Search by student name..."
+                      />
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>Medicine</Label>
-                    <Select onValueChange={(v) => setDispenseFormData(prev => ({ ...prev, item_id: v }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select medicine" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {pharmacy.map(i => (
-                          <SelectItem key={i.id} value={i.id} disabled={i.quantity <= 0}>
-                            {i.name} ({i.quantity} {i.unit} available)
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      options={pharmacy.map(i => ({ value: i.id, label: `${i.name} (${i.quantity} ${i.unit} available)`, searchTerms: [i.name, i.unit || ""] }))}
+                      value={dispenseFormData.item_id}
+                      onValueChange={(v) => setDispenseFormData(prev => ({ ...prev, item_id: v }))}
+                      placeholder="Select medicine..."
+                      searchPlaceholder="Search medication..."
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Quantity to Dispense</Label>

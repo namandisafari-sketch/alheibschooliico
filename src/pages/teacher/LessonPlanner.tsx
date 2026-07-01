@@ -1,13 +1,13 @@
 // @ts-nocheck
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useAcademicSettings } from "@/hooks/useAcademicSettings";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
-import { CalendarDays, Printer, Save, Plus, Trash2, CheckCircle2, BookOpen } from "lucide-react";
+import { CalendarDays, Save, Plus, Trash2, BookOpen, Copy, CheckCircle2 } from "lucide-react";
 import { useLessonPlans, useCreateLessonPlan, useUpdateLessonPlan } from "@/hooks/useLessonPlans";
 import { useClasses } from "@/hooks/useClasses";
 import { useSubjects } from "@/hooks/useSubjects";
@@ -15,172 +15,241 @@ import { useTeacherAssignments } from "@/hooks/useTeacherAssignments";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { useLanguage } from "@/contexts/LanguageContext";
 import { format } from "date-fns";
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
 
 const LessonPlanner = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
-  const { t } = useLanguage();
-  const { data: plans = [], isLoading } = useLessonPlans({ teacherId: user?.id });
+  const { data: academicSettings } = useAcademicSettings();
+  const { data: plans = [], isLoading, refetch } = useLessonPlans({ teacherId: user?.id });
   const { data: classes = [] } = useClasses();
   const { data: subjects = [] } = useSubjects();
   const { data: assignments = [] } = useTeacherAssignments({ teacherId: user?.id });
   const createPlan = useCreateLessonPlan();
   const updatePlan = useUpdateLessonPlan();
 
-  const [formData, setFormData] = useState({
-    class_id: "",
-    subject_id: "",
-    week_number: "1",
-    title: "",
-    objectives: "",
-    content: "",
-    term: "Term 1",
-  });
+  const [teacherPhone, setTeacherPhone] = useState("");
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase.from("profiles").select("phone").eq("id", user.id).maybeSingle().then(({ data }) => {
+      if (data?.phone) setTeacherPhone(data.phone);
+    });
+  }, [user?.id]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await createPlan.mutateAsync({
-        ...formData,
-        teacher_id: user?.id,
-        week_number: parseInt(formData.week_number),
-      });
-      toast({ title: "Success", description: "Lesson plan submitted" });
-      setFormData({ ...formData, title: "", objectives: "", content: "" });
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+  const currentTerm = academicSettings?.current_term_id ?? "term_1";
+  const currentYear = academicSettings?.current_year ?? new Date().getFullYear();
+  const totalWeeks = academicSettings?.total_weeks ?? 14;
+  const weeks = Array.from({ length: totalWeeks }, (_, i) => i + 1);
+  const termStart = academicSettings?.terms?.find((t: any) => t.id === currentTerm)?.start_month;
+  const termEnd = academicSettings?.terms?.find((t: any) => t.id === currentTerm)?.end_month;
+
+  const [selectedAssignment, setSelectedAssignment] = useState("");
+  const [weekNumber, setWeekNumber] = useState("1");
+  const [title, setTitle] = useState("");
+  const [objectives, setObjectives] = useState("");
+  const [activities, setActivities] = useState("");
+  const [resources, setResources] = useState("");
+  const [homework, setHomework] = useState("");
+  const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [editId, setEditId] = useState("");
+  const [duplicateId, setDuplicateId] = useState("");
+
+  const assignment = assignments.find(a => a.id === selectedAssignment);
+
+  const handleSubmit = async () => {
+    if (!assignment || !title.trim()) return;
+    const week = parseInt(weekNumber);
+    if (week < 1 || week > totalWeeks) {
+      toast.error(`Week must be between 1 and ${totalWeeks}`);
+      return;
     }
+    await createPlan.mutateAsync({
+      teacher_id: user?.id,
+      class_id: assignment.class_id,
+      subject_id: assignment.subject_id,
+      week_number: week,
+      term: currentTerm,
+      academic_year: currentYear,
+      title: title.trim(),
+      objectives: objectives.trim() || null,
+      activities: activities.trim() || null,
+      resources: resources.trim() || null,
+      homework: homework.trim() || null,
+      date: date || null,
+    });
+    toast.success("Lesson plan created");
+    setTitle(""); setObjectives(""); setActivities(""); setResources(""); setHomework("");
+    refetch();
   };
 
+  const handleDuplicate = async (plan: any) => {
+    await createPlan.mutateAsync({
+      teacher_id: user?.id,
+      class_id: plan.class_id,
+      subject_id: plan.subject_id,
+      week_number: Math.min((plan.week_number || 0) + 1, totalWeeks),
+      term: currentTerm,
+      academic_year: currentYear,
+      title: plan.title,
+      objectives: plan.objectives,
+      activities: plan.activities,
+      resources: plan.resources,
+      homework: plan.homework,
+      date: format(new Date(), "yyyy-MM-dd"),
+    });
+    toast.success("Lesson plan duplicated");
+    refetch();
+  };
+
+  const planCards = [
+    { title: "Title", value: title, set: setTitle, placeholder: "e.g. Intro to Fractions" },
+    { title: "Objectives", value: objectives, set: setObjectives, placeholder: "Learners should be able to...", multi: true },
+    { title: "Activities", value: activities, set: setActivities, placeholder: "Group work, Q&A, Demonstration...", multi: true },
+    { title: "Resources", value: resources, set: setResources, placeholder: "Chalkboard, textbook, flashcards..." },
+    { title: "Homework", value: homework, set: setHomework, placeholder: "Exercise 2.1, page 15..." },
+  ];
+
   return (
-    <DashboardLayout title={t("Lesson Planner")} subtitle={t("Prepare and manage your weekly instructional activities")}>
+    <DashboardLayout title="Lesson Planner" subtitle="Create and manage detailed lesson plans with activities, resources, and homework">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Creation Form */}
-        <Card className="lg:col-span-1 h-fit">
+        <Card id="lesson-planner-form" className="lg:col-span-1 h-fit">
           <CardHeader>
-            <CardTitle className="text-lg">{t("New Lesson Plan")}</CardTitle>
-            <CardDescription>{t("Draft your instructional goals")}</CardDescription>
+            <CardTitle className="text-base">New Lesson Plan</CardTitle>
+            <CardDescription>Plan your daily instruction</CardDescription>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>{t("Class")}</Label>
-                  <Select onValueChange={(v) => setFormData(p => ({ ...p, class_id: v }))}>
-                    <SelectTrigger><SelectValue placeholder={t("Class")} /></SelectTrigger>
-                    <SelectContent>
-                      {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+          <CardContent className="space-y-3">
+            <div id="lp-assignment-select" className="space-y-2">
+              <Label className="text-xs">Assignment</Label>
+              <Select value={selectedAssignment} onValueChange={setSelectedAssignment}>
+                <SelectTrigger><SelectValue placeholder="Select assignment" /></SelectTrigger>
+                <SelectContent>
+                  {assignments.map(a => <SelectItem key={a.id} value={a.id}>{a.subject?.name} - {a.class?.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            {assignment && (
+              <>
+                <div id="lp-week-date" className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
+                    <Label className="text-xs">Week (1-{totalWeeks})</Label>
+                    <Input type="number" min="1" max={totalWeeks} value={weekNumber} onChange={e => setWeekNumber(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Date</Label>
+                    <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>{t("Week")}</Label>
-                  <Input type="number" value={formData.week_number} onChange={(e) => setFormData(p => ({ ...p, week_number: e.target.value }))} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>{t("Subject")}</Label>
-                <Select onValueChange={(v) => setFormData(p => ({ ...p, subject_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder={t("Subject")} /></SelectTrigger>
-                  <SelectContent>
-                    {subjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>{t("Lesson Title")}</Label>
-                <Input value={formData.title} onChange={(e) => setFormData(p => ({ ...p, title: e.target.value }))} placeholder={t("e.g. Intro to Algebra")} />
-              </div>
-              <div className="space-y-2">
-                <Label>{t("Objectives")}</Label>
-                <Textarea value={formData.objectives} onChange={(e) => setFormData(p => ({ ...p, objectives: e.target.value }))} placeholder={t("Learners should be able to...")} />
-              </div>
-              <Button type="submit" className="w-full gap-2" disabled={createPlan.isPending}>
-                <Plus className="h-4 w-4" /> {t("Submit Plan")}
-              </Button>
-            </form>
+                {planCards.map(c => (
+                  <div key={c.title} className="space-y-1">
+                    <Label className="text-xs">{c.title}</Label>
+                    {c.multi ? (
+                      <Textarea value={c.value} onChange={e => c.set(e.target.value)} placeholder={c.placeholder} className="text-xs min-h-[60px]" />
+                    ) : (
+                      <Input value={c.value} onChange={e => c.set(e.target.value)} placeholder={c.placeholder} className="text-xs" />
+                    )}
+                  </div>
+                ))}
+                <Button id="lp-create-btn" size="sm" className="w-full gap-2 mt-2" onClick={handleSubmit} disabled={!title.trim() || createPlan.isPending}>
+                  <Plus className="h-4 w-4" /> Create Plan
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
 
-        {/* Plan List */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="grid gap-4">
-            <div className="flex items-center gap-2 font-bold text-slate-700">
-              <BookOpen className="h-5 w-5 text-primary" />
-              <span>{t("Your Active Teaching Assignments")}</span>
-            </div>
-            {assignments.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-200 p-4 text-sm text-muted-foreground">
-                {t("No active subject assignments found. Assign subjects in the DOS / Academic Assignments section to make lesson planning meaningful.")}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {assignments.slice(0, 4).map((assignment) => (
-                  <div key={assignment.id} className="rounded-2xl border border-slate-200 p-4 bg-slate-50/60">
-                    <div className="flex items-center justify-between gap-3 mb-2">
-                      <Badge variant="outline">{assignment.subject?.name}</Badge>
-                      <Badge variant="secondary">{assignment.class?.name}</Badge>
-                    </div>
-                    <p className="text-sm text-slate-700">Term: {assignment.term}</p>
-                    <p className="mt-2 text-xs text-slate-500 line-clamp-2">
-                      This assignment defines the class and subject for your lesson planning entry.
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
+        <div id="lp-plans-list" className="lg:col-span-2 space-y-4">
+          <div id="lp-plans-header" className="flex items-center gap-2 font-bold text-slate-700">
+            <BookOpen className="h-5 w-5 text-primary" />
+            <span>Your Lesson Plans</span>
+            <Badge variant="outline">{plans.length}</Badge>
           </div>
-
-          <h3 className="font-bold flex items-center gap-2">
-            <CalendarDays className="h-5 w-5 text-primary" />
-            Your Lesson Plans
-          </h3>
-          
           {isLoading ? (
-            <div className="py-20 text-center text-muted-foreground">{t("Loading plans...")}</div>
+            <div className="py-16 text-center text-muted-foreground">Loading plans...</div>
           ) : plans.length === 0 ? (
-            <div className="py-20 text-center border-2 border-dashed rounded-lg">
-              <p className="text-muted-foreground">{t("You haven't created any lesson plans yet.")}</p>
+            <div className="py-16 text-center border-2 border-dashed rounded-xl text-muted-foreground">
+              <CalendarDays className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              <p>No lesson plans yet. Select an assignment and create one.</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {plans.map((plan) => (
-                <Card key={plan.id}>
-                  <CardHeader className="pb-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="secondary">{plan.class?.name}</Badge>
-                          <Badge variant="outline">Week {plan.week_number}</Badge>
-                          <Badge className={
-                            plan.status === 'approved' ? 'bg-green-600' : 
-                            plan.status === 'pending' ? 'bg-orange-500' : 'bg-slate-500'
-                          }>
-                            {plan.status}
-                          </Badge>
-                        </div>
-                        <CardTitle className="text-lg">{plan.title}</CardTitle>
+            plans.map(plan => (
+              <Card key={plan.id}>
+                <CardHeader className="pb-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="secondary">{plan.class?.name}</Badge>
+                        <Badge variant="outline">Week {plan.week_number}</Badge>
+                        <Badge variant="secondary">{plan.subject?.name}</Badge>
+                        <Badge className={plan.status === 'approved' ? 'bg-emerald-600' : plan.status === 'submitted' ? 'bg-amber-500' : 'bg-slate-400'}>
+                          {plan.status || 'draft'}
+                        </Badge>
                       </div>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Printer className="h-4 w-4" />
+                      <CardTitle className="text-base">{plan.title}</CardTitle>
+                      {plan.date && <p className="text-xs text-muted-foreground mt-1">{format(new Date(plan.date), "PPP")}</p>}
+                    </div>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDuplicate(plan)} title="Duplicate">
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-500" onClick={async () => {
+                        const newStatus = plan.status === 'draft' ? 'submitted' : plan.status === 'submitted' ? 'approved' : 'draft';
+                        await updatePlan.mutateAsync({ id: plan.id, status: newStatus });
+                        refetch();
+                        toast.success("Status updated");
+                        if (newStatus === 'submitted') {
+                          fetch("/api/notify/lesson-plan-submitted", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              teacherName: user?.user_metadata?.full_name || "A teacher",
+                              planTitle: plan.title,
+                              classSubject: `${plan.class?.name || ""} ${plan.subject?.name || ""}`,
+                              planId: plan.id,
+                              teacherPhone: teacherPhone || undefined,
+                            }),
+                          }).catch(() => {});
+                        }
+                      }} title="Toggle Status">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground line-clamp-2 italic">
-                      {plan.objectives || t("No objectives defined")}
-                    </p>
-                    {plan.dos_feedback && (
-                      <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded text-xs text-blue-800">
-                        <strong>{t("Feedback:")}</strong> {plan.dos_feedback}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                    {plan.objectives && (
+                      <div className="bg-blue-50/50 p-3 rounded-xl">
+                        <p className="text-[10px] font-bold uppercase text-blue-600 mb-1">Objectives</p>
+                        <p className="text-xs">{plan.objectives}</p>
                       </div>
                     )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    {plan.activities && (
+                      <div className="bg-amber-50/50 p-3 rounded-xl">
+                        <p className="text-[10px] font-bold uppercase text-amber-600 mb-1">Activities</p>
+                        <p className="text-xs">{plan.activities}</p>
+                      </div>
+                    )}
+                    {plan.resources && (
+                      <div className="bg-purple-50/50 p-3 rounded-xl">
+                        <p className="text-[10px] font-bold uppercase text-purple-600 mb-1">Resources</p>
+                        <p className="text-xs">{plan.resources}</p>
+                      </div>
+                    )}
+                    {plan.homework && (
+                      <div className="bg-emerald-50/50 p-3 rounded-xl">
+                        <p className="text-[10px] font-bold uppercase text-emerald-600 mb-1">Homework</p>
+                        <p className="text-xs">{plan.homework}</p>
+                      </div>
+                    )}
+                  </div>
+                  {!plan.objectives && !plan.activities && !plan.resources && !plan.homework && (
+                    <p className="text-xs text-muted-foreground italic">No details added yet.</p>
+                  )}
+                </CardContent>
+              </Card>
+            ))
           )}
         </div>
       </div>

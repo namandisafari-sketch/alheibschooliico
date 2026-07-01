@@ -1,10 +1,11 @@
 // @ts-nocheck
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Kpi, Section } from "@/components/role/RolePage";
 import {
   Crown, TrendingUp, Wallet, Users, FileBarChart,
   GraduationCap, Stethoscope, Box, DoorOpen, Briefcase, ClipboardCheck,
-  AlertCircle, Bell, Activity, ArrowRight,
+  AlertCircle, Bell, Activity, ArrowRight, Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,24 +24,51 @@ const safeCount = async (table: string, filter?: (q: any) => any) => {
   } catch { return null; }
 };
 
+const useAttendanceToday = (dateFrom?: string, dateTo?: string) => {
+  return useQuery({
+    queryKey: ["director-attendance-today", dateFrom, dateTo],
+    queryFn: async () => {
+      const today = getUgandaDateString();
+      let query = supabase.from("attendance").select("status");
+      if (dateFrom && dateTo) {
+        query = query.gte("date", dateFrom).lte("date", dateTo);
+      } else if (dateFrom) {
+        query = query.gte("date", dateFrom);
+      } else if (dateTo) {
+        query = query.lte("date", dateTo);
+      } else {
+        query = query.eq("date", today);
+      }
+      const { data: att } = await query;
+      if (att && att.length) {
+        const present = att.filter((a: any) => a.status === "present").length;
+        return Math.round((present / att.length) * 100);
+      }
+      return null;
+    },
+    refetchInterval: 60000,
+  });
+};
+
 export const DirectorDashboard = () => {
   const { data: learners } = useLearners();
   const [stats, setStats] = useState<Record<string, number | null>>({});
   const [feeTotal30d, setFeeTotal30d] = useState<number | null>(null);
   const [expenseTotal, setExpenseTotal] = useState<number | null>(null);
-  const [attendancePct, setAttendancePct] = useState<number | null>(null);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const { data: attendancePct } = useAttendanceToday(dateFrom || undefined, dateTo || undefined);
   const [activity, setActivity] = useState<any[]>([]);
 
   useEffect(() => {
     (async () => {
       const since30 = new Date(Date.now() - 30 * 86400000).toISOString();
       const since7  = new Date(Date.now() - 7  * 86400000).toISOString();
-      const today   = getUgandaDateString();
 
       const [
         teachers, staff, classes, visitors, inventory, suppliers,
         clinic, medication, incidents, leave, advance, letters,
-        warnings, appeals, feePayments, expenses, lowStock, discipline, lessonPlansPending,
+        warnings, appeals, feePayments, expenses, lowStock, discipline, lessonPlansPending, empAdvances,
       ] = await Promise.all([
         safeCount("profiles", q => q.eq("role", "teacher")),
         safeCount("profiles"),
@@ -61,10 +89,12 @@ export const DirectorDashboard = () => {
         safeCount("inventory_items", q => q.lte("quantity", 5)),
         safeCount("discipline_cases", q => q.eq("status", "pending")),
         safeCount("lesson_plans", q => q.eq("status", "pending")),
+        safeCount("employee_advances", q => q.eq("stage", "accountant_verified")),
       ]);
+      const advanceTotal = (advance ?? 0) + (empAdvances ?? 0);
       setStats({
         teachers, staff, classes, visitors, inventory, suppliers,
-        clinic, medication, incidents, leave, advance, letters,
+        clinic, medication, incidents, leave, advance: advanceTotal, letters,
         warnings, appeals, feePayments, expenses, lowStock, discipline, lessonPlansPending,
       });
 
@@ -82,17 +112,6 @@ export const DirectorDashboard = () => {
         if (expRows) setExpenseTotal(expRows.reduce((s: number, r: any) => s + Number(r.amount || 0), 0));
       } catch (err) {
         console.error("DirectorDashboard fetch expense error:", err);
-      }
-
-      try {
-        const { data: att } = await supabase
-          .from("attendance").select("status").eq("date", today);
-        if (att && att.length) {
-          const present = att.filter((a: any) => a.status === "present").length;
-          setAttendancePct(Math.round((present / att.length) * 100));
-        }
-      } catch (err) {
-        console.error("DirectorDashboard fetch attendance error:", err);
       }
 
       try {
@@ -142,7 +161,15 @@ export const DirectorDashboard = () => {
               <p className="text-sm text-amber-800/80 mt-0.5">Live signals from every department in your school.</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-amber-600" />
+              <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+                className="h-8 text-xs rounded-md border border-amber-300 bg-white/80 px-2" />
+              <span className="text-xs text-amber-700">–</span>
+              <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+                className="h-8 text-xs rounded-md border border-amber-300 bg-white/80 px-2" />
+            </div>
             <Button asChild className="bg-amber-600 hover:bg-amber-700 text-white shadow">
               <Link to="/director/users"><Users className="mr-2 h-4 w-4" />User Control</Link>
             </Button>
@@ -232,7 +259,7 @@ export const DirectorDashboard = () => {
             { l: "Vehicle log", v: "—" },
             { l: "Exit passes", v: "—" },
           ]}
-          links={[{ label: "Gate home", to: "/gate" }, { label: "Visitors", to: "/visitors" }]}
+          links={[{ label: "Gate home", to: "/gate" }, { label: "Visitors", to: "/gate?tab=visitors" }]}
         />
         <RoleCard
           icon={Briefcase} title="Office & Workforce" tone="from-violet-500 to-purple-600"

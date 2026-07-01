@@ -1,7 +1,7 @@
-// @ts-nocheck
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { Database } from "@/integrations/supabase/types";
 
 type AttendanceStatus = Database["public"]["Enums"]["attendance_status"];
@@ -30,7 +30,6 @@ export const useAttendance = (classId: string | null, date: string) => {
     queryFn: async () => {
       if (!classId) return [];
 
-      // Fetch learners in this class
       const { data: learners, error: learnersError } = await supabase
         .from("learners")
         .select("id, full_name, class_id")
@@ -40,7 +39,6 @@ export const useAttendance = (classId: string | null, date: string) => {
 
       if (learnersError) throw learnersError;
 
-      // Fetch attendance records for this class and date
       const { data: attendance, error: attendanceError } = await supabase
         .from("attendance")
         .select("*")
@@ -64,6 +62,7 @@ export const useAttendance = (classId: string | null, date: string) => {
 
 export const useMarkAttendance = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({
@@ -83,28 +82,40 @@ export const useMarkAttendance = () => {
       const checkInTime = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:00`;
 
       if (existingId) {
-        // Update existing record
         const { error } = await supabase
           .from("attendance")
-          .update({ status, check_in_time: status === "present" || status === "late" ? checkInTime : null })
+          .update({
+            status,
+            check_in_time: status === "present" || status === "late" ? checkInTime : null,
+            recorded_by: user?.id,
+          })
           .eq("id", existingId);
 
         if (error) throw error;
       } else {
-        // Insert new record
         const { error } = await supabase.from("attendance").insert({
           learner_id: learnerId,
           class_id: classId,
           date,
           status,
           check_in_time: status === "present" || status === "late" ? checkInTime : null,
+          recorded_by: user?.id,
         });
 
         if (error) throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["attendance"] });
+      fetch("/api/notify/attendance-bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          classId: variables.classId,
+          date: variables.date,
+          records: [{ learnerId: variables.learnerId, status: variables.status }],
+        }),
+      }).catch(() => {});
     },
     onError: (error) => {
       toast({
@@ -118,6 +129,7 @@ export const useMarkAttendance = () => {
 
 export const useBulkMarkAttendance = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({
@@ -132,22 +144,22 @@ export const useBulkMarkAttendance = () => {
       const now = new Date();
       const checkInTime = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:00`;
 
-      // Separate updates and inserts
       const toUpdate = records.filter((r) => r.existingId);
       const toInsert = records.filter((r) => !r.existingId);
 
-      // Process updates
+      const errors: string[] = [];
       for (const record of toUpdate) {
-        await supabase
+        const { error } = await supabase
           .from("attendance")
           .update({
             status: record.status,
             check_in_time: record.status === "present" || record.status === "late" ? checkInTime : null,
+            recorded_by: user?.id,
           })
           .eq("id", record.existingId!);
+        if (error) errors.push(error.message);
       }
 
-      // Process inserts
       if (toInsert.length > 0) {
         const { error } = await supabase.from("attendance").insert(
           toInsert.map((record) => ({
@@ -156,15 +168,28 @@ export const useBulkMarkAttendance = () => {
             date,
             status: record.status,
             check_in_time: record.status === "present" || record.status === "late" ? checkInTime : null,
+            recorded_by: user?.id,
           }))
         );
+        if (error) errors.push(error.message);
+      }
 
-        if (error) throw error;
+      if (errors.length > 0) {
+        throw new Error(errors.join("; "));
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["attendance"] });
       toast({ title: "Success", description: "Attendance saved successfully" });
+      fetch("/api/notify/attendance-bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          classId: variables.classId,
+          date: variables.date,
+          records: variables.records.map((r) => ({ learnerId: r.learnerId, status: r.status })),
+        }),
+      }).catch(() => {});
     },
     onError: (error) => {
       toast({

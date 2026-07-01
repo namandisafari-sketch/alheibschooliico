@@ -11,7 +11,7 @@ interface ItemBadgeProps {
 }
 
 export function ItemBadge({ item, type, schoolName }: ItemBadgeProps) {
-  const trackingNumber = type === "stock" ? item.sku : (item.asset_tag_id || item.serial_number);
+  const trackingNumber = type === "stock" ? (item.id?.slice(0, 8) || item.name?.slice(0, 8)) : (item.asset_tag_id || item.serial_number);
   const purchaseDate = item.purchase_date || item.created_at;
   const value = type === "asset" ? item.purchase_cost : null;
   const age = formatDistanceToNow(new Date(purchaseDate), { addSuffix: false });

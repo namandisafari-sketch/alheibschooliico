@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -86,6 +86,7 @@ const UserManagement = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<any>(null);
   const queryClient = useQueryClient();
 
   // Fetch all users with their roles
@@ -143,7 +144,7 @@ const UserManagement = () => {
             "flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-bold text-xs",
             row.original.role ? roleConfig[row.original.role as AppRole]?.color : "bg-muted"
           )}>
-            {row.original.full_name?.split(" ").map((n: string) => n[0]).join("").slice(0, 2) || "?"}
+            {((row.original.full_name || "").split(" ").map((n: string) => n[0] || "").join("").slice(0, 2)) || "?"}
           </div>
           <div className="min-w-0">
             <h3 className="font-bold text-xs truncate">{row.original.full_name}</h3>
@@ -201,7 +202,7 @@ const UserManagement = () => {
       id: "actions",
       cell: ({ row }) => (
         <div className="text-right">
-          <UserActions user={row.original} />
+          <UserActions user={row.original} onEdit={() => setEditingUser(row.original)} />
         </div>
       )
     }
@@ -218,21 +219,32 @@ const UserManagement = () => {
     },
   });
 
-  // Create staff/admin user mutation (auto-confirmed via edge function)
+  // Create staff/admin user mutation (auto-confirmed via server route)
   const createUserMutation = useMutation({
     mutationFn: async (values: CreateUserFormValues) => {
-      const { data, error } = await supabase.functions.invoke("create-user", {
-        body: {
+      const response = await fetch("/api/users/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           email: values.email,
           password: values.password,
           fullName: values.fullName,
           phone: values.phone,
           role: values.role,
-        },
+        }),
       });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      let result: any;
+      const text = await response.text();
+      try {
+        result = text ? JSON.parse(text) : {};
+      } catch {
+        result = { error: text || "Unexpected server response" };
+      }
+
+      if (!response.ok) {
+        throw new Error(result.error || result.message || `Server error: ${response.status}`);
+      }
     },
     onSuccess: () => {
       toast({ title: "Success", description: "User account created successfully" });
@@ -248,6 +260,223 @@ const UserManagement = () => {
       });
     },
   });
+
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ id, fullName, email, phone, role, password }: any) => {
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ full_name: fullName, email, phone })
+        .eq("id", id);
+      if (profileError) throw profileError;
+
+      // Delete any OTHER roles for this user first
+      const { error: roleDeleteError } = await supabase
+        .from("user_roles")
+        .delete()
+        .eq("user_id", id)
+        .neq("role", role);
+      if (roleDeleteError) throw roleDeleteError;
+
+      // Now upsert the selected role
+      const { error: roleInsertError } = await supabase
+        .from("user_roles")
+        .upsert({ user_id: id, role }, { onConflict: "user_id,role" });
+      if (roleInsertError) throw roleInsertError;
+
+      if (password) {
+        const updateResponse = await fetch("/api/users/update-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: id, password }),
+        });
+
+        let result: any;
+        const text = await updateResponse.text();
+        try {
+          result = text ? JSON.parse(text) : {};
+        } catch {
+          result = { error: text || "Unexpected server response" };
+        }
+
+        if (!updateResponse.ok) {
+          throw new Error(result.error || result.message || `Server error: ${updateResponse.status}`);
+        }
+      }
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "User profile updated." });
+      queryClient.invalidateQueries({ queryKey: ["all-users"] });
+      setEditingUser(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update user",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const EditUserDialog = ({ user, onClose, mutation }: { user: any; onClose: () => void; mutation: any }) => {
+    const editFormSchema = z.object({
+      fullName: z.string().min(2, "Name required").max(100),
+      email: z.string().email("Valid email required").optional().or(z.literal("")),
+      phone: z.string().min(7, "Phone required").max(20),
+      role: z.enum(["admin", "teacher", "staff", "security", "accountant", "head_teacher"]),
+      password: z.string().optional().or(z.literal("")),
+    });
+
+    type EditUserFormValues = z.infer<typeof editFormSchema>;
+
+    const form = useForm<EditUserFormValues>({
+      resolver: zodResolver(editFormSchema),
+      defaultValues: {
+        fullName: user.full_name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        role: user.role || "teacher",
+        password: "",
+      },
+    });
+
+    useEffect(() => {
+      if (user) {
+        form.reset({
+          fullName: user.full_name || "",
+          email: user.email || "",
+          phone: user.phone || "",
+          role: user.role || "teacher",
+          password: "",
+        });
+      }
+    }, [user]);
+
+    const onSubmit = (values: EditUserFormValues) => {
+      mutation.mutate({ id: user.id, ...values });
+    };
+
+    return (
+      <Dialog open={!!user} onOpenChange={(open) => { if (!open) onClose(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User Information</DialogTitle>
+            <DialogDescription>Review and update the selected user account in detail.</DialogDescription>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <div className="space-y-3 rounded-xl border border-border p-4 bg-background/80">
+                <p className="text-sm font-semibold">Basic profile</p>
+                <FormField
+                  control={form.control}
+                  name="fullName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Full Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Full name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email Address</FormLabel>
+                      <FormControl>
+                        <Input placeholder="user@alheib.org" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="+256 700 123 456" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="space-y-3 rounded-xl border border-border p-4 bg-background/80">
+                <p className="text-sm font-semibold">Account details</p>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="role"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>User Role</FormLabel>
+                        <FormControl>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="admin">Administrator</SelectItem>
+                              <SelectItem value="teacher">Teacher</SelectItem>
+                              <SelectItem value="accountant">Accountant</SelectItem>
+                              <SelectItem value="head_teacher">Head Teacher</SelectItem>
+                              <SelectItem value="security">Security Guard</SelectItem>
+                              <SelectItem value="staff">Support Staff</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormItem>
+                    <FormLabel>Current Password</FormLabel>
+                    <FormControl>
+                      <Input type="password" value="********" disabled />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground mt-1">Password is masked for security. Enter a new password below to change it.</p>
+                  </FormItem>
+                </div>
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>New Password</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="Leave blank to keep current password" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="space-y-3 rounded-xl border border-border p-4 bg-background/80">
+                <p className="text-sm font-semibold">Review</p>
+                <p className="text-sm text-muted-foreground">Make sure the user details are correct before saving. Role changes will update access levels immediately.</p>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                <Button type="submit" disabled={mutation.isPending}>
+                  {mutation.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+    );
+  };
 
   // Link parent to learner mutation
   const linkParentMutation = useMutation({
@@ -467,6 +696,14 @@ const UserManagement = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {editingUser && (
+        <EditUserDialog
+          user={editingUser}
+          onClose={() => setEditingUser(null)}
+          mutation={updateUserMutation}
+        />
+      )}
     </DashboardLayout>
   );
 };

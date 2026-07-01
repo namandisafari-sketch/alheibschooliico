@@ -34,7 +34,7 @@ const InventoryTracking = () => {
         .from("inventory_transactions")
         .select(`
           *,
-          item:inventory_items(name, unit, category:inventory_categories(name)),
+          item:inventory_items(name, unit, category),
           learner:learners(full_name, admission_number),
           approver:profiles!inventory_transactions_approved_by_fkey(full_name)
         `)
@@ -139,7 +139,7 @@ const InventoryTracking = () => {
                           </div>
                           <div>
                             <p className="font-bold text-sm text-slate-800">{t.item?.name}</p>
-                            <p className="text-[10px] text-slate-400 uppercase font-medium">{t.item?.category?.name || "General"}</p>
+                            <p className="text-[10px] text-slate-400 uppercase font-medium">{t.item?.category || "General"}</p>
                           </div>
                         </div>
                       </td>

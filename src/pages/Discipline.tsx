@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -16,13 +14,21 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
-  User
+  User,
+  Eye,
+  EyeOff,
+  Lock,
+  MessageSquare,
+  FileText,
+  History
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { logErrorStatic } from "@/hooks/useErrorLogger";
 import {
   Dialog,
   DialogContent,
@@ -81,6 +87,12 @@ export default function Discipline() {
   const [victims, setVictims] = useState("");
   const [evidencePhotos, setEvidencePhotos] = useState<string[]>([]);
   const [parentNotified, setParentNotified] = useState(false);
+  const [isConfidential, setIsConfidential] = useState(false);
+  const [confidentialType, setConfidentialType] = useState("");
+  const [directorFeedback, setDirectorFeedback] = useState("");
+  const [showLogs, setShowLogs] = useState<string | null>(null);
+  const [showFeedback, setShowFeedback] = useState<string | null>(null);
+  const [feedbackText, setFeedbackText] = useState("");
 
   const { data: cases, isLoading } = useQuery({
     queryKey: ["discipline-cases"],
@@ -92,6 +104,19 @@ export default function Discipline() {
       if (error) throw error;
       return data;
     }
+  });
+
+  const { data: caseLogs } = useQuery({
+    queryKey: ["incident-logs"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("incident_logs")
+        .select("*, profiles:performed_by(full_name)")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: role === "admin" || role === "director",
   });
 
   const { data: learners } = useQuery({
@@ -109,22 +134,31 @@ export default function Discipline() {
 
   const logCaseMutation = useMutation({
     mutationFn: async (newCase: any) => {
+      const caseData = {
+        ...newCase,
+        is_confidential: isConfidential,
+        confidential_type: isConfidential ? confidentialType : null,
+      };
       if (editingCase) {
-        const { error } = await supabase.from("discipline_cases").update(newCase).eq("id", editingCase.id);
+        const { error } = await supabase.from("discipline_cases").update(caseData).eq("id", editingCase.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("discipline_cases").insert(newCase);
+        const { error } = await supabase.from("discipline_cases").insert(caseData);
         if (error) throw error;
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["discipline-cases"] });
+      queryClient.invalidateQueries({ queryKey: ["incident-logs"] });
       toast.success(editingCase ? "Case updated successfully" : "Discipline case logged successfully");
       setIsLogDialogOpen(false);
       setEditingCase(null);
       resetForm();
     },
-    onError: (e: any) => toast.error(e.message)
+    onError: (e: any) => {
+      logErrorStatic("Discipline case mutation failed", "error", { message: e.message, editingCase: !!editingCase });
+      toast.error(e.message);
+    }
   });
   
   const updateStatusMutation = useMutation({
@@ -136,7 +170,27 @@ export default function Discipline() {
       queryClient.invalidateQueries({ queryKey: ["discipline-cases"] });
       toast.success("Case status updated");
     },
-    onError: (e: any) => toast.error(e.message)
+    onError: (e: any) => {
+      logErrorStatic("Discipline status update failed", "warning", { message: e.message, id });
+      toast.error(e.message);
+    }
+  });
+
+  const feedbackMutation = useMutation({
+    mutationFn: async ({ id, feedback }: { id: string; feedback: string }) => {
+      const { error } = await supabase.from("discipline_cases").update({ director_feedback: feedback }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["discipline-cases"] });
+      toast.success("Director feedback saved");
+      setShowFeedback(null);
+      setFeedbackText("");
+    },
+    onError: (e: any) => {
+      logErrorStatic("Director feedback save failed", "warning", { message: e.message });
+      toast.error(e.message);
+    }
   });
 
   const deleteCaseMutation = useMutation({
@@ -148,7 +202,10 @@ export default function Discipline() {
       queryClient.invalidateQueries({ queryKey: ["discipline-cases"] });
       toast.success("Case record deleted");
     },
-    onError: (e: any) => toast.error(e.message)
+    onError: (e: any) => {
+      logErrorStatic("Discipline case deletion failed", "error", { message: e.message });
+      toast.error(e.message);
+    }
   });
 
   const resetForm = () => {
@@ -163,6 +220,9 @@ export default function Discipline() {
     setVictims("");
     setEvidencePhotos([]);
     setParentNotified(false);
+    setIsConfidential(false);
+    setConfidentialType("");
+    setDirectorFeedback("");
   };
 
   const filteredCases = cases?.filter(c => 
@@ -183,6 +243,9 @@ export default function Discipline() {
     setVictims(c.victims || "");
     setEvidencePhotos(c.evidence_photos || []);
     setParentNotified(c.parent_notified);
+    setIsConfidential(c.is_confidential || false);
+    setConfidentialType(c.confidential_type || "");
+    setDirectorFeedback(c.director_feedback || "");
     setIsLogDialogOpen(true);
   };
 
@@ -460,6 +523,41 @@ export default function Discipline() {
                      Parent / Guardian has been notified
                    </label>
                 </div>
+
+                {(role === "admin" || role === "director") && (
+                  <>
+                    <div className="border-t pt-4">
+                      <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl border border-amber-200">
+                        <input
+                          type="checkbox"
+                          id="isConfidential"
+                          className="h-4 w-4 rounded border-amber-300"
+                          checked={isConfidential}
+                          onChange={(e) => setIsConfidential(e.target.checked)}
+                        />
+                        <label htmlFor="isConfidential" className="text-[10px] font-black uppercase tracking-widest text-amber-700 cursor-pointer">
+                          <Lock className="h-3 w-3 inline mr-1" />
+                          Mark as Confidential / Restricted
+                        </label>
+                      </div>
+                    </div>
+                    {isConfidential && (
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-red-500">Confidential Type</label>
+                        <Select value={confidentialType} onValueChange={setConfidentialType}>
+                          <SelectTrigger className="text-xs font-bold h-10 border-2 border-red-200">
+                            <SelectValue placeholder="Select type..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="sexual_harassment">Sexual Harassment</SelectItem>
+                            <SelectItem value="abuse">Abuse</SelectItem>
+                            <SelectItem value="other_confidential">Other Confidential</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
 
               <div className="flex gap-2 justify-end">
@@ -622,32 +720,103 @@ export default function Discipline() {
                   </div>
                </div>
 
-               <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 border-t pt-4 border-slate-50">
-                  <div className="md:col-span-1">
-                     <p className="text-[9px] font-black uppercase text-slate-400 mb-1">Incident Description</p>
-                     <p className="text-xs text-slate-600 line-clamp-3">{c.description || "No description provided."}</p>
+                {c.is_confidential && (
+                  <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
+                    <Lock className="h-3 w-3 text-red-500" />
+                    <span className="text-[9px] font-black uppercase text-red-600 tracking-widest">
+                      Confidential - {c.confidential_type?.replace('_', ' ') || 'Restricted'}
+                    </span>
+                    <Badge className="ml-auto bg-red-100 text-red-700 text-[8px] font-black uppercase h-4">
+                      <EyeOff className="h-2.5 w-2.5 mr-1" /> Limited Access
+                    </Badge>
                   </div>
-                  <div className="md:col-span-1">
-                     <div className="bg-slate-50/50 p-3 rounded-2xl border border-slate-100/50">
-                        <p className="text-[9px] font-black uppercase text-slate-400 mb-1">Action & Resolution</p>
-                        <p className="text-xs font-bold text-slate-800">{c.action_taken || "Action pending..."}</p>
-                     </div>
+                )}
+
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 border-t pt-4 border-slate-50">
+                   <div className="md:col-span-1">
+                      <p className="text-[9px] font-black uppercase text-slate-400 mb-1">Incident Description</p>
+                      <p className="text-xs text-slate-600 line-clamp-3">{c.description || "No description provided."}</p>
+                   </div>
+                   <div className="md:col-span-1">
+                      <div className="bg-slate-50/50 p-3 rounded-2xl border border-slate-100/50">
+                         <p className="text-[9px] font-black uppercase text-slate-400 mb-1">Action & Resolution</p>
+                         <p className="text-xs font-bold text-slate-800">{c.action_taken || "Action pending..."}</p>
+                      </div>
+                   </div>
+                   <div className="md:col-span-1 space-y-2">
+                      <div>
+                        <p className="text-[9px] font-black uppercase text-slate-400 mb-2">Evidence Photos</p>
+                        <div className="flex gap-2 overflow-x-auto pb-2">
+                           {c.evidence_photos?.length ? c.evidence_photos.map((p, idx) => (
+                              <div key={idx} className="h-16 w-20 rounded-xl bg-slate-100 border overflow-hidden shrink-0">
+                                 <img src={p} className="h-full w-full object-cover" />
+                              </div>
+                           )) : (
+                              <div className="h-16 w-full rounded-xl bg-slate-50 border border-dashed flex items-center justify-center">
+                                 <p className="text-[8px] font-black uppercase text-slate-300">No photos</p>
+                              </div>
+                           )}
+                        </div>
+                      </div>
+                      {c.director_feedback && (
+                        <div className="bg-blue-50/50 p-2 rounded-xl border border-blue-100">
+                          <p className="text-[8px] font-black uppercase text-blue-500 mb-1 tracking-widest">
+                            <MessageSquare className="h-2.5 w-2.5 inline mr-1" />Director's Feedback
+                          </p>
+                          <p className="text-[10px] text-blue-800 font-medium">{c.director_feedback}</p>
+                        </div>
+                      )}
+                   </div>
+                </div>
+
+                {(role === "admin" || role === "director") && (
+                  <div className="mt-3 flex gap-2 border-t pt-3 border-slate-50">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[8px] font-black uppercase tracking-widest"
+                      onClick={() => {
+                        setShowFeedback(c.id);
+                        setFeedbackText(c.director_feedback || "");
+                      }}
+                    >
+                      <MessageSquare className="h-3 w-3 mr-1" />
+                      {c.director_feedback ? "Edit Feedback" : "Add Feedback"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[8px] font-black uppercase tracking-widest"
+                      onClick={() => setShowLogs(showLogs === c.id ? null : c.id)}
+                    >
+                      <History className="h-3 w-3 mr-1" />
+                      Logs
+                    </Button>
                   </div>
-                  <div className="md:col-span-1">
-                     <p className="text-[9px] font-black uppercase text-slate-400 mb-2">Evidence Photos</p>
-                     <div className="flex gap-2 overflow-x-auto pb-2">
-                        {c.evidence_photos?.length ? c.evidence_photos.map((p, idx) => (
-                           <div key={idx} className="h-16 w-20 rounded-xl bg-slate-100 border overflow-hidden shrink-0">
-                              <img src={p} className="h-full w-full object-cover" />
-                           </div>
-                        )) : (
-                           <div className="h-16 w-full rounded-xl bg-slate-50 border border-dashed flex items-center justify-center">
-                              <p className="text-[8px] font-black uppercase text-slate-300">No photos</p>
-                           </div>
-                        )}
-                     </div>
+                )}
+
+                {showLogs === c.id && (
+                  <div className="mt-3 p-3 bg-slate-50 rounded-xl border max-h-40 overflow-y-auto">
+                    <p className="text-[8px] font-black uppercase text-slate-400 mb-2 tracking-widest">Case Activity Log</p>
+                    {caseLogs?.filter(l => l.discipline_case_id === c.id).length ? (
+                      caseLogs.filter(l => l.discipline_case_id === c.id).map((log: any) => (
+                        <div key={log.id} className="flex items-start gap-2 py-1.5 border-b border-slate-100 last:border-0">
+                          <div className="h-5 w-5 rounded-full bg-slate-200 flex items-center justify-center shrink-0">
+                            <FileText className="h-2.5 w-2.5 text-slate-500" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[9px] font-bold text-slate-700">{log.action}: {log.note}</p>
+                            <p className="text-[8px] text-slate-400">
+                              by {log.profiles?.full_name || "System"} - {format(new Date(log.created_at), "dd MMM yyyy HH:mm")}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-[9px] text-slate-400 italic">No activity logged yet.</p>
+                    )}
                   </div>
-               </div>
+                )}
             </div>
           ))
         ) : (
@@ -658,6 +827,41 @@ export default function Discipline() {
           </div>
         )}
       </div>
+
+      <Dialog open={!!showFeedback} onOpenChange={(o) => { if (!o) setShowFeedback(null); }}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle className="font-black uppercase tracking-tight flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-blue-500" />
+              Director's Feedback
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Provide official feedback or resolution notes on this discipline case.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Textarea
+              placeholder="Enter your feedback, recommendations, or resolution notes..."
+              className="text-xs font-bold min-h-[120px] border-2"
+              value={feedbackText}
+              onChange={(e) => setFeedbackText(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="ghost" size="sm" onClick={() => setShowFeedback(null)} className="text-[10px] font-black uppercase tracking-widest">
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="bg-blue-600 text-[10px] font-black uppercase tracking-widest px-8"
+              onClick={() => showFeedback && feedbackMutation.mutate({ id: showFeedback, feedback: feedbackText })}
+              disabled={!feedbackText || feedbackMutation.isPending}
+            >
+              {feedbackMutation.isPending ? "Saving..." : "Save Feedback"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

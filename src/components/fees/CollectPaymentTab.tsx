@@ -13,6 +13,7 @@ import { useRecordPayment, useStudentBalances, formatUGX } from "@/hooks/useFees
 import { PaymentReceipt } from "./PaymentReceipt";
 import { useReactToPrint } from "react-to-print";
 import { toast } from "sonner";
+import { parseStudentScanPayload } from "@/lib/studentScan";
 
 export const CollectPaymentTab = () => {
   const [code, setCode] = useState("");
@@ -33,11 +34,19 @@ export const CollectPaymentTab = () => {
 
   const lookup = async () => {
     if (!code.trim()) return;
-    const { data, error } = await supabase
+    const lookupKey = extractStudentLookup(code.trim());
+    let query = supabase
       .from("learners")
       .select("id, full_name, admission_number, classes(name, level)")
-      .ilike("admission_number", code.trim())
       .maybeSingle();
+
+    if (lookupKey.id) {
+      query = query.eq("id", lookupKey.id);
+    } else if (lookupKey.admission_number) {
+      query = query.ilike("admission_number", lookupKey.admission_number);
+    }
+
+    const { data, error } = await query;
     if (error || !data) {
       toast.error("Learner not found");
       return;
@@ -46,6 +55,17 @@ export const CollectPaymentTab = () => {
   };
 
   const balance = balances?.find((b) => b.id === learner?.id);
+
+  const extractStudentLookup = (value: string) => {
+    const scan = parseStudentScanPayload(value || "");
+    if (scan.studentId) {
+      return { id: scan.studentId };
+    }
+    if (scan.admissionNumber) {
+      return { admission_number: scan.admissionNumber };
+    }
+    return { admission_number: value.trim() };
+  };
 
   const submit = async () => {
     if (!learner || !amount) return;

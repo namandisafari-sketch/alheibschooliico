@@ -1,16 +1,18 @@
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, ClipboardList, Plus, RotateCcw, XCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { CheckCircle2, ClipboardList, Plus, RotateCcw, XCircle, ChevronLeft, ChevronRight, User, Home, Heart, Package, CheckSquare, ShieldAlert } from "lucide-react";
 import { useHolidayArrivalClearances, type HolidayArrivalClearance } from "@/hooks/useHostel";
 import { useLearners } from "@/hooks/useLearners";
 import { useBroadcastNotification } from "@/hooks/useInAppNotifications";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { getUgandaDateString } from "@/lib/ugandaTime";
 
@@ -31,8 +33,17 @@ type StageKey = (typeof stageDefinitions)[number]["statusKey"];
 
 const getStageByKey = (key: StageKey) => stageDefinitions.find((stage) => stage.statusKey === key)!;
 
+const steps = [
+  { id: "learner", label: "Learner", icon: User },
+  { id: "guardian", label: "Guardian", icon: Home },
+  { id: "health", label: "Health", icon: Heart },
+  { id: "inventory", label: "Items", icon: Package },
+  { id: "review", label: "Review", icon: CheckSquare },
+];
+
 const NewClearanceDialog = () => {
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     learner_id: "",
     arrival_date: getUgandaDateString(),
@@ -65,198 +76,292 @@ const NewClearanceDialog = () => {
 
   const updateField = (field: string, value: string) => setForm((prev) => ({ ...prev, [field]: value }));
 
+  const resetForm = () => {
+    setStep(0);
+    setForm({
+      learner_id: "",
+      arrival_date: getUgandaDateString(),
+      holiday_type: "",
+      guardian_name: "",
+      relative_relationship: "",
+      phone_number: "",
+      dormitory_number: "",
+      proposed_dormitory: "",
+      weight: "",
+      height: "",
+      chronic_disease_history: "",
+      health_status: "",
+      health_signature: "",
+      school_uniforms: "0",
+      sports_wear: "0",
+      sweater: "0",
+      track_suits: "0",
+      shoes: "0",
+      kanzu_hijab: "0",
+      vests: "0",
+      casual_wears: "0",
+      cap_veils: "0",
+      stockings: "0",
+      underwear_pants: "0",
+      matron_notes: "",
+    });
+  };
+
+  const inventoryItems = [
+    { key: "school_uniforms", label: "School Uniforms" },
+    { key: "sports_wear", label: "Sports Wear" },
+    { key: "sweater", label: "Sweater" },
+    { key: "track_suits", label: "Track Suits" },
+    { key: "shoes", label: "Shoes" },
+    { key: "kanzu_hijab", label: "Kanzu / Hijab" },
+    { key: "vests", label: "Vests" },
+    { key: "casual_wears", label: "Casual Wears" },
+    { key: "cap_veils", label: "Cap / Veils" },
+    { key: "stockings", label: "Stockings" },
+    { key: "underwear_pants", label: "Underwear / Pants" },
+  ];
+
+  const canNext = () => {
+    if (step === 0) return !!form.learner_id && !!form.arrival_date;
+    return true;
+  };
+
+  const submitEnabled = !!form.learner_id && !!form.arrival_date && !create.isPending;
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
       <DialogTrigger asChild>
         <Button className="h-12 px-6 bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-200">
           <Plus className="h-4 w-4 mr-2" /> New Clearance
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>New Holiday Arrival Clearance</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 pt-2">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <Label>Learner</Label>
-              <Select value={form.learner_id} onValueChange={(value) => updateField("learner_id", value)}>
-                <SelectTrigger><SelectValue placeholder="Select learner" /></SelectTrigger>
-                <SelectContent className="max-h-72">
-                  {(learners.data || []).map((learner: any) => (
-                    <SelectItem key={learner.id} value={learner.id}>{learner.full_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Arrival Date</Label>
-              <Input type="date" value={form.arrival_date} onChange={(event) => updateField("arrival_date", event.target.value)} />
-            </div>
-          </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <Label>Guardian Name</Label>
-              <Input value={form.guardian_name} onChange={(event) => updateField("guardian_name", event.target.value)} />
-            </div>
-            <div>
-              <Label>Relationship</Label>
-              <Input value={form.relative_relationship} onChange={(event) => updateField("relative_relationship", event.target.value)} />
-            </div>
-            <div>
-              <Label>Phone Number</Label>
-              <Input value={form.phone_number} onChange={(event) => updateField("phone_number", event.target.value)} />
-            </div>
-            <div>
-              <Label>Proposed Dormitory</Label>
-              <Input value={form.proposed_dormitory} onChange={(event) => updateField("proposed_dormitory", event.target.value)} />
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <Label>Dormitory #</Label>
-              <Input value={form.dormitory_number} onChange={(event) => updateField("dormitory_number", event.target.value)} />
-            </div>
-            <div>
-              <Label>Weight</Label>
-              <Input value={form.weight} onChange={(event) => updateField("weight", event.target.value)} />
-            </div>
-            <div>
-              <Label>Height</Label>
-              <Input value={form.height} onChange={(event) => updateField("height", event.target.value)} />
-            </div>
-            <div>
-              <Label>Health Status</Label>
-              <Input value={form.health_status} onChange={(event) => updateField("health_status", event.target.value)} />
-            </div>
-          </div>
-
-          <div>
-            <Label>Holiday Period / Reason</Label>
-            <Input value={form.holiday_type} onChange={(event) => updateField("holiday_type", event.target.value)} placeholder="E.g. Eid holiday, midterm break" />
-          </div>
-
-          <div>
-            <Label>Disclosure of Chronic Disease / History</Label>
-            <Textarea value={form.chronic_disease_history} onChange={(event) => updateField("chronic_disease_history", event.target.value)} />
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div>
-              <Label>School Uniforms</Label>
-              <Input type="number" min={0} value={form.school_uniforms} onChange={(event) => updateField("school_uniforms", event.target.value)} />
-            </div>
-            <div>
-              <Label>Sports Wear</Label>
-              <Input type="number" min={0} value={form.sports_wear} onChange={(event) => updateField("sports_wear", event.target.value)} />
-            </div>
-            <div>
-              <Label>Sweater</Label>
-              <Input type="number" min={0} value={form.sweater} onChange={(event) => updateField("sweater", event.target.value)} />
-            </div>
-            <div>
-              <Label>Track Suits</Label>
-              <Input type="number" min={0} value={form.track_suits} onChange={(event) => updateField("track_suits", event.target.value)} />
-            </div>
-            <div>
-              <Label>Shoes</Label>
-              <Input type="number" min={0} value={form.shoes} onChange={(event) => updateField("shoes", event.target.value)} />
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div>
-              <Label>Kanzu / Hijab</Label>
-              <Input type="number" min={0} value={form.kanzu_hijab} onChange={(event) => updateField("kanzu_hijab", event.target.value)} />
-            </div>
-            <div>
-              <Label>Vests</Label>
-              <Input type="number" min={0} value={form.vests} onChange={(event) => updateField("vests", event.target.value)} />
-            </div>
-            <div>
-              <Label>Casual Wears</Label>
-              <Input type="number" min={0} value={form.casual_wears} onChange={(event) => updateField("casual_wears", event.target.value)} />
-            </div>
-            <div>
-              <Label>Cap / Veils</Label>
-              <Input type="number" min={0} value={form.cap_veils} onChange={(event) => updateField("cap_veils", event.target.value)} />
-            </div>
-            <div>
-              <Label>Stockings</Label>
-              <Input type="number" min={0} value={form.stockings} onChange={(event) => updateField("stockings", event.target.value)} />
-            </div>
-            <div>
-              <Label>Underwear / Pants</Label>
-              <Input type="number" min={0} value={form.underwear_pants} onChange={(event) => updateField("underwear_pants", event.target.value)} />
-            </div>
-          </div>
-
-          <div>
-            <Label>Health Signature</Label>
-            <Input value={form.health_signature} onChange={(event) => updateField("health_signature", event.target.value)} placeholder="Name / signature note" />
-          </div>
-
-          <div>
-            <Label>Matron Notes</Label>
-            <Textarea value={form.matron_notes} onChange={(event) => updateField("matron_notes", event.target.value)} placeholder="Optional notes for the first review stage" />
-          </div>
+        <div className="flex items-center justify-between mb-6 -mx-1">
+          {steps.map((s, i) => {
+            const Icon = s.icon;
+            const isActive = i === step;
+            const isDone = i < step;
+            return (
+              <div key={s.id} className="flex flex-col items-center gap-1.5 flex-1 relative">
+                <div className={cn(
+                  "w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-xs md:text-sm font-bold transition-colors z-10",
+                  isDone ? "bg-emerald-500 text-white" :
+                  isActive ? "bg-slate-900 text-white ring-2 ring-slate-900 ring-offset-2" :
+                  "bg-slate-100 text-slate-400"
+                )}>
+                  {isDone ? <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5" /> : <Icon className="h-3.5 w-3.5 md:h-4 md:w-4" />}
+                </div>
+                <span className={cn(
+                  "text-[9px] md:text-[10px] font-bold uppercase tracking-wider hidden sm:block",
+                  isActive || isDone ? "text-slate-900" : "text-slate-400"
+                )}>
+                  {s.label}
+                </span>
+                {i < steps.length - 1 && (
+                  <div className={cn(
+                    "absolute top-4 md:top-5 left-[60%] right-[-40%] h-0.5 -z-0",
+                    isDone ? "bg-emerald-500" : "bg-slate-200"
+                  )} />
+                )}
+              </div>
+            );
+          })}
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button
-            disabled={!form.learner_id || !form.arrival_date || create.isPending}
-            onClick={() => {
-              create.mutate({
-                ...form,
-                school_uniforms: Number(form.school_uniforms),
-                sports_wear: Number(form.sports_wear),
-                sweater: Number(form.sweater),
-                track_suits: Number(form.track_suits),
-                shoes: Number(form.shoes),
-                kanzu_hijab: Number(form.kanzu_hijab),
-                vests: Number(form.vests),
-                casual_wears: Number(form.casual_wears),
-                cap_veils: Number(form.cap_veils),
-                stockings: Number(form.stockings),
-                underwear_pants: Number(form.underwear_pants),
-              }, {
-                onSuccess: () => {
-                  setOpen(false);
-                  setForm({
-                    learner_id: "",
-                    arrival_date: getUgandaDateString(),
-                    holiday_type: "",
-                    guardian_name: "",
-                    relative_relationship: "",
-                    phone_number: "",
-                    dormitory_number: "",
-                    proposed_dormitory: "",
-                    weight: "",
-                    height: "",
-                    chronic_disease_history: "",
-                    health_status: "",
-                    health_signature: "",
-                    school_uniforms: "0",
-                    sports_wear: "0",
-                    sweater: "0",
-                    track_suits: "0",
-                    shoes: "0",
-                    kanzu_hijab: "0",
-                    vests: "0",
-                    casual_wears: "0",
-                    cap_veils: "0",
-                    stockings: "0",
-                    underwear_pants: "0",
-                    matron_notes: "",
+
+        <div className="space-y-5 min-h-[300px] md:min-h-[320px]">
+          {step === 0 && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-right-5 duration-300">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <Label>Learner</Label>
+                  <Select value={form.learner_id} onValueChange={(v) => updateField("learner_id", v)}>
+                    <SelectTrigger><SelectValue placeholder="Select learner" /></SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      {(learners.data || []).map((learner: any) => (
+                        <SelectItem key={learner.id} value={learner.id}>{learner.full_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Arrival Date</Label>
+                  <Input type="date" value={form.arrival_date} onChange={(e) => updateField("arrival_date", e.target.value)} />
+                </div>
+                <div>
+                  <Label>Holiday Period / Reason</Label>
+                  <Input value={form.holiday_type} onChange={(e) => updateField("holiday_type", e.target.value)} placeholder="E.g. Eid holiday, midterm break" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 1 && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-right-5 duration-300">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label>Guardian Name</Label>
+                  <Input value={form.guardian_name} onChange={(e) => updateField("guardian_name", e.target.value)} />
+                </div>
+                <div>
+                  <Label>Relationship</Label>
+                  <Input value={form.relative_relationship} onChange={(e) => updateField("relative_relationship", e.target.value)} placeholder="E.g. Father, Mother" />
+                </div>
+                <div>
+                  <Label>Phone Number</Label>
+                  <Input value={form.phone_number} onChange={(e) => updateField("phone_number", e.target.value)} type="tel" />
+                </div>
+                <div>
+                  <Label>Dormitory #</Label>
+                  <Input value={form.dormitory_number} onChange={(e) => updateField("dormitory_number", e.target.value)} />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label>Proposed Dormitory</Label>
+                  <Input value={form.proposed_dormitory} onChange={(e) => updateField("proposed_dormitory", e.target.value)} placeholder="Dormitory name or block" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-right-5 duration-300">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <Label>Weight (kg)</Label>
+                  <Input type="number" min={0} step="0.1" value={form.weight} onChange={(e) => updateField("weight", e.target.value)} />
+                </div>
+                <div>
+                  <Label>Height (cm)</Label>
+                  <Input type="number" min={0} step="0.1" value={form.height} onChange={(e) => updateField("height", e.target.value)} />
+                </div>
+                <div>
+                  <Label>Health Status</Label>
+                  <Select value={form.health_status} onValueChange={(v) => updateField("health_status", v)}>
+                    <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="good">Good</SelectItem>
+                      <SelectItem value="fair">Fair</SelectItem>
+                      <SelectItem value="attention">Needs Attention</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label>Disclosure of Chronic Disease / History</Label>
+                <Textarea value={form.chronic_disease_history} onChange={(e) => updateField("chronic_disease_history", e.target.value)} placeholder="Any known medical conditions..." />
+              </div>
+              <div>
+                <Label>Health Signature</Label>
+                <Input value={form.health_signature} onChange={(e) => updateField("health_signature", e.target.value)} placeholder="Name / signature note" />
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-right-5 duration-300">
+              <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Dormitory Items Inventory</p>
+              <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
+                {inventoryItems.map((item) => (
+                  <div key={item.key}>
+                    <Label className="text-[11px]">{item.label}</Label>
+                    <Input type="number" min={0} value={(form as any)[item.key]} onChange={(e) => updateField(item.key, e.target.value)} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {step === 4 && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-right-5 duration-300">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="bg-slate-50 rounded-lg p-3 space-y-1.5">
+                  <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Learner</p>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {learners.data?.find((l: any) => l.id === form.learner_id)?.full_name || "Not selected"}
+                  </p>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-3 space-y-1.5">
+                  <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Arrival Date</p>
+                  <p className="text-sm font-semibold text-slate-900">{form.arrival_date}</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-3 space-y-1.5">
+                  <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Guardian</p>
+                  <p className="text-sm font-semibold text-slate-900">{form.guardian_name || "—"}</p>
+                  <p className="text-[11px] text-slate-500">{form.phone_number}</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-3 space-y-1.5">
+                  <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Holiday Reason</p>
+                  <p className="text-sm font-semibold text-slate-900">{form.holiday_type || "—"}</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2">Dormitory Items</p>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {inventoryItems.filter((item) => Number((form as any)[item.key]) > 0).map((item) => (
+                    <div key={item.key} className="bg-slate-50 rounded-lg px-2.5 py-1.5 flex items-center justify-between">
+                      <span className="text-[10px] font-medium text-slate-600 truncate mr-1">{item.label}</span>
+                      <span className="text-xs font-bold text-slate-900">{(form as any)[item.key]}</span>
+                    </div>
+                  ))}
+                  {inventoryItems.every((item) => Number((form as any)[item.key]) === 0) && (
+                    <p className="text-xs text-slate-400 col-span-full">No items recorded</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <Label>Matron Notes</Label>
+                <Textarea value={form.matron_notes} onChange={(e) => updateField("matron_notes", e.target.value)} placeholder="Optional notes for the first review stage" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-0 mt-4">
+          <div className="flex gap-2 w-full sm:w-auto">
+            {step > 0 && (
+              <Button variant="outline" size="sm" onClick={() => setStep(step - 1)} className="flex-1 sm:flex-none">
+                <ChevronLeft className="h-4 w-4 mr-1" /> Back
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-2 w-full sm:w-auto">
+            {step < steps.length - 1 ? (
+              <Button size="sm" onClick={() => setStep(step + 1)} disabled={!canNext()} className="flex-1 sm:flex-none">
+                Next <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" size="sm" onClick={() => setOpen(false)} className="flex-1 sm:flex-none">
+                  Cancel
+                </Button>
+                <Button size="sm" disabled={!submitEnabled} onClick={() => {
+                  create.mutate({
+                    ...form,
+                    school_uniforms: Number(form.school_uniforms),
+                    sports_wear: Number(form.sports_wear),
+                    sweater: Number(form.sweater),
+                    track_suits: Number(form.track_suits),
+                    shoes: Number(form.shoes),
+                    kanzu_hijab: Number(form.kanzu_hijab),
+                    vests: Number(form.vests),
+                    casual_wears: Number(form.casual_wears),
+                    cap_veils: Number(form.cap_veils),
+                    stockings: Number(form.stockings),
+                    underwear_pants: Number(form.underwear_pants),
+                  }, {
+                    onSuccess: () => { setOpen(false); resetForm(); },
                   });
-                },
-              });
-            }}
-          >
-            Create Clearance
-          </Button>
+                }} className="flex-1 sm:flex-none">
+                  {create.isPending ? "Submitting..." : "Create Clearance"}
+                </Button>
+              </>
+            )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -270,7 +375,7 @@ const getStageApproverRoles = (stageKey: StageKey) => {
     case "head_teacher_status":
       return ["head_teacher"];
     case "internal_supervisor_status":
-      return ["dos", "staff"];
+      return ["dos", "staff", "head_of_internal"];
     case "centre_director_status":
       return ["center_director", "director", "admin"];
     default:
@@ -388,7 +493,9 @@ const UpdateStageDialog = ({ clearance }: { clearance: HolidayArrivalClearance }
 
 export const HolidayClearanceTab = () => {
   const { list } = useHolidayArrivalClearances();
+  const { role } = useAuth();
   const [search, setSearch] = useState("");
+  const [filterStage, setFilterStage] = useState<string>("all");
 
   const filtered = useMemo(() => {
     if (!list.data) return [];
@@ -396,9 +503,35 @@ export const HolidayClearanceTab = () => {
       const learnerName = clearance.learner?.full_name || "";
       const admission = clearance.learner?.admission_number || "";
       const holidayType = clearance.holiday_type || "";
-      return [learnerName, admission, holidayType].some((value) => value.toLowerCase().includes(search.toLowerCase()));
+      const matchesSearch = [learnerName, admission, holidayType].some((value) => value.toLowerCase().includes(search.toLowerCase()));
+
+      if (!matchesSearch) return false;
+
+      if (filterStage === "all") return true;
+      if (filterStage === "completed") return clearance.status === "completed";
+      if (filterStage === "rejected") return clearance.status === "rejected";
+      const currentStage = stageDefinitions.find((stage) => clearance[stage.statusKey] === "pending");
+      return currentStage?.statusKey === filterStage;
     });
-  }, [list.data, search]);
+  }, [list.data, search, filterStage]);
+
+  const userCanApproveStage = (clearance: HolidayArrivalClearance) => {
+    if (clearance.status === "completed" || clearance.status === "rejected") return false;
+    const pendingStage = stageDefinitions.find((stage) => clearance[stage.statusKey] === "pending");
+    if (!pendingStage) return false;
+    const authorizedRoles = getStageApproverRoles(pendingStage.statusKey);
+    return authorizedRoles.includes(role || "");
+  };
+
+  const actionsNeeded = useMemo(() => {
+    if (!list.data || !role) return 0;
+    return list.data.filter((c) => {
+      if (c.status === "completed" || c.status === "rejected") return false;
+      const pendingStage = stageDefinitions.find((stage) => c[stage.statusKey] === "pending");
+      if (!pendingStage) return false;
+      return getStageApproverRoles(pendingStage.statusKey).includes(role);
+    }).length;
+  }, [list.data, role]);
 
   return (
     <div className="space-y-6">
@@ -420,6 +553,39 @@ export const HolidayClearanceTab = () => {
         </div>
       </div>
 
+      {actionsNeeded > 0 && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+          <ShieldAlert className="h-4 w-4" />
+          <span className="font-medium">{actionsNeeded} clearance{actionsNeeded > 1 ? "s" : ""} pending your review</span>
+        </div>
+      )}
+
+      <div className="flex gap-2 flex-wrap">
+        <Badge
+          variant={filterStage === "all" ? "default" : "outline"}
+          className="cursor-pointer"
+          onClick={() => setFilterStage("all")}
+        >All</Badge>
+        {stageDefinitions.map((stage) => (
+          <Badge
+            key={stage.statusKey}
+            variant={filterStage === stage.statusKey ? "default" : "outline"}
+            className="cursor-pointer"
+            onClick={() => setFilterStage(stage.statusKey)}
+          >{stage.label}</Badge>
+        ))}
+        <Badge
+          variant={filterStage === "completed" ? "success" : "outline"}
+          className="cursor-pointer"
+          onClick={() => setFilterStage("completed")}
+        >Completed</Badge>
+        <Badge
+          variant={filterStage === "rejected" ? "destructive" : "outline"}
+          className="cursor-pointer"
+          onClick={() => setFilterStage("rejected")}
+        >Rejected</Badge>
+      </div>
+
       {list.isLoading && (
         <div className="py-12 text-center text-slate-500">Loading clearances...</div>
       )}
@@ -438,6 +604,7 @@ export const HolidayClearanceTab = () => {
         {filtered.map((clearance) => {
           const currentStage = stageDefinitions.find((stage) => clearance[stage.statusKey] === "pending");
           const isCompleted = clearance.status === "completed";
+          const canApprove = userCanApproveStage(clearance);
           return (
             <Card key={clearance.id} className="border-none shadow-sm">
               <CardHeader className="space-y-4">
@@ -454,6 +621,9 @@ export const HolidayClearanceTab = () => {
                     <Badge variant={isCompleted ? "success" : clearance.status === "rejected" ? "destructive" : "secondary"}>
                       {isCompleted ? "Completed" : clearance.status === "rejected" ? "Rejected" : "In progress"}
                     </Badge>
+                    {currentStage && !isCompleted && clearance.status !== "rejected" && (
+                      <p className="mt-1 text-[10px] font-semibold text-amber-600">Awaiting: {currentStage.label}</p>
+                    )}
                   </div>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -571,21 +741,30 @@ export const HolidayClearanceTab = () => {
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  {stageDefinitions.map((stage) => (
-                    <div key={stage.statusKey} className="rounded-lg border p-3 bg-slate-50">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{stage.label}</p>
-                      <div className="mt-3 flex items-center gap-2">
-                        {clearance[stage.statusKey] === "approved" ? <CheckCircle2 className="h-4 w-4 text-success" /> : clearance[stage.statusKey] === "rejected" ? <XCircle className="h-4 w-4 text-destructive" /> : <RotateCcw className="h-4 w-4 text-amber-500" />}
-                        <Badge variant={statusVariant(clearance[stage.statusKey] || "pending")}>{clearance[stage.statusKey] || "pending"}</Badge>
+                  {stageDefinitions.map((stage) => {
+                    const isCurrentPending = currentStage?.statusKey === stage.statusKey;
+                    return (
+                      <div key={stage.statusKey} className={`rounded-lg border p-3 bg-slate-50 ${isCurrentPending && !isCompleted && clearance.status !== "rejected" ? "ring-2 ring-amber-400 ring-offset-1" : ""}`}>
+                        <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{stage.label}</p>
+                        <div className="mt-3 flex items-center gap-2">
+                          {clearance[stage.statusKey] === "approved" ? <CheckCircle2 className="h-4 w-4 text-success" /> : clearance[stage.statusKey] === "rejected" ? <XCircle className="h-4 w-4 text-destructive" /> : <RotateCcw className={`h-4 w-4 ${isCurrentPending && !isCompleted ? "text-amber-500 animate-pulse" : "text-amber-500"}`} />}
+                          <Badge variant={statusVariant(clearance[stage.statusKey] || "pending")}>{clearance[stage.statusKey] || "pending"}</Badge>
+                        </div>
+                        {clearance[stage.noteKey] && <p className="mt-2 text-sm text-muted-foreground">{clearance[stage.noteKey]}</p>}
+                        <div className="mt-6 border-t border-slate-200 pt-3">
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Signature</p>
+                          <div className="mt-3 h-6 border-b border-slate-300"></div>
+                        </div>
                       </div>
-                      {clearance[stage.noteKey] && <p className="mt-2 text-sm text-muted-foreground">{clearance[stage.noteKey]}</p>}
-                      <div className="mt-6 border-t border-slate-200 pt-3">
-                        <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Signature</p>
-                        <div className="mt-3 h-6 border-b border-slate-300"></div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
+
+                {canApprove && (
+                  <div className="flex justify-end">
+                    <UpdateStageDialog clearance={clearance} />
+                  </div>
+                )}
               </CardContent>
             </Card>
           );

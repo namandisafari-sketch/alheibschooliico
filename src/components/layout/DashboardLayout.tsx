@@ -10,6 +10,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
 import { TeacherTimetableReminder } from "../dashboard/TeacherTimetableReminder";
 
+
 interface DashboardLayoutProps {
   children: ReactNode;
   title: string;
@@ -106,6 +107,9 @@ export const DashboardLayout = ({ children, title, subtitle }: DashboardLayoutPr
         </main>
         <PoweredBy />
         <PoweredBy variant="print" />
+
+
+
       </div>
     </div>
   );

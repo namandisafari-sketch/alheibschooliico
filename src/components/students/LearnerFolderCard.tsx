@@ -48,7 +48,7 @@ export const LearnerFolderCard = ({ student }: LearnerFolderCardProps) => {
             <div className="space-y-2.5 flex-1">
               <div className="flex flex-col">
                 <span className="text-[9px] text-slate-400 uppercase font-semibold">Guardian</span>
-                <span className="text-xs text-slate-700 font-medium">{student.guardian_name || "—"}</span>
+                <span className="text-xs text-slate-700 font-medium">{student.guardian_name || student.parent_name || "—"}</span>
               </div>
               <div className="flex flex-col">
                 <span className="text-[9px] text-slate-400 uppercase font-semibold">Gender / Status</span>
@@ -61,19 +61,15 @@ export const LearnerFolderCard = ({ student }: LearnerFolderCardProps) => {
                 </div>
               </div>
               <div className="flex flex-col">
-                <span className="text-[9px] text-slate-400 uppercase font-semibold">Facility / Pupil Status</span>
+                <span className="text-[9px] text-slate-400 uppercase font-semibold">Pupil Status</span>
                 <div className="flex flex-wrap gap-1 mt-0.5">
-                  {student.boarding_status && (
-                    <Badge variant="secondary" className="text-[8px] px-1 h-3.5 capitalize">
-                      {student.boarding_status}
-                    </Badge>
-                  )}
-                  {student.pupil_status && (
+                  {student.pupil_status ? (
                     <Badge variant="outline" className="text-[8px] px-1 h-3.5 border-amber-200 text-amber-700 bg-amber-50">
                       {student.pupil_status}
                     </Badge>
+                  ) : (
+                    <span className="text-xs text-slate-700 font-medium">—</span>
                   )}
-                  {!student.boarding_status && !student.pupil_status && <span className="text-xs text-slate-700 font-medium">—</span>}
                 </div>
               </div>
             </div>
@@ -84,7 +80,7 @@ export const LearnerFolderCard = ({ student }: LearnerFolderCardProps) => {
                   variant="ghost" 
                   size="icon" 
                   className="h-7 w-7 text-slate-400 hover:text-primary hover:bg-primary/5" 
-                  disabled={!student.guardian_phone}
+                  disabled={!student.parent_phone && !student.guardian_phone}
                 >
                   <Phone className="h-3.5 w-3.5" />
                 </Button>

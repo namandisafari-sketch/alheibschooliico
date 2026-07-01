@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useRef } from "react";
-import { enToAr, translateText, toArabicDigits } from "./translations";
+import { enToAr, translateText, toArabicDigits, fetchTranslations, translationCache } from "./translations";
 
 type Language = "en" | "ar";
 
@@ -267,24 +267,119 @@ const translateNode = (node: Node) => {
   el.childNodes.forEach(translateNode);
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Async translation pass: after the dictionary-based sync pass, collect ALL
+// remaining English text (text nodes, placeholders, titles) and send them to
+// Ollama in a single batch for full Arabic translation.
+// Results are cached so subsequent renders are instant.
+// ─────────────────────────────────────────────────────────────────────────────
+const asyncTranslateSweep = async () => {
+  const seen = new Set<string>();
+  const nodesByText = new Map<string, Text[]>();
+  const attrsByText = new Map<string, { el: Element; attr: string }[]>();
+
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+  let node: Text | null;
+  while ((node = walker.nextNode() as Text | null)) {
+    const text = node.nodeValue?.trim();
+    if (!text) continue;
+    if (/[\u0600-\u06FF]/.test(text) && !/[A-Za-z]/.test(text)) continue;
+    // Check parent skip chain
+    let el = node.parentElement;
+    let skip = false;
+    while (el) {
+      if (el.hasAttribute("data-no-translate") || SKIP_TAGS.has(el.tagName)) {
+        skip = true;
+        break;
+      }
+      el = el.parentElement;
+    }
+    if (skip) continue;
+    const cached = translationCache.get(text);
+    if (cached) {
+      if (node.nodeValue !== cached) node.nodeValue = toArabicDigits(cached);
+      continue;
+    }
+    if (!seen.has(text)) {
+      seen.add(text);
+      nodesByText.set(text, []);
+    }
+    nodesByText.get(text)!.push(node);
+  }
+
+  // Collect placeholder & title attributes too
+  document.querySelectorAll("[placeholder], [title]").forEach((el) => {
+    if (el.hasAttribute("data-no-translate")) return;
+    let p = el.parentElement;
+    while (p) { if (p.hasAttribute("data-no-translate")) return; p = p.parentElement; }
+    ["placeholder", "title"].forEach((attr) => {
+      const val = el.getAttribute(attr);
+      if (!val || /[\u0600-\u06FF]/.test(val)) return;
+      const cached = translationCache.get(val);
+      if (cached) {
+        el.setAttribute(attr, cached);
+        return;
+      }
+      if (!seen.has(val)) {
+        seen.add(val);
+        attrsByText.set(val, []);
+      }
+      attrsByText.get(val)!.push({ el, attr });
+    });
+  });
+
+  const allTexts = [...nodesByText.keys(), ...attrsByText.keys()];
+  if (allTexts.length === 0) return;
+
+  const results = await fetchTranslations(allTexts);
+  if (!results || results.size === 0) return;
+
+  for (const [original, translated] of results) {
+    const arText = toArabicDigits(translated);
+    const textNodes = nodesByText.get(original);
+    if (textNodes) {
+      for (const n of textNodes) n.nodeValue = arText;
+    }
+    const attrNodes = attrsByText.get(original);
+    if (attrNodes) {
+      for (const { el, attr } of attrNodes) el.setAttribute(attr, arText);
+    }
+  }
+};
+
 export const LanguageProvider = ({ children }: { children: ReactNode }) => {
   const [language, setLanguage] = useState<Language>(() => {
     const saved = localStorage.getItem("language");
-    return (saved as Language) || "en";
+    if (saved) return saved as Language;
+    // Auto-detect device/browser language (like WhatsApp)
+    // Check navigator.languages (preferred, broader support), then navigator.language
+    const langs = typeof navigator.languages !== "undefined" ? navigator.languages : [navigator.language];
+    const isArabic = langs.some((l) => l && l.startsWith("ar"));
+    return isArabic ? "ar" : "en";
   });
 
   const isRTL = language === "ar";
   const observerRef = useRef<MutationObserver | null>(null);
+  const continuousSweepRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const asyncDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     localStorage.setItem("language", language);
     document.documentElement.dir = isRTL ? "rtl" : "ltr";
     document.documentElement.lang = language;
 
-    // Tear down previous observer
+    // Tear down previous observer & timers
     if (observerRef.current) {
       observerRef.current.disconnect();
       observerRef.current = null;
+    }
+    if (continuousSweepRef.current) {
+      clearInterval(continuousSweepRef.current);
+      continuousSweepRef.current = null;
+    }
+    if (asyncDebounceRef.current) {
+      clearTimeout(asyncDebounceRef.current);
+      asyncDebounceRef.current = null;
     }
 
     if (!isRTL) {
@@ -300,9 +395,25 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
 
     document.documentElement.setAttribute("data-translated", "ar");
 
+    const doTranslate = () => {
+      translateNode(document.body);
+      asyncTranslateSweep();
+    };
+
     // Initial sweep — defer to next tick so React has flushed.
-    const sweep = () => translateNode(document.body);
-    requestAnimationFrame(sweep);
+    requestAnimationFrame(doTranslate);
+
+    // Repeated sweeps at intervals to catch dynamically rendered content
+    const reSweepTimers = [2000, 5000, 10000, 20000].map((ms) =>
+      setTimeout(doTranslate, ms)
+    );
+
+    // Continuous sweep every 30 seconds to catch any missed text
+    continuousSweepRef.current = setInterval(doTranslate, 30000);
+
+    // Sweep on user interaction — common trigger for lazy-loaded content
+    const interactionSweep = () => setTimeout(doTranslate, 500);
+    document.addEventListener("click", interactionSweep, true);
 
     // Watch for future DOM updates from React renders.
     const observer = new MutationObserver((mutations) => {
@@ -315,6 +426,9 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
           translateNode(m.target);
         }
       }
+      // Async fallback after DOM settles
+      if (asyncDebounceRef.current) clearTimeout(asyncDebounceRef.current);
+      asyncDebounceRef.current = setTimeout(asyncTranslateSweep, 500);
     });
     observer.observe(document.body, {
       childList: true,
@@ -327,8 +441,32 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       observer.disconnect();
+      reSweepTimers.forEach(clearTimeout);
+      if (continuousSweepRef.current) clearInterval(continuousSweepRef.current);
+      if (asyncDebounceRef.current) clearTimeout(asyncDebounceRef.current);
+      document.removeEventListener("click", interactionSweep, true);
     };
   }, [language, isRTL]);
+
+  // React to device/browser language changes in real-time
+  useEffect(() => {
+    const onLanguageChange = () => {
+      const langs = typeof navigator.languages !== "undefined" ? navigator.languages : [navigator.language];
+      const isArabic = langs.some((l) => l && l.startsWith("ar"));
+      const saved = localStorage.getItem("language");
+      // Only auto-switch if user hasn't made an explicit choice
+      if (!saved) {
+        setLanguage(isArabic ? "ar" : "en");
+      } else {
+        // If user made a choice, still update if it matches the device language
+        const currentLang = saved as Language;
+        if (isArabic && currentLang === "en") setLanguage("ar");
+        else if (!isArabic && currentLang === "ar") setLanguage("en");
+      }
+    };
+    window.addEventListener("languagechange", onLanguageChange);
+    return () => window.removeEventListener("languagechange", onLanguageChange);
+  }, []);
 
   const t = (key: string): string => {
     const entry = keyedTranslations[key];

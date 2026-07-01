@@ -2,7 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export const useLessonPlans = (filters?: { teacherId?: string; weekNumber?: number; academicYear?: number }) => {
+export const useLessonPlans = (filters?: { teacherId?: string; classId?: string; subjectId?: string; weekNumber?: number; academicYear?: number; term?: string }) => {
   return useQuery({
     queryKey: ["lesson-plans", filters],
     queryFn: async () => {
@@ -10,13 +10,17 @@ export const useLessonPlans = (filters?: { teacherId?: string; weekNumber?: numb
         .from("lesson_plans")
         .select(`
           *,
-          teacher:profiles(full_name),
+          teacher:profiles(full_name, email, phone),
           class:classes(name),
           subject:subjects(name)
         `);
       
       if (filters?.teacherId) query = query.eq("teacher_id", filters.teacherId);
+      if (filters?.classId) query = query.eq("class_id", filters.classId);
+      if (filters?.subjectId) query = query.eq("subject_id", filters.subjectId);
       if (filters?.weekNumber) query = query.eq("week_number", filters.weekNumber);
+      if (filters?.academicYear) query = query.eq("academic_year", filters.academicYear);
+      if (filters?.term) query = query.eq("term", filters.term);
       
       const { data, error } = await query;
       if (error) throw error;

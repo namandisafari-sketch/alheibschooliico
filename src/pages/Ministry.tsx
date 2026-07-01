@@ -1,15 +1,66 @@
 // @ts-nocheck
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, ExternalLink, Download, BookOpen, ShieldCheck, Landmark, Link as LinkIcon, Info } from "lucide-react";
+import { FileText, ExternalLink, Download, BookOpen, ShieldCheck, Landmark, Link as LinkIcon, Info, AlertTriangle, Phone, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useMinistryGuidelines } from "@/hooks/useCompliance";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import {
+  useMinistryGuidelines,
+  useCompliancePortals,
+  useComplianceNotices,
+  useNationalStandards,
+  useComplianceContacts,
+} from "@/hooks/useCompliance";
+
+const iconMap = {
+  BookOpen, FileText, ShieldCheck, Link: LinkIcon,
+};
+
+const downloadFile = async (fileUrl: string, fileName: string) => {
+  if (!fileUrl) return;
+  try {
+    if (fileUrl.startsWith("http")) {
+      window.open(fileUrl, "_blank");
+      return;
+    }
+    const { data, error } = await supabase.storage
+      .from("compliance-documents")
+      .download(fileUrl);
+    if (error) throw error;
+    const blob = new Blob([data]);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    toast.error("Download failed");
+  }
+};
+
+const severityStyles = {
+  info: "bg-blue-50 border-blue-200 text-blue-900",
+  warning: "bg-amber-50 border-amber-200 text-amber-900",
+  critical: "bg-red-50 border-red-200 text-red-900",
+};
+
+const statusStyles = {
+  compliant: "text-emerald-600",
+  non_compliant: "text-red-600",
+  pending: "text-amber-600",
+};
 
 const Ministry = () => {
-  const { data: guidelines = [], isLoading } = useMinistryGuidelines();
+  const { data: guidelines = [], isLoading: guidelinesLoading } = useMinistryGuidelines();
+  const { data: portals = [], isLoading: portalsLoading } = useCompliancePortals();
+  const { data: notices = [], isLoading: noticesLoading } = useComplianceNotices();
+  const { data: standards = [], isLoading: standardsLoading } = useNationalStandards();
+  const { data: contacts = [], isLoading: contactsLoading } = useComplianceContacts();
 
   return (
     <DashboardLayout title="Ministry Context" subtitle="MoES Compliance, Standards & National Regulations">
@@ -27,7 +78,7 @@ const Ministry = () => {
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y">
-                {isLoading ? (
+                {guidelinesLoading ? (
                   Array(4).fill(0).map((_, i) => (
                     <div key={i} className="p-4 flex items-center justify-between">
                       <div className="flex items-center gap-4">
@@ -46,7 +97,7 @@ const Ministry = () => {
                   </div>
                 ) : (
                   guidelines.map((doc, i) => (
-                    <div key={i} className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
+                    <div key={doc.id || i} className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
                       <div className="flex items-center gap-4">
                         <div className="p-2 bg-slate-100 rounded-lg">
                           <FileText className="h-5 w-5 text-slate-500" />
@@ -64,12 +115,19 @@ const Ministry = () => {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm" className="h-8 gap-2 text-[10px] font-bold">
-                          <Download className="h-3.5 w-3.5" /> {doc.file_size || "N/A"}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-2 text-[10px] font-bold"
+                          onClick={() => downloadFile(doc.file_url, doc.title)}
+                        >
+                          <Download className="h-3.5 w-3.5" /> {doc.file_size || "Download"}
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </Button>
+                        {doc.file_url && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => doc.file_url.startsWith("http") && window.open(doc.file_url, "_blank")}>
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))
@@ -86,58 +144,84 @@ const Ministry = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4 space-y-2">
-                <Button className="w-full justify-between h-10 px-4 text-xs font-bold" variant="outline">
-                  <span className="flex items-center gap-2"><BookOpen className="h-3.5 w-3.5" /> Curriculum Center</span>
-                  <ExternalLink className="h-3 w-3 opacity-50" />
-                </Button>
-                <Button className="w-full justify-between h-10 px-4 text-xs font-bold" variant="outline">
-                  <span className="flex items-center gap-2"><FileText className="h-3.5 w-3.5" /> UNEB Portal</span>
-                  <ExternalLink className="h-3 w-3 opacity-50" />
-                </Button>
-                <Button className="w-full justify-between h-10 px-4 text-xs font-bold" variant="outline">
-                  <span className="flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5" /> Inspection Log</span>
-                  <ExternalLink className="h-3 w-3 opacity-50" />
-                </Button>
+                {portalsLoading ? (
+                  Array(3).fill(0).map((_, i) => (
+                    <Skeleton key={i} className="h-10 w-full rounded-md" />
+                  ))
+                ) : portals.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-2">No portals configured.</p>
+                ) : (
+                  portals.map((p) => {
+                    const PortalIcon = iconMap[p.icon_name] || LinkIcon;
+                    return (
+                      <Button
+                        key={p.id}
+                        className="w-full justify-between h-10 px-4 text-xs font-bold"
+                        variant="outline"
+                        onClick={() => window.open(p.url, "_blank")}
+                      >
+                        <span className="flex items-center gap-2"><PortalIcon className="h-3.5 w-3.5" /> {p.name}</span>
+                        <ExternalLink className="h-3 w-3 opacity-50" />
+                      </Button>
+                    );
+                  })
+                )}
               </CardContent>
             </Card>
 
-            <Card className="bg-amber-50 border-amber-200 shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-black text-amber-900 flex items-center gap-2">
-                  <Info className="h-4 w-4" /> Compliance Notice
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
-                  The EMIS return for Term II is due in 14 days. Failure to upload learner data may affect the school's capitation grant eligibility.
-                </p>
-                <Button className="w-full mt-4 h-8 bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px]" size="sm">
-                  Review EMIS Data
-                </Button>
-              </CardContent>
-            </Card>
+            {notices.length > 0 && notices.map((notice) => (
+              <Card key={notice.id} className={`border shadow-sm ${severityStyles[notice.severity] || severityStyles.info}`}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-black flex items-center gap-2">
+                    {notice.severity === "critical" ? <AlertTriangle className="h-4 w-4" /> : <Info className="h-4 w-4" />}
+                    {notice.title}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-[11px] leading-relaxed font-medium">{notice.message}</p>
+                  {notice.action_label && (
+                    <Button
+                      className="w-full mt-4 h-8 font-bold text-[11px]"
+                      size="sm"
+                      onClick={() => window.location.href = notice.action_link || "#"}
+                    >
+                      {notice.action_label}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
-           <Card className="border-slate-200 shadow-sm">
+          <Card className="border-slate-200 shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg font-black tracking-tight">National Standards (NCS)</CardTitle>
               <CardDescription className="text-xs">Minimum requirements for private educational institutions</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 border rounded-xl bg-slate-50/50">
-                  <p className="text-[10px] uppercase font-black tracking-widest text-slate-500">Teacher Ratio</p>
-                  <p className="text-xl font-black mt-2">1:25</p>
-                  <p className="text-[9px] text-emerald-600 font-bold mt-1">Compliant (Current 1:22)</p>
+              {standardsLoading ? (
+                <div className="grid grid-cols-2 gap-4">
+                  {Array(4).fill(0).map((_, i) => (
+                    <Skeleton key={i} className="h-24 rounded-xl" />
+                  ))}
                 </div>
-                <div className="p-4 border rounded-xl bg-slate-50/50">
-                  <p className="text-[10px] uppercase font-black tracking-widest text-slate-500">Acreage Ratio</p>
-                  <p className="text-xl font-black mt-2">5.2 Ac.</p>
-                  <p className="text-[9px] text-emerald-600 font-bold mt-1">Compliant</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  {standards.map((s) => (
+                    <div key={s.id} className="p-4 border rounded-xl bg-slate-50/50">
+                      <p className="text-[10px] uppercase font-black tracking-widest text-slate-500">{s.name}</p>
+                      <p className="text-xl font-black mt-2">{s.current_value || s.requirement}</p>
+                      <p className={`text-[9px] font-bold mt-1 ${statusStyles[s.status] || ""}`}>
+                        {s.status === "compliant" ? "Compliant" : s.status === "non_compliant" ? "Non-Compliant" : "Pending"}
+                        {s.current_value && s.requirement && s.current_value !== s.requirement
+                          ? ` (Required: ${s.requirement})` : ""}
+                      </p>
+                    </div>
+                  ))}
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 
@@ -147,16 +231,35 @@ const Ministry = () => {
               <CardDescription className="text-slate-400 text-xs">Assigned Inspectors & DES Officers</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
-                <div className="space-y-0.5">
-                  <p className="text-xs font-bold">DES Central Region</p>
-                  <p className="text-[10px] text-slate-400">Regional Inspector of Schools</p>
-                </div>
-                <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold text-slate-300 hover:text-white">Call Office</Button>
-              </div>
-              <p className="text-[10px] text-slate-500 italic text-center">
-                Last formal inspection: March 22, 2026 | Next scheduled: Aug 2026
-              </p>
+              {contactsLoading ? (
+                Array(2).fill(0).map((_, i) => (
+                  <Skeleton key={i} className="h-16 rounded-lg" />
+                ))
+              ) : contacts.length === 0 ? (
+                <p className="text-xs text-slate-500 text-center">No compliance contacts configured.</p>
+              ) : (
+                contacts.map((c) => (
+                  <div key={c.id} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-bold">{c.name}</p>
+                      <p className="text-[10px] text-slate-400">{c.title}</p>
+                      {c.region && <p className="text-[9px] text-slate-500">{c.region}</p>}
+                    </div>
+                    <div className="flex gap-1">
+                      {c.phone && (
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-300 hover:text-white" onClick={() => window.open(`tel:${c.phone}`)}>
+                          <Phone className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {c.email && (
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-300 hover:text-white" onClick={() => window.open(`mailto:${c.email}`)}>
+                          <Mail className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
         </div>

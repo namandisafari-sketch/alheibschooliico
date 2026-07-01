@@ -31,7 +31,6 @@ export const LeaveApprovals = ({ level }: Props) => {
     queryKey: ["leave-approvals", level],
     queryFn: async () => {
       let q = supabase.from("leave_requests" as any).select("*").is(filterCol, null).order("created_at", { ascending: false });
-      if (level === "admin") q = q.eq("supervisor_decision", "approved");
       const { data } = await q;
       return data || [];
     },

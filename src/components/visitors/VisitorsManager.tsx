@@ -1,10 +1,8 @@
 // @ts-nocheck
 import { useState, useRef, ReactNode, useEffect } from "react";
 import { format, formatDistanceToNow, isToday, isPast } from "date-fns";
-import { BrowserQRCodeReader } from "@zxing/library";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,13 +44,19 @@ import { useLearners } from "@/hooks/useLearners";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { EmergencyReentrySlip } from "@/components/idcards/EmergencyReentrySlip";
+import { BarcodeScannerInput } from "@/components/visitors/BarcodeScannerInput";
+import { parseStudentScanPayload, parsePDF417Barcode } from "@/lib/studentScan";
 import { IDScannerDialog } from "@/components/visitors/IDScannerDialog";
+import { AddressForm, type AddressData } from "@/components/common/AddressForm";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useStudentBalances, formatUGX } from "@/hooks/useFees";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { LocationSelector } from "@/components/common/LocationSelector";
 import { useDisciplineFlags } from "@/hooks/useDisciplineFlags";
 import { DisciplineFlag } from "@/components/discipline/DisciplineFlag";
+
+const sanitizeLabel = (s: string) => s.replace(/[\u2013\u2014\u2015]/g, "-").replace(/[\uFFFD\uFFFE\uFFFF\u0000-\u0008\u000B\u000C\u000E-\u001F\uD800-\uDFFF]/g, "").trim();
 
 const GateStatCard = ({ icon, label, value, color, bgColor }: { icon: ReactNode; label: string; value: number | string; color: string; bgColor: string }) => (
   <div className={cn("flex items-center gap-4 p-4 bg-white border rounded-3xl shadow-sm", bgColor)}>
@@ -437,68 +441,70 @@ function AppointmentsList({ appointments }: { appointments: any[] }) {
 
 function LearnerVerificationDialog({ initialId, onClose }: { initialId?: string, onClose?: () => void }) {
   const [open, setOpen] = useState(false);
-  const [scanning, setScanning] = useState(false);
   const [learner, setLearner] = useState<any>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [scanMode, setScanMode] = useState<"idle" | "scanning">("idle");
+  const [lookupLoading, setLookupLoading] = useState(false);
   const { data: learners = [] } = useLearners();
   const { data: balances = [] } = useStudentBalances();
   const { data: flags } = useDisciplineFlags();
 
-  // Handle hardware scan (initialId)
-  useEffect(() => {
-    if (initialId) {
-      const found = learners.find(l => l.id.toUpperCase() === initialId.toUpperCase());
-      const balance = balances.find(b => b.id.toUpperCase() === initialId.toUpperCase());
-      if (found) {
-        setLearner({ ...found, balance });
-        setOpen(true);
-      } else {
-        toast({ title: "Student Not Found", description: `ID: ${initialId}`, variant: "destructive" });
-        onClose?.();
-      }
-    }
-  }, [initialId, learners, balances]);
+  const lookupLearner = async (id: string) => {
+    const trimmed = id.trim().toUpperCase();
+    setLookupLoading(true);
 
-  const startScan = async () => {
-    setScanning(true);
-    setLearner(null);
-    const codeReader = new BrowserQRCodeReader();
     try {
-      const result = await codeReader.decodeFromVideoDevice(undefined, videoRef.current!, (res, err) => {
-        if (res) {
-          const text = res.getText();
-          if (text.startsWith("ALHEIB:FEE:")) {
-            const id = text.split(":")[2];
-            const found = learners.find(l => l.id.toUpperCase() === id.toUpperCase());
-            const balance = balances.find(b => b.id.toUpperCase() === id.toUpperCase());
-            if (found) {
-              setLearner({ ...found, balance });
-              codeReader.reset();
-              setScanning(false);
-            }
-          }
+      const parsed = parsePDF417Barcode(id) || parseStudentScanPayload(id);
+      const lookupId = parsed && 'studentId' in parsed && parsed.studentId
+        ? parsed.studentId.toUpperCase()
+        : trimmed;
+
+      const { data: found, error } = await supabase
+        .from("learners")
+        .select("*, classes(name)")
+        .or(`id.eq.${lookupId},admission_number.ilike.%${lookupId}%`)
+        .maybeSingle();
+
+      if (error || !found) {
+        const fallback = learners.find(l =>
+          l.id.toUpperCase() === lookupId ||
+          l.admission_number?.toUpperCase() === lookupId ||
+          l.full_name?.toUpperCase().includes(lookupId)
+        );
+        if (!fallback) {
+          toast({ title: "Student Not Found", description: `No match for scanned ID`, variant: "destructive" });
+          setLearner(null);
+          return;
         }
-      });
-    } catch (err) {
-      console.error(err);
+        const balance = balances.find(b => b.id === fallback.id);
+        setLearner({ ...fallback, balance });
+        setOpen(true);
+        setScanMode("idle");
+        return;
+      }
+
+      const balance = balances.find(b => b.id === found.id);
+      setLearner({ ...found, balance });
+      setOpen(true);
+      setScanMode("idle");
+    } catch (err: any) {
+      toast({ title: "Lookup Error", description: err.message, variant: "destructive" });
+    } finally {
+      setLookupLoading(false);
     }
   };
 
   useEffect(() => {
-    if (scanning && videoRef.current) {
-      startScan();
+    if (initialId) {
+      lookupLearner(initialId);
     }
-    return () => {
-      const codeReader = new BrowserQRCodeReader();
-      codeReader.reset();
-    };
-  }, [scanning]);
+  }, [initialId, learners, balances]);
 
   return (
     <Dialog open={open} onOpenChange={(o) => {
       setOpen(o);
       if (!o) {
-        setScanning(false);
+        setLearner(null);
+        setScanMode("idle");
         onClose?.();
       }
     }}>
@@ -514,32 +520,32 @@ function LearnerVerificationDialog({ initialId, onClose }: { initialId?: string,
             <ShieldCheck className="h-5 w-5 text-blue-600" />
             Learner Identity Verification
           </DialogTitle>
-          <DialogDescription>Scan the QR code on the student ID card to verify access</DialogDescription>
+          <DialogDescription>Scan the student barcode or ID card to verify access</DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">
+        <div className="py-4 space-y-4">
           {!learner && (
-            <div className="relative aspect-video bg-slate-900 rounded-2xl overflow-hidden border-4 border-slate-800 shadow-2xl">
-              {!scanning ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-6 text-center">
-                  <ScanLine className="h-12 w-12 text-blue-400 mb-4 animate-pulse" />
-                  <p className="text-lg font-black uppercase tracking-widest">Ready to Verify</p>
-                  <Button onClick={() => setScanning(true)} className="mt-4 bg-blue-600 hover:bg-blue-700 font-black uppercase tracking-widest px-8">
-                    Start Camera
-                  </Button>
+            <>
+              {scanMode === "idle" && (
+                <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-3xl bg-slate-50 border-slate-200">
+                  <div className="h-14 w-14 bg-white rounded-2xl shadow-md flex items-center justify-center mb-4">
+                    <ScanLine className="h-7 w-7 text-blue-600" />
+                  </div>
+                  <p className="text-lg font-bold">Scan Student ID</p>
+                  <p className="text-sm text-muted-foreground mt-1 text-center max-w-xs">
+                    Use the handheld barcode scanner on the student ID card or badge
+                  </p>
                 </div>
-              ) : (
-                <>
-                  <video ref={videoRef} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 border-[40px] border-black/40 pointer-events-none">
-                    <div className="w-full h-full border-2 border-blue-500 rounded-lg animate-pulse" />
-                  </div>
-                  <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/60 px-4 py-1 rounded-full text-[10px] font-black text-white uppercase tracking-widest">
-                    Align QR Code in Center
-                  </div>
-                </>
               )}
-            </div>
+              <BarcodeScannerInput
+                onScan={(data) => {
+                  const id = data.nin || data.raw;
+                  lookupLearner(id);
+                }}
+                placeholder="Scan student barcode..."
+                autoFocus
+              />
+            </>
           )}
 
           {learner && (
@@ -563,12 +569,12 @@ function LearnerVerificationDialog({ initialId, onClose }: { initialId?: string,
                       {learner.full_name}
                     </h3>
                     <p className="text-blue-400 font-mono text-sm font-bold uppercase tracking-tighter">
-                      ADM: {learner.admission_number || learner.id.slice(0, 8)}
+                      ADM: {learner.admission_number || "—"}
                     </p>
                     <div className="flex gap-4 mt-3">
                       <div>
                         <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Class</p>
-                        <p className="text-white font-bold uppercase">{learner.class_name || "N/A"}</p>
+                        <p className="text-white font-bold uppercase">{learner.classes?.name || learner.class_name || "N/A"}</p>
                       </div>
                       <Separator orientation="vertical" className="h-8 bg-slate-800" />
                       <div>
@@ -614,7 +620,9 @@ function LearnerVerificationDialog({ initialId, onClose }: { initialId?: string,
                       </div>
                       <div>
                         <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest leading-none">Home Location</p>
-                        <p className="text-xs font-bold text-blue-900 uppercase tracking-tight">{learner.village}, {learner.district}</p>
+                        <p className="text-xs font-bold text-blue-900 uppercase tracking-tight">
+                          {[learner.village, learner.parish, learner.sub_county, learner.district].filter(Boolean).join(", ") || "—"}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -627,10 +635,29 @@ function LearnerVerificationDialog({ initialId, onClose }: { initialId?: string,
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)} className="uppercase text-[10px] font-black">Close</Button>
           {learner && (
-            <Button onClick={() => setLearner(null)} variant="outline" className="uppercase text-[10px] font-black">Scan Another</Button>
+            <Button onClick={() => { setLearner(null); setScanMode("idle"); }} variant="outline" className="uppercase text-[10px] font-black">Scan Another</Button>
           )}
           {learner && (
-            <Button className="bg-slate-900 hover:bg-black text-white uppercase text-[10px] font-black tracking-widest px-8">
+            <Button
+              className="bg-slate-900 hover:bg-black text-white uppercase text-[10px] font-black tracking-widest px-8"
+              onClick={async () => {
+                try {
+                  const { data: { user } } = await supabase.auth.getUser();
+                  const { error } = await supabase.from("student_gate_logs").insert({
+                    learner_id: learner.id,
+                    status: "checked_in",
+                    verification_method: "manual",
+                    verified_by: user?.id,
+                  });
+                  if (error) throw error;
+                  toast({ title: "Gate Entry Logged", description: `${learner.full_name} checked in at the gate.` });
+                  setLearner(null);
+                  setScanMode("idle");
+                } catch (err: any) {
+                  toast({ title: "Error", description: err.message, variant: "destructive" });
+                }
+              }}
+            >
               Log Gate Entry
             </Button>
           )}
@@ -640,7 +667,7 @@ function LearnerVerificationDialog({ initialId, onClose }: { initialId?: string,
   );
 }
 
-const Visitors = () => {
+export const VisitorsManager = () => {
   const { data: activeVisits = [] } = useVisitorVisits("active");
   const { data: allVisits = [] } = useVisitorVisits("all");
   const { data: visitors = [] } = useVisitors();
@@ -689,408 +716,403 @@ const Visitors = () => {
   }, []);
 
   return (
-    <DashboardLayout 
-      title="Gate Control Center" 
-      subtitle="Physical security and visitor access management"
-    >
+    <div className="flex flex-col gap-6">
       {manualVerifyId && (
         <LearnerVerificationDialog 
           initialId={manualVerifyId} 
           onClose={() => setManualVerifyId(null)} 
         />
       )}
-      <div className="flex flex-col gap-6">
-        {/* TOP STATUS BAR */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <GateStatCard 
-            icon={<Users className="h-5 w-5" />} 
-            label="Currently Inside" 
-            value={activeVisits.length} 
-            color="text-emerald-600"
-            bgColor="bg-emerald-50"
-          />
-          <GateStatCard 
-            icon={<CalendarCheck className="h-5 w-5" />} 
-            label="Expected Today" 
-            value={appointments.filter(a => isToday(new Date(a.scheduled_for))).length} 
-            color="text-blue-600"
-            bgColor="bg-blue-50"
-          />
-          <GateStatCard 
-            icon={<ShieldCheck className="h-5 w-5" />} 
-            label="Security Clearances" 
-            value={activeSlips} 
-            color="text-amber-600"
-            bgColor="bg-amber-50"
-          />
-          <GateStatCard 
-            icon={<History className="h-5 w-5" />} 
-            label="Total Visits Today" 
-            value={allVisits.filter(v => isToday(new Date(v.check_in_at))).length} 
-            color="text-slate-600"
-            bgColor="bg-slate-50"
-          />
+      {/* TOP STATUS BAR */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <GateStatCard 
+          icon={<Users className="h-5 w-5" />} 
+          label="Currently Inside" 
+          value={activeVisits.length} 
+          color="text-emerald-600"
+          bgColor="bg-emerald-50"
+        />
+        <GateStatCard 
+          icon={<CalendarCheck className="h-5 w-5" />} 
+          label="Expected Today" 
+          value={appointments.filter(a => isToday(new Date(a.scheduled_for))).length} 
+          color="text-blue-600"
+          bgColor="bg-blue-50"
+        />
+        <GateStatCard 
+          icon={<ShieldCheck className="h-5 w-5" />} 
+          label="Security Clearances" 
+          value={activeSlips} 
+          color="text-amber-600"
+          bgColor="bg-amber-50"
+        />
+        <GateStatCard 
+          icon={<History className="h-5 w-5" />} 
+          label="Total Visits Today" 
+          value={allVisits.filter(v => isToday(new Date(v.check_in_at))).length} 
+          color="text-slate-600"
+          bgColor="bg-slate-50"
+        />
+      </div>
+
+      <Tabs id="visitor-log-container" defaultValue="gate" className="space-y-6">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <TabsList className="bg-white border p-1 h-12 shadow-sm">
+            <TabsTrigger value="gate" className="h-10 px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+              <Shield className="h-4 w-4 mr-2" />
+              Live Gate
+            </TabsTrigger>
+            <TabsTrigger value="insights" className="h-10 px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+              <Activity className="h-4 w-4 mr-2" />
+              Gate Insights
+            </TabsTrigger>
+            <TabsTrigger value="appointments" className="h-10 px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+              <Calendar className="h-4 w-4 mr-2" />
+              Appointments
+            </TabsTrigger>
+            <TabsTrigger value="reentry" className="h-10 px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+              <AlertTriangle className="h-4 w-4 mr-2" />
+              Gate Passes
+            </TabsTrigger>
+            <TabsTrigger value="inventory" className="h-10 px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+              <PackageCheck className="h-4 w-4 mr-2" />
+              Item Clearance
+            </TabsTrigger>
+            <TabsTrigger value="log" className="h-10 px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+              <History className="h-4 w-4 mr-2" />
+              Access Log
+            </TabsTrigger>
+            <TabsTrigger value="visitors" className="h-10 px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+              <UserCheck className="h-4 w-4 mr-2" />
+              Trusted List
+            </TabsTrigger>
+          </TabsList>
+
+          <div className="flex items-center gap-3">
+            <IDScannerDialog onScanComplete={(res) => {
+              toast({ title: "ID Scanned", description: `Ready to check in ${res.identity.name}` });
+            }} />
+            <CheckInDialog trigger={
+              <Button className="h-12 px-6 bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-200">
+                <UserPlus className="h-4 w-4 mr-2" />
+                Direct Check-In
+              </Button>
+            } />
+          </div>
         </div>
 
-        <Tabs id="visitor-log-container" defaultValue="gate" className="space-y-6">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <TabsList className="bg-white border p-1 h-12 shadow-sm">
-              <TabsTrigger value="gate" className="h-10 px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">
-                <Shield className="h-4 w-4 mr-2" />
-                Live Gate
-              </TabsTrigger>
-              <TabsTrigger value="insights" className="h-10 px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">
-                <Activity className="h-4 w-4 mr-2" />
-                Gate Insights
-              </TabsTrigger>
-              <TabsTrigger value="appointments" className="h-10 px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">
-                <Calendar className="h-4 w-4 mr-2" />
-                Appointments
-              </TabsTrigger>
-              <TabsTrigger value="reentry" className="h-10 px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">
-                <AlertTriangle className="h-4 w-4 mr-2" />
-                Gate Passes
-              </TabsTrigger>
-              <TabsTrigger value="inventory" className="h-10 px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">
-                <PackageCheck className="h-4 w-4 mr-2" />
-                Item Clearance
-              </TabsTrigger>
-              <TabsTrigger value="log" className="h-10 px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">
-                <History className="h-4 w-4 mr-2" />
-                Access Log
-              </TabsTrigger>
-              <TabsTrigger value="visitors" className="h-10 px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">
-                <UserCheck className="h-4 w-4 mr-2" />
-                Trusted List
-              </TabsTrigger>
-            </TabsList>
-
-            <div className="flex items-center gap-3">
-              <IDScannerDialog onScanComplete={(res) => {
-                toast({ title: "ID Scanned", description: `Ready to check in ${res.identity.name}` });
-              }} />
-              <LearnerVerificationDialog />
-              <CheckInDialog trigger={
-                <Button className="h-12 px-6 bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-200">
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Direct Check-In
-                </Button>
-              } />
-            </div>
-          </div>
-
-          {/* LIVE GATE EXPERIENCE */}
-          <TabsContent value="gate" className="mt-0">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full min-h-[600px]">
-              
-              {/* ENTRY LANE (Left) */}
-              <div className="flex flex-col gap-4 bg-white border rounded-3xl p-6 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-2 h-full bg-emerald-500" />
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-xl font-black tracking-tight text-slate-900 uppercase">Entry Lane</h2>
-                    <p className="text-sm text-muted-foreground font-medium">Arrivals & Appointments</p>
-                  </div>
-                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-100 font-bold px-3 py-1 uppercase tracking-widest text-[10px]">Gate Open</Badge>
+        {/* LIVE GATE EXPERIENCE */}
+        <TabsContent value="gate" className="mt-0">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full min-h-[600px]">
+            
+            {/* ENTRY LANE (Left) */}
+            <div className="flex flex-col gap-4 bg-white border rounded-3xl p-6 shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-2 h-full bg-emerald-500" />
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-black tracking-tight text-slate-900 uppercase">Entry Lane</h2>
+                  <p className="text-sm text-muted-foreground font-medium">Arrivals & Appointments</p>
                 </div>
+                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-100 font-bold px-3 py-1 uppercase tracking-widest text-[10px]">Gate Open</Badge>
+              </div>
 
-                <ScrollArea className="flex-1 -mx-2 px-2">
-                  <div className="space-y-4 pr-4">
-                    {todayApptsScheduled.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-20 text-center">
-                        <div className="h-16 w-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                          <CalendarCheck className="h-8 w-8 text-slate-300" />
-                        </div>
-                        <h3 className="font-bold text-slate-900">No pending arrivals</h3>
-                        <p className="text-sm text-muted-foreground">All scheduled visitors for today have been processed.</p>
+              <ScrollArea className="flex-1 -mx-2 px-2">
+                <div className="space-y-4 pr-4">
+                  {todayApptsScheduled.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-center">
+                      <div className="h-16 w-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                        <CalendarCheck className="h-8 w-8 text-slate-300" />
                       </div>
-                    ) : (
-                      todayApptsScheduled.map((a) => (
-                        <div key={a.id} className="group relative bg-slate-50 border-l-4 border-l-blue-500 rounded-xl p-4 hover:bg-slate-100 transition-all">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Badge className="bg-blue-600 font-mono text-[10px]">{format(new Date(a.scheduled_for), "HH:mm")}</Badge>
-                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Scheduled Visit</span>
-                              </div>
-                              <h4 className="font-black text-slate-900 truncate uppercase tracking-tight">{a.visitor_name}</h4>
-                              <p className="text-xs text-slate-600 line-clamp-1 mb-2 font-medium">{a.purpose}</p>
-                              
-                              <div className="flex flex-wrap gap-x-4 gap-y-1">
-                                {a.host_name && (
-                                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-tighter">
-                                    <Shield className="h-3 w-3" />
-                                    Host: {a.host_name}
-                                  </div>
-                                )}
-                                {a.visitor_phone && (
-                                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-tighter">
-                                    <Phone className="h-3 w-3" />
-                                    {a.visitor_phone}
-                                  </div>
-                                )}
-                              </div>
+                      <h3 className="font-bold text-slate-900">No pending arrivals</h3>
+                      <p className="text-sm text-muted-foreground">All scheduled visitors for today have been processed.</p>
+                    </div>
+                  ) : (
+                    todayApptsScheduled.map((a) => (
+                      <div key={a.id} className="group relative bg-slate-50 border-l-4 border-l-blue-500 rounded-xl p-4 hover:bg-slate-100 transition-all">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge className="bg-blue-600 font-mono text-[10px]">{format(new Date(a.scheduled_for), "HH:mm")}</Badge>
+                              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Scheduled Visit</span>
                             </div>
-                            <CheckInDialog
-                              appointment={a}
-                              trigger={
-                                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 shadow-md">
-                                  <LogIn className="h-4 w-4 mr-2" />
-                                  Check In
-                                </Button>
-                              }
-                            />
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-
-              {/* EXIT LANE (Right) */}
-              <div className="flex flex-col gap-4 bg-white border rounded-3xl p-6 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-2 h-full bg-orange-500" />
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-xl font-black tracking-tight text-slate-900 uppercase">Exit Lane</h2>
-                    <p className="text-sm text-muted-foreground font-medium">On-Site & Check-Out</p>
-                  </div>
-                  <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-100 font-bold px-3 py-1 uppercase tracking-widest text-[10px]">Live Tracking</Badge>
-                </div>
-
-                <ScrollArea className="flex-1 -mx-2 px-2">
-                  <div className="space-y-4 pr-4">
-                    {activeVisits.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-20 text-center">
-                        <div className="h-16 w-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                          <ShieldCheck className="h-8 w-8 text-slate-300" />
-                        </div>
-                        <h3 className="font-bold text-slate-900">Secure Premises</h3>
-                        <p className="text-sm text-muted-foreground">There are currently no visitors recorded on-site.</p>
-                      </div>
-                    ) : (
-                      activeVisits.map((v) => <GateVisitorCard key={v.id} visit={v} />)
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-
-            </div>
-          </TabsContent>
-
-          {/* SECURITY INSIGHTS & PATTERNS */}
-          <TabsContent value="insights" className="mt-0">
-            <SecurityInsights visits={allVisits} appointments={appointments} />
-          </TabsContent>
-
-          {/* FULL APPOINTMENTS LIST */}
-          <TabsContent value="appointments" className="mt-0">
-            <AppointmentsList appointments={appointments} />
-          </TabsContent>
-
-        {/* RE-ENTRY SLIPS LOG (Gate Passes) */}
-        <TabsContent value="reentry" className="mt-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            <Card className="border-2 border-dashed border-slate-300 bg-slate-50/50 flex flex-col items-center justify-center p-8 text-center h-full min-h-[300px]">
-              <div className="h-16 w-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4">
-                <Printer className="h-8 w-8 text-slate-400" />
-              </div>
-              <h3 className="font-black text-slate-900 uppercase tracking-tight">Issue Emergency Pass</h3>
-              <p className="text-xs text-muted-foreground mb-6 max-w-[200px]">Create a time-limited thermal pass for returning visitors.</p>
-              <ReentrySlipDialog
-                trigger={
-                  <Button className="w-full bg-slate-900 hover:bg-slate-800 rounded-xl">
-                    <Plus className="h-4 w-4 mr-2" />
-                    New Gate Pass
-                  </Button>
-                }
-              />
-            </Card>
-
-            {slips.map((s) => (
-              <div key={s.id} className="relative group">
-                <div className={cn(
-                  "absolute inset-0 rounded-3xl blur transition-all group-hover:blur-md",
-                  !s.voided && !isPast(new Date(s.expires_at)) ? "bg-emerald-100/50" : "bg-slate-100"
-                )} />
-                <Card className="relative bg-white border-2 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-all h-full">
-                  <div className={cn(
-                    "h-1.5 w-full",
-                    s.voided ? "bg-slate-300" : isPast(new Date(s.expires_at)) ? "bg-red-500" : "bg-emerald-500"
-                  )} />
-                  <div className="p-5 flex flex-col h-full">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Security Pass</span>
-                          <Badge variant="outline" className="font-mono text-[9px] font-bold">{s.serial}</Badge>
-                        </div>
-                        <h4 className="text-lg font-black text-slate-900 uppercase leading-none">{s.visitor_name}</h4>
-                      </div>
-                      <ReprintSlipButton slip={s} />
-                    </div>
-
-                    <div className="space-y-2 mb-6 flex-1">
-                      <div className="flex items-center gap-2 text-[11px] font-medium text-slate-600">
-                        <UserCheck className="h-3.5 w-3.5 text-slate-400" />
-                        Host: {s.host_name || "—"}
-                      </div>
-                      <div className="flex items-center gap-2 text-[11px] font-medium text-slate-600">
-                        <Clock className="h-3.5 w-3.5 text-slate-400" />
-                        Issued: {format(new Date(s.issued_at), "HH:mm")}
-                      </div>
-                      <div className="flex items-center gap-2 text-[11px] font-bold text-slate-900">
-                        <Timer className="h-3.5 w-3.5 text-slate-400" />
-                        Expires: {format(new Date(s.expires_at), "HH:mm")}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                      <Badge className={cn(
-                        "text-[9px] font-black uppercase tracking-widest",
-                        s.voided ? "bg-slate-200 text-slate-500" : isPast(new Date(s.expires_at)) ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-700"
-                      )}>
-                        {s.voided ? "Voided" : isPast(new Date(s.expires_at)) ? "Expired" : "Active Pass"}
-                      </Badge>
-                      {!s.voided && !isPast(new Date(s.expires_at)) && (
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          className="h-8 text-slate-400 hover:text-red-600 hover:bg-red-50 px-2 rounded-lg"
-                          onClick={() => voidSlip.mutate(s.id)}
-                        >
-                          <Ban className="h-3.5 w-3.5 mr-2" />
-                          <span className="text-[10px] font-bold uppercase">Void</span>
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              </div>
-            ))}
-          </div>
-        </TabsContent>
-
-        {/* LOG (Logbook Style) */}
-        <TabsContent value="log" className="mt-0">
-          <Card className="border-2 border-slate-200 rounded-3xl overflow-hidden shadow-xl">
-            <div className="bg-slate-900 text-white p-6 flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-black uppercase tracking-widest flex items-center gap-3">
-                  <History className="h-6 w-6 text-slate-400" />
-                  Security Logbook
-                </h2>
-                <p className="text-xs text-slate-400 font-bold uppercase tracking-tighter">Official Access History • {format(new Date(), "MMMM yyyy")}</p>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="border-slate-700 text-slate-300 hover:bg-slate-800">
-                  <Printer className="h-4 w-4 mr-2" />
-                  Print Daily Log
-                </Button>
-              </div>
-            </div>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader className="bg-slate-50">
-                    <TableRow className="hover:bg-transparent border-b-2">
-                      <TableHead className="font-black text-[10px] uppercase tracking-widest py-4 px-6">Identity / Contact</TableHead>
-                      <TableHead className="font-black text-[10px] uppercase tracking-widest py-4">Security Badge</TableHead>
-                      <TableHead className="font-black text-[10px] uppercase tracking-widest py-4">Host / Purpose</TableHead>
-                      <TableHead className="font-black text-[10px] uppercase tracking-widest py-4">Entry / Exit</TableHead>
-                      <TableHead className="font-black text-[10px] uppercase tracking-widest py-4">Status</TableHead>
-                      <TableHead className="text-right font-black text-[10px] uppercase tracking-widest py-4 px-6">Verification</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {allVisits.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="h-64 text-center">
-                          <p className="text-muted-foreground font-medium">Logbook is currently empty for this period.</p>
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      allVisits.map((v) => (
-                        <TableRow key={v.id} className="group hover:bg-slate-50/80 transition-colors">
-                          <TableCell className="py-4 px-6">
-                            <div className="font-black text-slate-900 uppercase tracking-tight">{v.visitor_name}</div>
-                            {v.visitor_phone && (
-                              <div className="flex items-center gap-1 text-[10px] font-bold text-slate-500 mt-0.5">
-                                <Phone className="h-3 w-3" />
-                                {v.visitor_phone}
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell className="py-4">
-                            <Badge variant="outline" className="font-mono text-[10px] font-bold border-slate-200 bg-white">
-                              {v.badge_number}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="py-4">
-                            <div className="text-[11px] font-bold text-slate-700 uppercase leading-tight max-w-[200px]">
-                              {v.host_name || "General Visit"}
-                            </div>
-                            <div className="text-[10px] text-slate-400 mt-1 line-clamp-1">{v.purpose || "—"}</div>
-                          </TableCell>
-                          <TableCell className="py-4">
-                            <div className="flex flex-col gap-1">
-                              <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 uppercase">
-                                <LogIn className="h-3 w-3" />
-                                {format(new Date(v.check_in_at), "HH:mm")}
-                              </div>
-                              {v.check_out_at && (
-                                <div className="flex items-center gap-1.5 text-[10px] font-bold text-orange-600 uppercase">
-                                  <LogOut className="h-3 w-3" />
-                                  {format(new Date(v.check_out_at), "HH:mm")}
+                            <h4 className="font-black text-slate-900 truncate uppercase tracking-tight">{a.visitor_name}</h4>
+                            <p className="text-xs text-slate-600 line-clamp-1 mb-2 font-medium">{a.purpose}</p>
+                            
+                            <div className="flex flex-wrap gap-x-4 gap-y-1">
+                              {a.host_name && (
+                                <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-tighter">
+                                  <Shield className="h-3 w-3" />
+                                  Host: {a.host_name}
+                                </div>
+                              )}
+                              {a.visitor_phone && (
+                                <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-tighter">
+                                  <Phone className="h-3 w-3" />
+                                  {a.visitor_phone}
                                 </div>
                               )}
                             </div>
-                          </TableCell>
-                          <TableCell className="py-4">
-                            <Badge className={cn(
-                              "text-[9px] font-black uppercase tracking-widest px-2 py-0.5",
-                              v.status === "checked_in" ? "bg-emerald-500 hover:bg-emerald-600" : "bg-slate-400 hover:bg-slate-500"
-                            )}>
-                              {v.status === "checked_in" ? "Inside" : "Exited"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right py-4 px-6">
-                            {v.status === "checked_out" && (
-                              <ReentrySlipDialog
-                                visit={v}
-                                trigger={
-                                  <Button size="sm" variant="ghost" className="h-8 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600">
-                                    <ArrowRightLeft className="h-3 w-3 mr-2" />
-                                    Re-issue Pass
-                                  </Button>
-                                }
-                              />
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                          </div>
+                          <CheckInDialog
+                            appointment={a}
+                            trigger={
+                              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 shadow-md">
+                                <LogIn className="h-4 w-4 mr-2" />
+                                Check In
+                              </Button>
+                            }
+                          />
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+
+            {/* EXIT LANE (Right) */}
+            <div className="flex flex-col gap-4 bg-white border rounded-3xl p-6 shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-2 h-full bg-orange-500" />
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-black tracking-tight text-slate-900 uppercase">Exit Lane</h2>
+                  <p className="text-sm text-muted-foreground font-medium">On-Site & Check-Out</p>
+                </div>
+                <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-100 font-bold px-3 py-1 uppercase tracking-widest text-[10px]">Live Tracking</Badge>
               </div>
-            </CardContent>
+
+              <ScrollArea className="flex-1 -mx-2 px-2">
+                <div className="space-y-4 pr-4">
+                  {activeVisits.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-center">
+                      <div className="h-16 w-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                        <ShieldCheck className="h-8 w-8 text-slate-300" />
+                      </div>
+                      <h3 className="font-bold text-slate-900">Secure Premises</h3>
+                      <p className="text-sm text-muted-foreground">There are currently no visitors recorded on-site.</p>
+                    </div>
+                  ) : (
+                    activeVisits.map((v) => <GateVisitorCard key={v.id} visit={v} />)
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+
+          </div>
+        </TabsContent>
+
+        {/* SECURITY INSIGHTS & PATTERNS */}
+        <TabsContent value="insights" className="mt-0">
+          <SecurityInsights visits={allVisits} appointments={appointments} />
+        </TabsContent>
+
+        {/* FULL APPOINTMENTS LIST */}
+        <TabsContent value="appointments" className="mt-0">
+          <AppointmentsList appointments={appointments} />
+        </TabsContent>
+
+      {/* RE-ENTRY SLIPS LOG (Gate Passes) */}
+      <TabsContent value="reentry" className="mt-0">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <Card className="border-2 border-dashed border-slate-300 bg-slate-50/50 flex flex-col items-center justify-center p-8 text-center h-full min-h-[300px]">
+            <div className="h-16 w-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4">
+              <Printer className="h-8 w-8 text-slate-400" />
+            </div>
+            <h3 className="font-black text-slate-900 uppercase tracking-tight">Issue Emergency Pass</h3>
+            <p className="text-xs text-muted-foreground mb-6 max-w-[200px]">Create a time-limited thermal pass for returning visitors.</p>
+            <ReentrySlipDialog
+              trigger={
+                <Button className="w-full bg-slate-900 hover:bg-slate-800 rounded-xl">
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Gate Pass
+                </Button>
+              }
+            />
           </Card>
-        </TabsContent>
 
-        <TabsContent value="inventory" className="mt-0">
-          <InventoryMovementTab />
-        </TabsContent>
+          {slips.map((s) => (
+            <div key={s.id} className="relative group">
+              <div className={cn(
+                "absolute inset-0 rounded-3xl blur transition-all group-hover:blur-md",
+                !s.voided && !isPast(new Date(s.expires_at)) ? "bg-emerald-100/50" : "bg-slate-100"
+              )} />
+              <Card className="relative bg-white border-2 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-all h-full">
+                <div className={cn(
+                  "h-1.5 w-full",
+                  s.voided ? "bg-slate-300" : isPast(new Date(s.expires_at)) ? "bg-red-500" : "bg-emerald-500"
+                )} />
+                <div className="p-5 flex flex-col h-full">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Security Pass</span>
+                        <Badge variant="outline" className="font-mono text-[9px] font-bold">{s.serial}</Badge>
+                      </div>
+                      <h4 className="text-lg font-black text-slate-900 uppercase leading-none">{s.visitor_name}</h4>
+                    </div>
+                    <ReprintSlipButton slip={s} />
+                  </div>
 
-        {/* VISITORS DIRECTORY */}
-        <TabsContent value="visitors" className="space-y-4">
-          <RecurringVisitors visitors={visitors} />
-        </TabsContent>
-        </Tabs>
-      </div>
-    </DashboardLayout>
+                  <div className="space-y-2 mb-6 flex-1">
+                    <div className="flex items-center gap-2 text-[11px] font-medium text-slate-600">
+                      <UserCheck className="h-3.5 w-3.5 text-slate-400" />
+                      Host: {s.host_name || "—"}
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px] font-medium text-slate-600">
+                      <Clock className="h-3.5 w-3.5 text-slate-400" />
+                      Issued: {format(new Date(s.issued_at), "HH:mm")}
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px] font-bold text-slate-900">
+                      <Timer className="h-3.5 w-3.5 text-slate-400" />
+                      Expires: {format(new Date(s.expires_at), "HH:mm")}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                    <Badge className={cn(
+                      "text-[9px] font-black uppercase tracking-widest",
+                      s.voided ? "bg-slate-200 text-slate-500" : isPast(new Date(s.expires_at)) ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-700"
+                    )}>
+                      {s.voided ? "Voided" : isPast(new Date(s.expires_at)) ? "Expired" : "Active Pass"}
+                    </Badge>
+                    {!s.voided && !isPast(new Date(s.expires_at)) && (
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-8 text-slate-400 hover:text-red-600 hover:bg-red-50 px-2 rounded-lg"
+                        onClick={() => voidSlip.mutate(s.id)}
+                      >
+                        <Ban className="h-3.5 w-3.5 mr-2" />
+                        <span className="text-[10px] font-bold uppercase">Void</span>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            </div>
+          ))}
+        </div>
+      </TabsContent>
+
+      {/* LOG (Logbook Style) */}
+      <TabsContent value="log" className="mt-0">
+        <Card className="border-2 border-slate-200 rounded-3xl overflow-hidden shadow-xl">
+          <div className="bg-slate-900 text-white p-6 flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-black uppercase tracking-widest flex items-center gap-3">
+                <History className="h-6 w-6 text-slate-400" />
+                Security Logbook
+              </h2>
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-tighter">Official Access History • {format(new Date(), "MMMM yyyy")}</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="border-slate-700 text-slate-300 hover:bg-slate-800">
+                <Printer className="h-4 w-4 mr-2" />
+                Print Daily Log
+              </Button>
+            </div>
+          </div>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-slate-50">
+                  <TableRow className="hover:bg-transparent border-b-2">
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest py-4 px-6">Identity / Contact</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest py-4">Security Badge</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest py-4">Host / Purpose</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest py-4">Entry / Exit</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest py-4">Status</TableHead>
+                    <TableHead className="text-right font-black text-[10px] uppercase tracking-widest py-4 px-6">Verification</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {allVisits.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="h-64 text-center">
+                        <p className="text-muted-foreground font-medium">Logbook is currently empty for this period.</p>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    allVisits.map((v) => (
+                      <TableRow key={v.id} className="group hover:bg-slate-50/80 transition-colors">
+                        <TableCell className="py-4 px-6">
+                          <div className="font-black text-slate-900 uppercase tracking-tight">{v.visitor_name}</div>
+                          {v.visitor_phone && (
+                            <div className="flex items-center gap-1 text-[10px] font-bold text-slate-500 mt-0.5">
+                              <Phone className="h-3 w-3" />
+                              {v.visitor_phone}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <Badge variant="outline" className="font-mono text-[10px] font-bold border-slate-200 bg-white">
+                            {v.badge_number}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <div className="text-[11px] font-bold text-slate-700 uppercase leading-tight max-w-[200px]">
+                            {v.host_name || "General Visit"}
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-1 line-clamp-1">{v.purpose || "—"}</div>
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 uppercase">
+                              <LogIn className="h-3 w-3" />
+                              {format(new Date(v.check_in_at), "HH:mm")}
+                            </div>
+                            {v.check_out_at && (
+                              <div className="flex items-center gap-1.5 text-[10px] font-bold text-orange-600 uppercase">
+                                <LogOut className="h-3 w-3" />
+                                {format(new Date(v.check_out_at), "HH:mm")}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <Badge className={cn(
+                            "text-[9px] font-black uppercase tracking-widest px-2 py-0.5",
+                            v.status === "checked_in" ? "bg-emerald-500 hover:bg-emerald-600" : "bg-slate-400 hover:bg-slate-500"
+                          )}>
+                            {v.status === "checked_in" ? "Inside" : "Exited"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right py-4 px-6">
+                          {v.status === "checked_out" && (
+                            <ReentrySlipDialog
+                              visit={v}
+                              trigger={
+                                <Button size="sm" variant="ghost" className="h-8 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600">
+                                  <ArrowRightLeft className="h-3 w-3 mr-2" />
+                                  Re-issue Pass
+                                </Button>
+                              }
+                            />
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <TabsContent value="inventory" className="mt-0">
+        <InventoryMovementTab />
+      </TabsContent>
+
+      {/* VISITORS DIRECTORY */}
+      <TabsContent value="visitors" className="space-y-4">
+        <RecurringVisitors visitors={visitors} />
+      </TabsContent>
+      </Tabs>
+    </div>
   );
 };
+
 function ReentrySlipRow({ slip }: { slip: ReentrySlip }) {
   const voidSlip = useVoidReentrySlip();
   const expired = isPast(new Date(slip.expires_at));
@@ -1556,10 +1578,13 @@ function RecurringVisitors({ visitors }: { visitors: Visitor[] }) {
 
 function NewVisitorDialog() {
   const [open, setOpen] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const create = useCreateVisitor();
   const [form, setForm] = useState({
     full_name: "", phone: "", email: "", company: "", id_number: "", notes: "", is_recurring: true,
-    district: "",
+  });
+  const [visitorAddress, setVisitorAddress] = useState<AddressData>({
+    district: "", sub_county: "", parish: "", village: "", street: "",
   });
 
   const submit = async () => {
@@ -1567,6 +1592,13 @@ function NewVisitorDialog() {
       toast({ title: "Name required", variant: "destructive" });
       return;
     }
+    const addrParts = [
+      visitorAddress.village && `Village: ${visitorAddress.village}`,
+      visitorAddress.parish && `Parish: ${visitorAddress.parish}`,
+      visitorAddress.sub_county && `Sub-county: ${visitorAddress.sub_county}`,
+      visitorAddress.district && `District: ${visitorAddress.district}`,
+    ].filter(Boolean);
+    const notes = [form.notes.trim(), addrParts.length && `Address: ${addrParts.join(", ")}`].filter(Boolean).join(" | ");
     try {
       await create.mutateAsync({
         full_name: form.full_name.trim(),
@@ -1575,13 +1607,13 @@ function NewVisitorDialog() {
         company: form.company.trim() || null,
         id_number: form.id_number.trim() || null,
         photo_url: null,
-        notes: form.notes.trim() || null,
+        notes: notes || null,
         is_recurring: form.is_recurring,
-        ...(form.district ? { district: form.district } : {}),
       } as any);
       toast({ title: "Visitor saved" });
       setOpen(false);
-      setForm({ full_name: "", phone: "", email: "", company: "", id_number: "", notes: "", is_recurring: true, district: "" });
+      setForm({ full_name: "", phone: "", email: "", company: "", id_number: "", notes: "", is_recurring: true });
+      setVisitorAddress({ district: "", sub_county: "", parish: "", village: "", street: "" });
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     }
@@ -1592,23 +1624,33 @@ function NewVisitorDialog() {
       <DialogTrigger asChild>
         <Button><Plus className="h-4 w-4 mr-2" />Add Visitor</Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>New Visitor</DialogTitle>
           <DialogDescription>Reusable record for recurring visitors</DialogDescription>
-          <div className="pt-2">
-            <IDScannerDialog onScanComplete={(res) => {
-              setForm({
-                ...form,
-                full_name: res.identity.name,
-                id_number: res.identity.nin,
-                district: res.address.district,
-                notes: `Address: ${res.address.village}, ${res.address.parish}, ${res.address.sub_county}`
-              });
-            }} />
-          </div>
         </DialogHeader>
-        <div className="grid gap-3 py-2">
+        <div className="grid gap-3 py-2 max-h-[70vh] overflow-y-auto pr-1">
+          {showScanner ? (
+            <BarcodeScannerInput
+              onScan={(data) => {
+                setForm({ ...form, full_name: data.name || form.full_name, id_number: data.nin || form.id_number });
+                setShowScanner(false);
+              }}
+              placeholder="Scan ID barcode..."
+              autoFocus
+            />
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50 w-fit"
+              onClick={() => setShowScanner(true)}
+            >
+              <ScanLine className="h-4 w-4" />
+              Scan Uganda National ID
+            </Button>
+          )}
           <div className="space-y-1.5">
             <Label>Full Name *</Label>
             <Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} maxLength={120} />
@@ -1634,13 +1676,9 @@ function NewVisitorDialog() {
             </div>
           </div>
 
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-            <LocationSelector 
-              districtValue={form.district} 
-              onDistrictChange={(v) => setForm({ ...form, district: v })} 
-              label="Visitor District"
-            />
-          </div>
+          <Separator />
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 -mb-1">Residence Address</p>
+          <AddressForm value={visitorAddress} onChange={setVisitorAddress} />
 
           <div className="space-y-1.5">
             <Label>Notes</Label>
@@ -1674,13 +1712,54 @@ function CheckInDialog({
   const { data: staff = [] } = useAllStaff();
   const { data: learners = [] } = useLearners();
 
+  const { data: visitReasons = [] } = useQuery({
+    queryKey: ["visit-reasons"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("visit_reasons")
+        .select("*")
+        .order("category")
+        .order("sort_order");
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: visitorCategories = [] } = useQuery({
+    queryKey: ["visitor-categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("visitor_categories")
+        .select("*")
+        .order("sort_order");
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   const [form, setForm] = useState({
     visitor_name: appointment?.visitor_name || visitor?.full_name || "",
     visitor_phone: appointment?.visitor_phone || visitor?.phone || "",
-    purpose: appointment?.purpose || "",
+    visit_reason_id: "",
+    visitor_category_id: "",
     host_staff_id: appointment?.host_staff_id || "",
     learner_id: appointment?.learner_id || "",
+    nin: "",
     notes: "",
+  });
+
+  const selectedReason = visitReasons.find((r) => r.id === form.visit_reason_id);
+  const selectedCategory = visitorCategories.find((c) => c.id === form.visitor_category_id);
+
+  const filteredReasons = form.visitor_category_id
+    ? visitReasons.filter((r) => r.category === selectedCategory?.name)
+    : visitReasons;
+
+  const [showScanner, setShowScanner] = useState(false);
+  const [address, setAddress] = useState<AddressData>({
+    district: "", sub_county: "", parish: "", village: "", street: "",
   });
 
   const submit = async () => {
@@ -1689,6 +1768,18 @@ function CheckInDialog({
       return;
     }
     const host = staff.find((s) => s.id === form.host_staff_id);
+    const addrParts = [
+      address.village && `Village: ${address.village}`,
+      address.parish && `Parish: ${address.parish}`,
+      address.sub_county && `Sub-county: ${address.sub_county}`,
+      address.district && `District: ${address.district}`,
+      address.street && `Street: ${address.street}`,
+    ].filter(Boolean);
+    const notes = [
+      form.nin && `NIN: ${form.nin}`,
+      addrParts.length && `Address: ${addrParts.join(", ")}`,
+      form.notes.trim(),
+    ].filter(Boolean).join(" | ");
     try {
       await checkIn.mutateAsync({
         visitor_id: visitor?.id || null,
@@ -1696,11 +1787,13 @@ function CheckInDialog({
         visitor_name: form.visitor_name.trim(),
         visitor_phone: form.visitor_phone.trim() || null,
         visitor_photo_url: visitor?.photo_url || null,
-        purpose: form.purpose.trim() || null,
+        purpose: selectedReason?.reason || selectedReason?.sub_category || "",
+        visit_reason_id: form.visit_reason_id || null,
+        visitor_category_id: form.visitor_category_id || null,
         host_staff_id: form.host_staff_id || null,
         host_name: host?.full_name || appointment?.host_name || null,
         learner_id: form.learner_id || null,
-        notes: form.notes.trim() || null,
+        notes: notes || null,
       });
       toast({ title: "Visitor checked in", description: "Day pass issued" });
       setOpen(false);
@@ -1712,23 +1805,43 @@ function CheckInDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>Check In Visitor</DialogTitle>
           <DialogDescription>
             {appointment ? "From scheduled appointment" : visitor ? "Recurring visitor" : "Walk-in visitor"}
           </DialogDescription>
-          <div className="pt-2">
-            <IDScannerDialog onScanComplete={(res) => {
-              setForm({
-                ...form,
-                visitor_name: res.identity.name,
-                notes: `NIN: ${res.identity.nin} | Address: ${res.address.village}, ${res.address.parish}, ${res.address.sub_county}, ${res.address.district}`
-              });
-            }} />
-          </div>
         </DialogHeader>
-        <div className="grid gap-3 py-2">
+        <div className="grid gap-4 py-2 max-h-[70vh] overflow-y-auto pr-1">
+          {showScanner ? (
+            <BarcodeScannerInput
+              onScan={(data) => {
+                setForm({
+                  ...form,
+                  visitor_name: data.name || form.visitor_name,
+                  nin: data.nin || form.nin,
+                });
+                setShowScanner(false);
+              }}
+              placeholder="Scan ID barcode..."
+              autoFocus
+            />
+          ) : (
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                onClick={() => setShowScanner(true)}
+              >
+                <ScanLine className="h-4 w-4" />
+                Scan National ID
+              </Button>
+              <span className="text-xs text-muted-foreground">or type manually</span>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Visitor Name *</Label>
@@ -1739,30 +1852,71 @@ function CheckInDialog({
               <Input value={form.visitor_phone} onChange={(e) => setForm({ ...form, visitor_phone: e.target.value })} maxLength={30} />
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>Purpose</Label>
-            <Input value={form.purpose} onChange={(e) => setForm({ ...form, purpose: e.target.value })} maxLength={200} />
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Category</Label>
+              <SearchableSelect
+                value={form.visitor_category_id}
+                onValueChange={(v) => {
+                  setForm({ ...form, visitor_category_id: v, visit_reason_id: "" });
+                }}
+                options={visitorCategories.map((c) => ({
+                  value: c.id,
+                  label: c.name + (c.description ? ` — ${c.description}` : ""),
+                  searchTerms: [c.description || "", c.name],
+                }))}
+                placeholder="Select visitor type..."
+                searchPlaceholder="Search categories..."
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Reason</Label>
+              <SearchableSelect
+                value={form.visit_reason_id}
+                onValueChange={(v) => setForm({ ...form, visit_reason_id: v })}
+                options={filteredReasons.map((r) => ({
+                  value: r.id,
+                  label: r.reason,
+                  searchTerms: [r.category, r.sub_category, r.reason],
+                }))}
+                placeholder={form.visitor_category_id ? "Select reason..." : "Select category first..."}
+                searchPlaceholder="Search reasons..."
+                disabled={!form.visitor_category_id}
+              />
+            </div>
           </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Residence Address</Label>
+            <AddressForm value={address} onChange={setAddress} showStreet />
+          </div>
+
+          <Separator />
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Host Staff</Label>
-              <Select value={form.host_staff_id} onValueChange={(v) => setForm({ ...form, host_staff_id: v })}>
-                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                <SelectContent>
-                  {staff.map((s) => <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={form.host_staff_id}
+                onValueChange={(v) => setForm({ ...form, host_staff_id: v })}
+                options={staff.map((s) => ({ value: s.id, label: sanitizeLabel(s.full_name) }))}
+                placeholder="—"
+                searchPlaceholder="Search staff..."
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Linked Learner</Label>
-              <Select value={form.learner_id} onValueChange={(v) => setForm({ ...form, learner_id: v })}>
-                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                <SelectContent>
-                  {learners.slice(0, 200).map((l) => <SelectItem key={l.id} value={l.id}>{l.full_name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={form.learner_id}
+                onValueChange={(v) => setForm({ ...form, learner_id: v })}
+                options={learners.slice(0, 200).map((l) => ({ value: l.id, label: sanitizeLabel(l.full_name) }))}
+                placeholder="—"
+                searchPlaceholder="Search learners..."
+              />
             </div>
           </div>
+
           <div className="space-y-1.5">
             <Label>Notes</Label>
             <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} maxLength={500} />
@@ -1778,5 +1932,3 @@ function CheckInDialog({
     </Dialog>
   );
 }
-
-export default Visitors;

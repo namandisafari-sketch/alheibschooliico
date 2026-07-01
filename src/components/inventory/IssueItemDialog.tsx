@@ -63,7 +63,7 @@ export function IssueItemDialog({ item, open, onOpenChange }: IssueItemDialogPro
       recipient_type: "student",
       notes: "",
       num_days: "",
-      available_qty: item?.stock?.[0]?.quantity || 0,
+      available_qty: item?.quantity || 0,
       approved_qty: "1" as any,
     },
   });
@@ -87,7 +87,7 @@ export function IssueItemDialog({ item, open, onOpenChange }: IssueItemDialogPro
         item_id: item.id,
         type: "issuance",
         quantity: values.quantity,
-        available_quantity: item?.stock?.[0]?.quantity || 0,
+        available_quantity: item?.quantity || 0,
         approved_quantity: values.approved_qty || values.quantity,
         num_days: values.num_days ? parseInt(values.num_days, 10) : null,
         learner_id: values.recipient_type === "student" ? values.learner_id : null,
@@ -190,7 +190,7 @@ export function IssueItemDialog({ item, open, onOpenChange }: IssueItemDialogPro
               />
             </div>
 
-            {(item?.category?.name === "Kitchen" || item?.category_id === "kitchen") && (
+            {item?.category === "kitchen" && (
               <FormField
                 control={form.control}
                 name="num_days"

@@ -1,0 +1,6 @@
+ALTER TABLE IF EXISTS public.learners
+  ADD COLUMN IF NOT EXISTS sponsorship_type TEXT,
+  ADD COLUMN IF NOT EXISTS dormitory TEXT,
+  ADD COLUMN IF NOT EXISTS area TEXT,
+  ADD COLUMN IF NOT EXISTS nira_document_type TEXT,
+  ADD COLUMN IF NOT EXISTS guardian_name TEXT;

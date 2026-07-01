@@ -1,0 +1,25 @@
+-- Health Visits Enhancement: detailed clinical assessment fields
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS blood_pressure_systolic INTEGER;
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS blood_pressure_diastolic INTEGER;
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS heart_rate INTEGER;
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS respiratory_rate INTEGER;
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS oxygen_saturation DECIMAL(4,1);
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS weight DECIMAL(5,1);
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS height DECIMAL(5,1);
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS chief_complaint TEXT;
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS duration_of_complaint TEXT;
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS onset_date DATE;
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS body_part_affected TEXT;
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS allergies TEXT;
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS chronic_conditions TEXT;
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS referred_to TEXT;
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS referred_reason TEXT;
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS follow_up_date DATE;
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS prescribed_medication TEXT;
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS medication_dosage TEXT;
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS medication_frequency TEXT;
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS medication_duration TEXT;
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS nurse_notes TEXT;
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS follow_up_notes TEXT;
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS clinical_notes JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE public.health_visits ADD COLUMN IF NOT EXISTS visit_number INTEGER DEFAULT 1;

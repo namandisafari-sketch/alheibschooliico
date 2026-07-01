@@ -26,10 +26,12 @@ import {
 import { useAllStaff } from "@/hooks/useStaff";
 import { useClasses } from "@/hooks/useClasses";
 import { useTimetable, useUpsertTimetableEntry, useDeleteTimetableEntry, type TimetableEntry } from "@/hooks/useTimetable";
-import { useInAppNotifications, useBroadcastNotification } from "@/hooks/useInAppNotifications";
+import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useInAppNotifications, useBroadcastNotification } from "@/hooks/useInAppNotifications";
 import { toast } from "@/hooks/use-toast";
+import "@/styles/print.css";
 import { motion } from "motion/react";
 
 const DAYS = [
@@ -38,10 +40,18 @@ const DAYS = [
   { id: 3, name: "Wednesday" },
   { id: 4, name: "Thursday" },
   { id: 5, name: "Friday" },
+  { id: 6, name: "Saturday" },
+  { id: 7, name: "Sunday" },
 ];
 
 const TIME_SLOTS = [
   "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"
+];
+
+const SPECIAL_SUBJECTS = [
+  { id: "break", name: "Break" },
+  { id: "lunch", name: "Lunch" },
+  { id: "free_period", name: "Free Period" },
 ];
 
 const Schedule = () => {
@@ -51,10 +61,40 @@ const Schedule = () => {
 
   const from = startOfDay(selectedDate).toISOString();
   const { data: appointments = [], isLoading: loadingAppts } = useAppointments({ from, to: endOfDay(addDays(selectedDate, 30)).toISOString() });
-  const { data: timetable = [] } = useTimetable(selectedClassId !== "all" ? { class_id: selectedClassId } : undefined);
+  const { data: timetableClass = [] } = useTimetable(selectedClassId !== "all" ? { class_id: selectedClassId } : undefined);
+
+  const { user, role } = useAuth();
+  const { data: teacherTimetable = [] } = useQuery({
+    queryKey: ["teacher-timetable", user?.id],
+    enabled: Boolean(user && role === "teacher"),
+    queryFn: async () => {
+      const { data, error } = await supabase.from("class_timetables").select(`
+        *,
+        subjects:subjects(name, code),
+        profiles:profiles(full_name),
+        classes:classes(name),
+        room:school_infrastructure(name)
+      `).eq("teacher_id", user.id);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const timetable = role === "teacher" ? teacherTimetable : timetableClass;
+  const pageTitle = role === "teacher" ? "My Timetable" : "Schedule";
+  const pageSubtitle = role === "teacher"
+    ? "Your teaching schedule for the week, with current active classes and room details."
+    : "Advanced academic timetable, appointments, and notifications";
+
+  useEffect(() => {
+    if (role === "teacher") {
+      setActiveTab("timetable");
+    }
+  }, [role]);
+
   const { data: classes = [] } = useClasses();
   const { data: notifications = [], isLoading: loadingNotifs } = useInAppNotifications();
-  
+
   const { data: infra = [] } = useQuery({
     queryKey: ["infrastructure-rooms"],
     queryFn: async () => {
@@ -62,11 +102,21 @@ const Schedule = () => {
       return data || [];
     }
   });
-  
+
   const todayAppts = appointments.filter((a) => isSameDay(new Date(a.scheduled_for), selectedDate));
   const upcoming = appointments.filter((a) => new Date(a.scheduled_for) > endOfDay(selectedDate));
 
-  // Resource Utilization / Conflicts
+  const nowTime = format(new Date(), "HH:mm");
+  const isToday = isSameDay(selectedDate, new Date());
+  const selectedDayId = selectedDate.getDay() === 0 ? 7 : selectedDate.getDay();
+  const isWeekday = selectedDayId >= 1 && selectedDayId <= 5;
+
+  const dailyAssignments = useMemo(() => timetable
+    .filter((entry) => entry.day_of_week === selectedDayId)
+    .sort((a, b) => a.start_time.localeCompare(b.start_time)),
+    [timetable, selectedDayId]
+  );
+
   const conflicts = useMemo(() => {
     const list: string[] = [];
     timetable.forEach((entry, i) => {
@@ -92,15 +142,23 @@ const Schedule = () => {
     return Array.from(new Set(list));
   }, [timetable]);
 
+  const activeAssignments = useMemo(() => (isToday ? dailyAssignments.filter((entry) => entry.start_time <= nowTime && entry.end_time > nowTime) : []), [dailyAssignments, isToday, nowTime]);
+
   return (
-    <DashboardLayout title="Schedule" subtitle="Advanced academic timetable, appointments, and notifications">
+    <DashboardLayout title={pageTitle} subtitle={pageSubtitle}>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <div className="flex items-center justify-between border-b pb-1 overflow-x-auto no-scrollbar scroll-smooth">
           <TabsList className="bg-transparent border-none flex-nowrap">
-            <TabsTrigger value="appointments" className="data-[state=active]:bg-primary/5 data-[state=active]:text-primary border-b-2 border-transparent data-[state=active]:border-primary rounded-none px-4 md:px-6 capitalize font-bold text-[10px] md:text-xs tracking-widest whitespace-nowrap">Appointments</TabsTrigger>
+            {role !== "teacher" && (
+              <TabsTrigger value="appointments" className="data-[state=active]:bg-primary/5 data-[state=active]:text-primary border-b-2 border-transparent data-[state=active]:border-primary rounded-none px-4 md:px-6 capitalize font-bold text-[10px] md:text-xs tracking-widest whitespace-nowrap">Appointments</TabsTrigger>
+            )}
             <TabsTrigger value="timetable" className="data-[state=active]:bg-primary/5 data-[state=active]:text-primary border-b-2 border-transparent data-[state=active]:border-primary rounded-none px-4 md:px-6 capitalize font-bold text-[10px] md:text-xs tracking-widest whitespace-nowrap">Weekly Timetable</TabsTrigger>
-            <TabsTrigger value="broadcasts" className="data-[state=active]:bg-primary/5 data-[state=active]:text-primary border-b-2 border-transparent data-[state=active]:border-primary rounded-none px-4 md:px-6 capitalize font-bold text-[10px] md:text-xs tracking-widest whitespace-nowrap">Broadcasts</TabsTrigger>
-            <TabsTrigger value="analytics" className="data-[state=active]:bg-primary/5 data-[state=active]:text-primary border-b-2 border-transparent data-[state=active]:border-primary rounded-none px-4 md:px-6 capitalize font-bold text-[10px] md:text-xs tracking-widest whitespace-nowrap">Workload Analytics</TabsTrigger>
+            {role !== "teacher" && (
+              <>
+                <TabsTrigger value="broadcasts" className="data-[state=active]:bg-primary/5 data-[state=active]:text-primary border-b-2 border-transparent data-[state=active]:border-primary rounded-none px-4 md:px-6 capitalize font-bold text-[10px] md:text-xs tracking-widest whitespace-nowrap">Broadcasts</TabsTrigger>
+                <TabsTrigger value="analytics" className="data-[state=active]:bg-primary/5 data-[state=active]:text-primary border-b-2 border-transparent data-[state=active]:border-primary rounded-none px-4 md:px-6 capitalize font-bold text-[10px] md:text-xs tracking-widest whitespace-nowrap">Workload Analytics</TabsTrigger>
+              </>
+            )}
           </TabsList>
         </div>
 
@@ -189,33 +247,82 @@ const Schedule = () => {
             </div>
             
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
-                <LayoutGrid className="w-3 h-3 md:w-4 md:h-4 text-slate-400 ml-2" />
-                <Select value={selectedClassId} onValueChange={setSelectedClassId}>
-                  <SelectTrigger className="w-[120px] md:w-[180px] bg-transparent border-none focus:ring-0 font-bold h-8 md:h-9 shadow-none text-xs">
-                    <SelectValue placeholder="All Classes" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-2xl">
-                    <SelectItem value="all">Global View</SelectItem>
-                    {classes.map(c => (
-                      <SelectItem key={c.id} value={c.id}>{c.name} ({c.level})</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => window.print()}
-                  className="rounded-xl h-8 md:h-10 px-3 md:px-5 border-slate-200 text-xs hidden sm:flex items-center"
-                >
-                  <FileText className="w-3.5 h-3.5 mr-2" />
-                  Print
-                </Button>
-                <TimetableEntryDialog />
-              </div>
+              {role === "teacher" ? (
+                <div className="flex items-center gap-3">
+                  <Badge className="uppercase font-black">My Timetable</Badge>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => window.print()}
+                    data-print-hide
+                    className="rounded-xl h-8 md:h-10 px-3 md:px-5 border-slate-200 text-xs flex items-center"
+                  >
+                    <FileText className="w-3.5 h-3.5 mr-2" />
+                    Print
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
+                    <LayoutGrid className="w-3 h-3 md:w-4 md:h-4 text-slate-400 ml-2" />
+                    <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+                      <SelectTrigger className="w-[120px] md:w-[180px] bg-transparent border-none focus:ring-0 font-bold h-8 md:h-9 shadow-none text-xs">
+                        <SelectValue placeholder="All Classes" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-2xl">
+                        <SelectItem value="all">Global View</SelectItem>
+                        {classes.map(c => (
+                          <SelectItem key={c.id} value={c.id}>{c.name} ({c.level})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => window.print()}
+                      data-print-hide
+                      className="rounded-xl h-8 md:h-10 px-3 md:px-5 border-slate-200 text-xs flex items-center"
+                    >
+                      <FileText className="w-3.5 h-3.5 mr-2" />
+                      Print
+                    </Button>
+                    <TimetableEntryDialog />
+                  </div>
+                </>
+              )}
             </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card className="border-slate-200 rounded-2xl md:rounded-[32px] overflow-hidden shadow-sm">
+              <CardHeader className="bg-slate-50/50 border-b p-4 md:p-6">
+                <CardTitle className="text-[10px] md:text-xs font-black uppercase text-slate-500">Teacher Tracker</CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 md:p-6 space-y-3">
+                {isWeekday ? (
+                  activeAssignments.length > 0 ? (
+                    activeAssignments.map((entry) => (
+                      <div key={entry.id} className="rounded-2xl bg-slate-50 border border-slate-100 p-3">
+                        <p className="text-[10px] uppercase font-black text-slate-500">Now Teaching</p>
+                        <p className="text-sm font-black text-slate-800 truncate">{entry.profiles?.full_name || "Unknown teacher"}</p>
+                        <p className="text-[9px] text-slate-500">{entry.subjects?.name || entry.notes || "Break / Lunch"} • {entry.classes?.name || "Class"}</p>
+                        <p className="text-[9px] text-slate-400">Room: {entry.room_id ? entry.room?.name || entry.room_id : "TBD"}</p>
+                      </div>
+                    ))
+                  ) : dailyAssignments.length > 0 ? (
+                    <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4 text-[10px] font-black uppercase text-slate-500">
+                      No teachers are in a live slot right now. {dailyAssignments.length} assignment(s) are scheduled for this day.
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4 text-[10px] font-black uppercase text-slate-500">No teacher assignments scheduled for this day.</div>
+                  )
+                ) : (
+                  <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4 text-[10px] font-black uppercase text-slate-500">Select a weekday to view the teacher tracker.</div>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           {conflicts.length > 0 && (
@@ -235,9 +342,10 @@ const Schedule = () => {
             </motion.div>
           )}
 
-          <Card className="border-slate-200 rounded-2xl md:rounded-[32px] overflow-hidden shadow-sm">
-            <div className="overflow-x-auto no-scrollbar">
-              <table className="w-full border-collapse">
+          <div className="print-form">
+            <Card className="border-slate-200 rounded-2xl md:rounded-[32px] overflow-hidden shadow-sm">
+              <div className="overflow-x-auto no-scrollbar">
+                <table className="w-full border-collapse">
                 <thead className="bg-slate-50/80">
                   <tr>
                     <th className="p-3 md:p-6 text-left border-b border-slate-100 min-w-[80px]">
@@ -279,6 +387,7 @@ const Schedule = () => {
               </table>
             </div>
           </Card>
+        </div>
         </TabsContent>
 
         {/* BROADCASTS TAB */}
@@ -444,14 +553,37 @@ const Schedule = () => {
   );
 };
 
+const SUBJECT_PALETTE = [
+  { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-800", badge: "bg-blue-100 text-blue-700", dot: "bg-blue-500", hex: "#3b82f6" },
+  { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-800", badge: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500", hex: "#10b981" },
+  { bg: "bg-violet-50", border: "border-violet-200", text: "text-violet-800", badge: "bg-violet-100 text-violet-700", dot: "bg-violet-500", hex: "#8b5cf6" },
+  { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-800", badge: "bg-amber-100 text-amber-700", dot: "bg-amber-500", hex: "#f59e0b" },
+  { bg: "bg-rose-50", border: "border-rose-200", text: "text-rose-800", badge: "bg-rose-100 text-rose-700", dot: "bg-rose-500", hex: "#f43f5e" },
+  { bg: "bg-cyan-50", border: "border-cyan-200", text: "text-cyan-800", badge: "bg-cyan-100 text-cyan-700", dot: "bg-cyan-500", hex: "#06b6d4" },
+  { bg: "bg-orange-50", border: "border-orange-200", text: "text-orange-800", badge: "bg-orange-100 text-orange-700", dot: "bg-orange-500", hex: "#f97316" },
+  { bg: "bg-teal-50", border: "border-teal-200", text: "text-teal-800", badge: "bg-teal-100 text-teal-700", dot: "bg-teal-500", hex: "#14b8a6" },
+  { bg: "bg-pink-50", border: "border-pink-200", text: "text-pink-800", badge: "bg-pink-100 text-pink-700", dot: "bg-pink-500", hex: "#ec4899" },
+  { bg: "bg-indigo-50", border: "border-indigo-200", text: "text-indigo-800", badge: "bg-indigo-100 text-indigo-700", dot: "bg-indigo-500", hex: "#6366f1" },
+];
+
+function getSubjectColor(subjectId: string | null) {
+  if (!subjectId) return SUBJECT_PALETTE[0];
+  let hash = 0;
+  for (let i = 0; i < subjectId.length; i++) {
+    hash = ((hash << 5) - hash) + subjectId.charCodeAt(i);
+  }
+  return SUBJECT_PALETTE[Math.abs(hash) % SUBJECT_PALETTE.length];
+}
+
 const TimetableEntryCard = ({ entry, isGlobal }: { entry: TimetableEntry; isGlobal: boolean }) => {
   const del = useDeleteTimetableEntry();
+  const palette = getSubjectColor(entry.subjects?.id || entry.subject_id);
   return (
     <motion.div 
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       className="bg-white border border-slate-100 p-2 md:p-3 rounded-xl md:rounded-2xl shadow-sm hover:shadow-md transition-all relative group/card border-l-4" 
-      style={{ borderLeftColor: entry.subjects?.name.includes('Math') ? '#3b82f6' : entry.subjects?.name.includes('Islamic') ? '#10b981' : '#6366f1' }}
+      style={{ borderLeftColor: palette.hex }}
     >
       <div className="flex justify-between items-start">
         <span className="text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400">{entry.subjects?.code || "SUBJ"}</span>
@@ -462,7 +594,7 @@ const TimetableEntryCard = ({ entry, isGlobal }: { entry: TimetableEntry; isGlob
           <X className="w-2.5 h-2.5 md:w-3 md:h-3" />
         </button>
       </div>
-      <h5 className="text-[9px] md:text-[11px] font-black text-slate-800 uppercase truncate mt-0.5">{entry.subjects?.name}</h5>
+      <h5 className="text-[9px] md:text-[11px] font-black text-slate-800 uppercase truncate mt-0.5">{entry.subjects?.name || entry.notes || "Break / Lunch"}</h5>
       {isGlobal && <p className="text-[8px] md:text-[9px] font-bold text-slate-500 truncate mt-1">Class: {entry.classes?.name}</p>}
       <div className="flex items-center gap-1 mt-1.5 md:mt-2 bg-slate-50/50 p-1 md:p-1.5 rounded-lg md:rounded-xl border border-slate-100/50">
         <div className="w-3.5 h-3.5 md:w-4 md:h-4 rounded-full bg-white flex items-center justify-center shrink-0 border border-slate-100">
@@ -509,6 +641,7 @@ const TimetableEntryDialog = () => {
     }
   });
 
+  const broadcast = useBroadcastNotification();
   const [form, setForm] = useState({
     class_id: "",
     subject_id: "",
@@ -517,7 +650,8 @@ const TimetableEntryDialog = () => {
     day_of_week: "1",
     start_time: "08:00",
     end_time: "08:40",
-    notes: ""
+    notes: "",
+    term: "term_1"
   });
 
   const [isChecking, setIsChecking] = useState(false);
@@ -531,7 +665,8 @@ const TimetableEntryDialog = () => {
     const { data: others } = await supabase
       .from("class_timetables")
       .select("*, classes(name), profiles(full_name), subjects(name)")
-      .eq("day_of_week", Number(form.day_of_week));
+      .eq("day_of_week", Number(form.day_of_week))
+      .eq("term", form.term || "term_1");
 
     if (others) {
        const overlap = (s1: string, e1: string, s2: string, e2: string) => {
@@ -555,7 +690,7 @@ const TimetableEntryDialog = () => {
     
     setConflicts(newConflicts);
     setIsChecking(false);
-  }, [form.day_of_week, form.start_time, form.end_time, form.teacher_id, form.class_id, form.room_id]);
+  }, [form.day_of_week, form.start_time, form.end_time, form.teacher_id, form.class_id, form.room_id, form.term]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -567,16 +702,38 @@ const TimetableEntryDialog = () => {
   }, [checkConflicts, form.teacher_id, form.class_id, form.room_id]);
 
   const submit = async () => {
-    if (!form.class_id || !form.subject_id || !form.teacher_id) {
-      toast({ title: "Validation Error", description: "Class, Subject and Teacher are required", variant: "destructive" });
+    const isSpecial = ["break", "lunch", "free_period"].includes(form.subject_id);
+    if (!form.class_id || !form.subject_id || (!isSpecial && !form.teacher_id)) {
+      toast({ title: "Validation Error", description: "Class, Subject and Teacher are required unless this is a break/lunch/free period.", variant: "destructive" });
       return;
     }
     try {
-      await upsert.mutateAsync({
+      const payload = {
         ...form,
         day_of_week: Number(form.day_of_week),
-        room_id: form.room_id || null
-      });
+        room_id: form.room_id || null,
+        subject_id: isSpecial ? null : form.subject_id,
+        teacher_id: isSpecial ? null : form.teacher_id,
+        notes: isSpecial ? (form.subject_id === "break" ? "Break" : form.subject_id === "lunch" ? "Lunch" : "Free period") : form.notes || null,
+        term: form.term || "term_1",
+      };
+      await upsert.mutateAsync(payload);
+      if (!isSpecial && form.teacher_id) {
+        const { data: userRoles } = await supabase.from("user_roles").select("user_id").eq("user_id", form.teacher_id);
+        const teacherUserId = userRoles?.[0]?.user_id;
+        if (teacherUserId) {
+          const subjectName = subjects.find((s) => s.id === form.subject_id)?.name || "Lesson";
+          const className = classes.find((c) => c.id === form.class_id)?.name || "class";
+          await broadcast.mutateAsync({
+            audience: "user_ids",
+            user_ids: [teacherUserId],
+            title: "New teaching assignment",
+            message: `You are assigned to ${subjectName} in ${className} on ${DAYS.find((d) => d.id === Number(form.day_of_week))?.name} at ${form.start_time}.`,
+            type: "info",
+            link: "/schedule",
+          });
+        }
+      }
       toast({ title: "Timetable Entry Created" });
       setOpen(false);
     } catch (error: any) {
@@ -607,7 +764,10 @@ const TimetableEntryDialog = () => {
                <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 ml-1">Subject</Label>
                <Select value={form.subject_id} onValueChange={(v) => setForm({...form, subject_id: v})}>
                   <SelectTrigger className="rounded-xl h-10 md:h-11 bg-slate-50 border-slate-100 shadow-none text-xs"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent className="rounded-2xl">{subjects.map(s => <SelectItem key={s.id} value={s.id} className="text-xs">{s.name}</SelectItem>)}</SelectContent>
+                  <SelectContent className="rounded-2xl">
+                    {SPECIAL_SUBJECTS.map(s => <SelectItem key={s.id} value={s.id} className="text-xs">{s.name}</SelectItem>)}
+                    {subjects.map(s => <SelectItem key={s.id} value={s.id} className="text-xs">{s.name}</SelectItem>)}
+                  </SelectContent>
                </Select>
              </div>
           </div>
@@ -618,25 +778,37 @@ const TimetableEntryDialog = () => {
               <SelectTrigger className="rounded-xl h-10 md:h-11 bg-slate-50 border-slate-100 shadow-none text-xs"><SelectValue placeholder="Select staff member" /></SelectTrigger>
               <SelectContent className="rounded-2xl">{staff.map(s => <SelectItem key={s.id} value={s.id} className="text-xs">{s.full_name}</SelectItem>)}</SelectContent>
             </Select>
+            <p className="text-[9px] text-slate-400 uppercase tracking-widest">Teacher is optional for break/lunch/free period slots.</p>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 md:gap-4">
-             <div className="space-y-1">
-               <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 ml-1">Day</Label>
-               <Select value={form.day_of_week} onValueChange={(v) => setForm({...form, day_of_week: v})}>
-                 <SelectTrigger className="rounded-xl h-10 md:h-11 bg-slate-50 border-slate-100 shadow-none text-xs"><SelectValue /></SelectTrigger>
-                 <SelectContent className="rounded-2xl">{DAYS.map(d => <SelectItem key={d.id} value={d.id.toString()} className="text-xs">{d.name}</SelectItem>)}</SelectContent>
-               </Select>
-             </div>
-             <div className="space-y-1">
-               <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 ml-1">Start</Label>
-               <Input type="time" className="rounded-xl h-10 md:h-11 bg-slate-50 border-slate-100 shadow-none text-xs" value={form.start_time} onChange={e => setForm({...form, start_time: e.target.value})} />
-             </div>
-             <div className="space-y-1">
-               <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 ml-1">End</Label>
-               <Input type="time" className="rounded-xl h-10 md:h-11 bg-slate-50 border-slate-100 shadow-none text-xs" value={form.end_time} onChange={e => setForm({...form, end_time: e.target.value})} />
-             </div>
-          </div>
+           <div className="grid grid-cols-4 gap-3 md:gap-4">
+              <div className="space-y-1">
+                <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 ml-1">Term</Label>
+                <Select value={form.term} onValueChange={(v) => setForm({...form, term: v})}>
+                  <SelectTrigger className="rounded-xl h-10 md:h-11 bg-slate-50 border-slate-100 shadow-none text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent className="rounded-2xl">
+                    <SelectItem value="term_1" className="text-xs">Term 1</SelectItem>
+                    <SelectItem value="term_2" className="text-xs">Term 2</SelectItem>
+                    <SelectItem value="term_3" className="text-xs">Term 3</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 ml-1">Day</Label>
+                <Select value={form.day_of_week} onValueChange={(v) => setForm({...form, day_of_week: v})}>
+                  <SelectTrigger className="rounded-xl h-10 md:h-11 bg-slate-50 border-slate-100 shadow-none text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent className="rounded-2xl">{DAYS.map(d => <SelectItem key={d.id} value={d.id.toString()} className="text-xs">{d.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 ml-1">Start</Label>
+                <Input type="time" className="rounded-xl h-10 md:h-11 bg-slate-50 border-slate-100 shadow-none text-xs" value={form.start_time} onChange={e => setForm({...form, start_time: e.target.value})} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 ml-1">End</Label>
+                <Input type="time" className="rounded-xl h-10 md:h-11 bg-slate-50 border-slate-100 shadow-none text-xs" value={form.end_time} onChange={e => setForm({...form, end_time: e.target.value})} />
+              </div>
+           </div>
 
           <div className="space-y-1">
             <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 ml-1">Allocation Room</Label>
@@ -817,8 +989,20 @@ const AppointmentDialog = ({
         await update.mutateAsync({ id: existing.id, ...payload });
         toast({ title: "Appointment updated" });
       } else {
-        await create.mutateAsync(payload);
+        const created = await create.mutateAsync(payload);
         toast({ title: "Appointment scheduled" });
+        fetch("/api/notify/appointment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            visitor_name: created?.visitor_name || payload.visitor_name,
+            visitor_phone: created?.visitor_phone || payload.visitor_phone,
+            purpose: created?.purpose || payload.purpose,
+            scheduled_for: created?.scheduled_for || payload.scheduled_for,
+            location: created?.location || payload.location,
+            host_staff_name: created?.host_name || payload.host_name,
+          }),
+        }).catch(() => {});
       }
       setOpen(false);
     } catch (e: any) {

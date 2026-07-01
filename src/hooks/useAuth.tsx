@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useState, useEffect, createContext, useContext, useCallback, ReactNode } from "react";
-import { User, Session } from "@supabase/supabase-js";
+import { User, Session, AuthError } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 const isSupabaseConfigured = true;
 import { isWhitelistedAdmin } from "@/config/admins";
@@ -12,7 +12,37 @@ export type AppRole =
   | "staff" 
   | "security" 
   | "accountant" 
-  | "head_teacher";
+  | "head_teacher"
+  | "gateman"
+  | "nurse"
+  | "matron"
+  | "cook"
+  | "dos"
+  | "director"
+  | "manager"
+  | "secretary"
+  | "office_manager"
+  | "orphan_supervisor"
+  | "center_director"
+  | "direct_manager"
+  | "storekeeper"
+  | "deputy_head_teacher"
+  | "store_manager"
+  | "head_of_internal"
+  | "dos_theology"
+  | "theology_teacher"
+  | "nurse"
+  | "tailor";
+
+export interface AuthSession {
+  id: string;
+  user_id: string;
+  created_at: string;
+  last_active: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  is_current: boolean;
+}
 
 interface AuthContextType {
   user: User | null;
@@ -25,9 +55,18 @@ interface AuthContextType {
     school_id: string | null;
   } | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null; status?: string; reason?: string }>;
   signUp: (email: string, password: string, fullName: string, phone?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  forgotPassword: (email: string) => Promise<{ error: Error | null }>;
+  updatePassword: (currentPassword: string, newPassword: string) => Promise<{ error: Error | null }>;
+  getSessions: () => Promise<AuthSession[]>;
+  revokeSession: (sessionId: string) => Promise<{ error: Error | null }>;
+  revokeAllSessions: () => Promise<{ error: Error | null }>;
+  getAuthAuditLog: (page?: number, limit?: number) => Promise<{ data: any[]; total: number }>;
+  enableMfa: () => Promise<{ error: Error | null; qrCode?: string }>;
+  disableMfa: () => Promise<{ error: Error | null }>;
+  verifyMfa: (code: string) => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -69,16 +108,52 @@ export const useAuthState = () => {
         return;
       }
 
-      const [roleResult, profileResult] = await Promise.all([
-        supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
+      const [rolesRes, profileResult] = await Promise.all([
+        supabase.from("user_roles").select("role").eq("user_id", userId),
         supabase.from("profiles").select("scope, district_id, school_id").eq("id", userId).maybeSingle()
       ]);
 
-      if (!roleResult.error && roleResult.data?.role) {
-        setRole(roleResult.data.role as AppRole);
+      // Resolve role from potentially multiple role rows using a priority list
+      let resolvedRole: AppRole | null = null;
+      if (!rolesRes.error && Array.isArray(rolesRes.data) && rolesRes.data.length) {
+        const roles = rolesRes.data.map((r: any) => r.role);
+        const priority: AppRole[] = [
+          "admin",
+          "director",
+          "center_director",
+          "head_teacher",
+          "deputy_head_teacher",
+          "accountant",
+          "manager",
+          "direct_manager",
+          "office_manager",
+          "store_manager",
+          "storekeeper",
+          "teacher",
+          "dos",
+          "dos_theology",
+          "theology_teacher",
+          "nurse",
+          "matron",
+          "cook",
+          "security",
+          "gateman",
+          "orphan_supervisor",
+          "staff",
+          "parent",
+        ];
+        for (const p of priority) {
+          if (roles.includes(p)) {
+            resolvedRole = p;
+            break;
+          }
+        }
+        if (!resolvedRole) resolvedRole = roles[0] as AppRole;
       } else {
-        setRole(null);
+        resolvedRole = null;
       }
+
+      setRole(resolvedRole);
 
       if (profileResult.data) {
         setProfile(profileResult.data as any);
@@ -253,6 +328,146 @@ export const useAuthState = () => {
     }
   };
 
+  const forgotPassword = async (email: string) => {
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send reset email");
+      return { error: null };
+    } catch (error: any) {
+      return { error };
+    }
+  };
+
+  const updatePassword = async (currentPassword: string, newPassword: string) => {
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      if (!token) throw new Error("Not authenticated");
+
+      const res = await fetch("/api/auth/update-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update password");
+      return { error: null };
+    } catch (error: any) {
+      return { error };
+    }
+  };
+
+  const getSessions = async (): Promise<AuthSession[]> => {
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      if (!token) return [];
+
+      const res = await fetch("/api/auth/sessions", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      return data.sessions || [];
+    } catch {
+      return [];
+    }
+  };
+
+  const revokeSession = async (sessionId: string) => {
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      if (!token) throw new Error("Not authenticated");
+
+      const res = await fetch(`/api/auth/sessions/${sessionId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to revoke session");
+      return { error: null };
+    } catch (error: any) {
+      return { error };
+    }
+  };
+
+  const revokeAllSessions = async () => {
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      if (!token) throw new Error("Not authenticated");
+
+      const res = await fetch("/api/auth/sessions", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to revoke sessions");
+      return { error: null };
+    } catch (error: any) {
+      return { error };
+    }
+  };
+
+  const getAuthAuditLog = async (page = 1, limit = 50) => {
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      if (!token) return { data: [], total: 0 };
+
+      const res = await fetch(`/api/auth/audit-log?page=${page}&limit=${limit}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      return { data: data.data || [], total: data.total || 0 };
+    } catch {
+      return { data: [], total: 0 };
+    }
+  };
+
+  const enableMfa = async () => {
+    try {
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp" });
+      if (error) throw error;
+      // Generate QR code URL from the factor
+      const qrCode = `otpauth://totp/AlheibSchool:${user?.email}?secret=${data.totp?.qr_code}&issuer=AlheibSchool`;
+      return { error: null, qrCode };
+    } catch (error: any) {
+      return { error, qrCode: undefined };
+    }
+  };
+
+  const disableMfa = async () => {
+    try {
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      const totpFactor = factors?.all?.find((f: any) => f.factor_type === "totp");
+      if (!totpFactor) return { error: null };
+
+      const { error } = await supabase.auth.mfa.unenroll({ factorId: totpFactor.id });
+      if (error) throw error;
+      return { error: null };
+    } catch (error: any) {
+      return { error };
+    }
+  };
+
+  const verifyMfa = async (code: string) => {
+    try {
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      const totpFactor = factors?.all?.find((f: any) => f.factor_type === "totp" && f.status === "unverified");
+      if (!totpFactor) throw new Error("No unverified TOTP factor found");
+
+      const { error } = await supabase.auth.mfa.verify({ factorId: totpFactor.id, code });
+      if (error) throw error;
+      return { error: null };
+    } catch (error: any) {
+      return { error };
+    }
+  };
+
   return {
     user,
     session,
@@ -263,6 +478,15 @@ export const useAuthState = () => {
     signIn,
     signUp,
     signOut,
+    forgotPassword,
+    updatePassword,
+    getSessions,
+    revokeSession,
+    revokeAllSessions,
+    getAuthAuditLog,
+    enableMfa,
+    disableMfa,
+    verifyMfa,
   };
 };
 

@@ -213,6 +213,146 @@ const GUIDE_CONFIG: PageGuideConfig = {
       element: "#dashboard-main-content",
       side: "top"
     }
+  ],
+  "/tailor": [
+    {
+      title: "Tailor Workshop",
+      description: "Manage uniform production, learner measurements, and repair services for the school.",
+      element: "#tailor-stats",
+      side: "top"
+    },
+    {
+      title: "Task Board",
+      description: "Track all tailor tasks from measurement to delivery. Filter by status or priority.",
+      element: "#tailor-task-board",
+      side: "top"
+    },
+    {
+      title: "New Tailor Task",
+      description: "Create a new uniform or repair order for a learner. Select the learner, take measurements, set a priority and cost.",
+      element: "#new-tailor-task-btn",
+      side: "bottom"
+    }
+  ],
+  "/teacher/theology": [
+    {
+      title: "Theology Teacher Dashboard",
+      description: "Assalamu Alaikum! This is your command center for Islamic Studies & IPLE. Track your subjects, candidates, and oral exams at a glance.",
+      element: "#theology-welcome",
+      side: "bottom"
+    },
+    {
+      title: "Quick Access Links",
+      description: "Jump directly to Islamic Marks Entry, Madrasa & Quran, Oral Assessments, and Lesson Planning — all your daily tools in one place.",
+      element: "#theology-quick-links",
+      side: "top"
+    },
+    {
+      title: "IPLE Core Subjects",
+      description: "The four pillars of IPLE: Holy Quran (Tajweed, Hifz, Tafseer), Al Fiqh (Salah, Rituals), Arabic Language (Nahw, Sarf), and Tarbia (Seerah, Ethics).",
+      element: "#theology-iple-subjects",
+      side: "top"
+    }
+  ],
+  "/teacher/lesson-planner": [
+    {
+      title: "Lesson Planner Overview",
+      description: "Create and manage detailed daily lesson plans here. Each plan captures objectives, activities, resources, and homework for a single lesson.",
+      element: "#lesson-planner-form",
+      side: "top"
+    },
+    {
+      title: "1. Choose Your Assignment",
+      description: "Select the class and subject you are assigned to teach. This links your plan to the correct curriculum track.",
+      element: "#lp-assignment-select",
+      side: "bottom"
+    },
+    {
+      title: "2. Week & Date",
+      description: "Set the week number from the academic calendar and the date the lesson will be delivered.",
+      element: "#lp-week-date",
+      side: "bottom"
+    },
+    {
+      title: "3. Lesson Details",
+      description: "Fill in the title, learning objectives, teaching activities, required resources, and homework assignment. Be specific so another teacher could deliver the same lesson.",
+      element: "#lesson-planner-form",
+      side: "top"
+    },
+    {
+      title: "4. Create Plan",
+      description: "Click to save your plan as a draft. You can edit or submit it for review later.",
+      element: "#lp-create-btn",
+      side: "bottom"
+    },
+    {
+      title: "5. Your Plans List",
+      description: "All your saved plans appear here. Each card shows the class, subject, week, status, and full lesson breakdown.",
+      element: "#lp-plans-header",
+      side: "bottom"
+    },
+    {
+      title: "6. Duplicate a Plan",
+      description: "Click the copy icon to duplicate a plan to the next week. Great for recurring lesson structures — just tweak what changed.",
+      element: 'button[title="Duplicate"]',
+      side: "left"
+    },
+    {
+      title: "7. Track Status",
+      description: "Toggle status with the check-circle button: Draft (not ready) → Submitted (ready for DOS review) → Approved (signed off). This keeps your Head of Studies in the loop.",
+      element: 'button[title="Toggle Status"]',
+      side: "right"
+    }
+  ],
+  "/teacher/lesson-register": [
+    {
+      title: "Lesson Register Overview",
+      description: "Record what actually happened in each lesson — whether it was fully taught, partially taught, or not taught. Essential for syllabus coverage tracking.",
+      element: "#lr-stat-cards",
+      side: "top"
+    },
+    {
+      title: "Coverage Snapshot",
+      description: "At a glance: how many lessons you've fully taught, partially covered, or missed. Keep these numbers balanced for good syllabus progress.",
+      element: "#lr-stat-cards",
+      side: "top"
+    },
+    {
+      title: "1. Choose Assignment",
+      description: "Select the class and subject you taught. The lesson plan dropdown will filter to match.",
+      element: "#lr-assignment-select",
+      side: "bottom"
+    },
+    {
+      title: "2. Link a Lesson Plan",
+      description: "Optionally link this register entry to a specific lesson plan you already created. This connects your planning to your actual delivery.",
+      element: "#lr-plan-select",
+      side: "bottom"
+    },
+    {
+      title: "3. Mark Status",
+      description: "Choose what happened: Taught (completed fully), Partially Taught (interrupted or ran out of time), or Not Taught (lesson was skipped). Be honest — this data drives curriculum reviews.",
+      element: "#lr-status-select",
+      side: "bottom"
+    },
+    {
+      title: "4. Reflect & Report",
+      description: "Note challenges faced, how learners participated, and what follow-up actions are needed. These notes help DOS adjust support and inform your next lesson.",
+      element: "#lesson-register-form",
+      side: "top"
+    },
+    {
+      title: "5. Filter Entries",
+      description: "Use these buttons to filter your register by status — focus on lessons you still need to teach or follow up on.",
+      element: "#lr-filter-bar",
+      side: "bottom"
+    },
+    {
+      title: "6. Entries Timeline",
+      description: "All your lesson register entries shown in chronological order. Each entry shows the topic, status, and your observation notes.",
+      element: "#lr-entries-list",
+      side: "top"
+    }
   ]
 };
 

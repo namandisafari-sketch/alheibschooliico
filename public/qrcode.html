@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ربط واتساب - مدرسة الهيب الإسلامية</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+      background: linear-gradient(135deg, #0f1724 0%, #1a2a3a 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      direction: rtl;
+    }
+    .card {
+      background: white;
+      border-radius: 20px;
+      padding: 40px 32px;
+      max-width: 420px;
+      width: 90%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      text-align: center;
+    }
+    h1 {
+      font-size: 22px;
+      color: #1a1a2e;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 24px;
+    }
+    .qr-container {
+      background: #f8f9fc;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 20px;
+      display: inline-block;
+    }
+    .qr-container img {
+      width: 240px;
+      height: 240px;
+      display: block;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 50px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+    .status-connecting {
+      background: #fff3cd;
+      color: #856404;
+    }
+    .status-connected {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status-disconnected {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .dot-pulse {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #856404;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.3; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1.2); }
+    }
+    .instructions {
+      background: #f0f4ff;
+      border-radius: 12px;
+      padding: 16px;
+      margin: 16px 0;
+      text-align: right;
+    }
+    .instructions h3 {
+      font-size: 14px;
+      color: #1a1a2e;
+      margin-bottom: 8px;
+    }
+    .instructions ol {
+      padding-right: 20px;
+      font-size: 13px;
+      color: #333;
+      line-height: 1.8;
+    }
+    .pairing-code-box {
+      background: #1a1a2e;
+      color: #00ff88;
+      font-family: 'Courier New', monospace;
+      font-size: 28px;
+      font-weight: bold;
+      letter-spacing: 6px;
+      padding: 12px 20px;
+      border-radius: 10px;
+      margin: 16px 0;
+      direction: ltr;
+    }
+    .note {
+      font-size: 12px;
+      color: #999;
+      margin-top: 16px;
+    }
+    .btn {
+      display: inline-block;
+      background: #1a73e8;
+      color: white;
+      text-decoration: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-top: 16px;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: #1557b0; }
+    .error-msg {
+      background: #fff5f5;
+      border: 1px solid #fcc;
+      border-radius: 8px;
+      padding: 12px;
+      color: #c00;
+      font-size: 13px;
+      margin-top: 12px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔗 ربط واتساب المدرسة</h1>
+    <p class="subtitle">Al-Heib Islamic Primary School — WhatsApp Connection</p>
+
+    <div class="qr-container">
+      <img id="qrImage" src="" alt="QR Code">
+    </div>
+
+    <div id="statusBadge" class="status-badge status-connecting">
+      <span class="dot-pulse"></span>
+      <span id="statusText">جاري الاتصال...</span>
+    </div>
+
+    <div class="instructions">
+      <h3>📱 تعليمات الربط (طريقتان):</h3>
+
+      <p style="font-weight:600;margin:8px 0 4px;">الطريقة الأولى: مسح QR</p>
+      <ol>
+        <li>افتح واتساب <strong>العادي</strong> (وليس واتساب بيزنس)</li>
+        <li>اذهب إلى الإعدادات ← الأجهزة المرتبطة</li>
+        <li>اضغط "ربط جهاز" وامسح QR أعلاه</li>
+      </ol>
+
+      <p style="font-weight:600;margin:12px 0 4px;">الطريقة الثانية: كود الاقتران (لـ واتساب بيزنس)</p>
+      <ol>
+        <li>افتح <strong>واتساب بيزنس</strong> ← الأجهزة المرتبطة</li>
+        <li>اختر "ربط برقم الهاتف" في أسفل الشاشة</li>
+        <li>أدخل رقم الهاتف: <strong dir="ltr">256706176631</strong></li>
+        <li>عند الطلب، أدخل كود الاقتران أدناه</li>
+      </ol>
+
+      <div class="pairing-code-box" id="pairingCode">VRMZBYNZ</div>
+
+      <p style="font-size:12px;color:#666;margin-top:8px;">الكود صالح لمدة 60 ثانية فقط — أدخله بسرعة</p>
+    </div>
+
+    <p class="note">🔒 سيتم التحديث تلقائياً كل 5 ثوانٍ</p>
+    <div id="errorMsg" class="error-msg"></div>
+
+    <a class="btn" href="/" target="_blank">⬅ العودة للموقع</a>
+  </div>
+
+  <script>
+    const QR_API = "http://localhost:8081/instance/qrcode/alheib-whatsapp?format=image";
+    const STATE_API = "http://localhost:8081/instance/connectionState/alheib-whatsapp";
+    const API_KEY = "evo_api_key_change_me_1234567890";
+    const QR_IMG = document.getElementById("qrImage");
+    const STATUS_TEXT = document.getElementById("statusText");
+    const STATUS_BADGE = document.getElementById("statusBadge");
+    const ERR_MSG = document.getElementById("errorMsg");
+    const PAIRING_EL = document.getElementById("pairingCode");
+
+    let currentCode = "";
+
+    async function fetchQR() {
+      try {
+        const res = await fetch(QR_API, {
+          headers: { "apikey": API_KEY }
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        if (data.base64) {
+          QR_IMG.src = data.base64;
+        }
+        if (data.pairingCode) {
+          currentCode = data.pairingCode;
+          PAIRING_EL.textContent = data.pairingCode;
+        }
+        if (data.code) {
+          QR_IMG.src = "data:image/png;base64," + data.code;
+        }
+      } catch (err) {
+        console.warn("QR fetch error:", err.message);
+      }
+    }
+
+    async function fetchStatus() {
+      try {
+        const res = await fetch(STATE_API, {
+          headers: { "apikey": API_KEY }
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        const state = data.instance?.state || "close";
+        updateStatus(state);
+      } catch (err) {
+        console.warn("Status fetch error:", err.message);
+        STATUS_TEXT.textContent = "خطأ في الاتصال";
+      }
+    }
+
+    function updateStatus(state) {
+      STATUS_BADGE.className = "status-badge";
+      const dot = STATUS_BADGE.querySelector(".dot-pulse");
+      if (state === "open") {
+        STATUS_BADGE.classList.add("status-connected");
+        STATUS_TEXT.textContent = "✅ متصل";
+        if (dot) dot.style.display = "none";
+        ERR_MSG.style.display = "none";
+      } else if (state === "connecting") {
+        STATUS_BADGE.classList.add("status-connecting");
+        STATUS_TEXT.textContent = "⏳ جاري الاتصال...";
+        ERR_MSG.style.display = "none";
+      } else if (state === "close") {
+        STATUS_BADGE.classList.add("status-disconnected");
+        STATUS_TEXT.textContent = "❌ غير متصل";
+        ERR_MSG.innerHTML = "⚠️ يرجى الضغط على زر إعادة المحاولة أدناه أو تحديث الصفحة";
+        ERR_MSG.style.display = "block";
+        // Auto-refetch QR
+        setTimeout(fetchQR, 2000);
+      } else {
+        STATUS_BADGE.classList.add("status-connecting");
+        STATUS_TEXT.textContent = "⏳ " + state;
+        ERR_MSG.style.display = "none";
+      }
+    }
+
+    async function refreshInstance() {
+      try {
+        const res = await fetch("http://localhost:8081/instance/restart/alheib-whatsapp", {
+          method: "POST",
+          headers: { "apikey": API_KEY }
+        });
+        if (res.ok) {
+          setTimeout(() => { fetchQR(); fetchStatus(); }, 3000);
+        }
+      } catch (err) {
+        console.warn("Restart error:", err.message);
+      }
+    }
+
+    // Loop
+    fetchQR();
+    fetchStatus();
+    setInterval(fetchStatus, 5000);
+    setInterval(fetchQR, 15000);
+  </script>
+</body>
+</html>

@@ -158,6 +158,18 @@ const TeacherRequests = () => {
     setF((p) => ({ ...p, reason: "", responsibilities_summary: "" }));
     qc.invalidateQueries({ queryKey: ["my-leaves"] });
     setPrintRow(data);
+    // Notify admins
+    const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+    if (admins?.length) {
+      const rows = admins.map(a => ({
+        user_id: a.user_id,
+        title: "New Leave Request",
+        message: `${profile?.full_name || "A staff member"} submitted a leave request (${data?.form_ref || ""})`,
+        type: "request",
+        link: "/director/approvals",
+      }));
+      await supabase.from("in_app_notifications").insert(rows).catch(() => {});
+    }
   };
 
   // ===== advance state (unchanged minimal) =====
@@ -171,7 +183,20 @@ const TeacherRequests = () => {
       user_id: user!.id, amount: num, reason: advReason, repayment_plan: plan,
     });
     if (error) toast({ title: "Failed", description: error.message, variant: "destructive" });
-    else { toast({ title: "Advance requested" }); setAmount(""); setAdvReason(""); qc.invalidateQueries({ queryKey: ["my-advances"] }); }
+    else {
+      toast({ title: "Advance requested" }); setAmount(""); setAdvReason(""); qc.invalidateQueries({ queryKey: ["my-advances"] });
+      const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+      if (admins?.length) {
+        const rows = admins.map(a => ({
+          user_id: a.user_id,
+          title: "New Salary Advance Request",
+          message: `${profile?.full_name || "A staff member"} requested a salary advance of UGX ${num.toLocaleString()}`,
+          type: "request",
+          link: "/director/approvals",
+        }));
+        await supabase.from("in_app_notifications").insert(rows).catch(() => {});
+      }
+    }
   };
 
   return (

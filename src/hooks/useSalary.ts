@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { generateReceiptNumber } from "./useFees";
 
 export interface SalaryRecord {
   id: string;
@@ -30,6 +31,7 @@ export interface SalaryPayment {
   payment_date: string;
   payment_method: string;
   reference_number: string | null;
+  receipt_number?: string | null;
   status: string;
   notes: string | null;
   paid_by: string | null;
@@ -145,10 +147,16 @@ export const useCreateSalaryPayment = () => {
       notes?: string;
       paid_by?: string | null;
     }) => {
+      const receipt_number = generateReceiptNumber();
+      const { data: userData } = await supabase.auth.getUser();
       const { data, error } = await supabase
         .from("salary_payments")
-        .insert(payment)
-        .select()
+        .insert({
+          ...payment,
+          receipt_number,
+          paid_by: userData.user?.id,
+        })
+        .select(`*, staff:profiles!salary_payments_staff_id_fkey(full_name)`)
         .single();
 
       if (error) throw error;

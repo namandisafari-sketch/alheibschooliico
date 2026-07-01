@@ -12,13 +12,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   UserPlus,
   Search,
   Phone,
@@ -77,8 +70,8 @@ const Staff = () => {
       header: "Staff Name",
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
-          <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold", roleColors[row.original.role || ""] || "bg-primary/10 text-primary")}>
-            {row.original.full_name?.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+            <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold", roleColors[row.original.role || ""] || "bg-primary/10 text-primary")}>
+            {((row.original.full_name || "").split(" ").map((n: string) => n[0] || "").join("").slice(0, 2)) || "?"}
           </div>
           <div>
             <div className="font-bold text-xs uppercase tracking-tight">{row.original.full_name}</div>
@@ -239,7 +232,7 @@ const Staff = () => {
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full font-bold ${roleColors[member.role || ""] || "bg-primary/10 text-primary"}`}>
-                          {member.full_name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                          {((member.full_name || "").split(" ").map((n) => n[0] || "").join("").slice(0, 2)) || "?"}
                         </div>
                         <div className="min-w-0">
                           <h3 className="font-semibold text-sm truncate pr-6">{member.full_name}</h3>

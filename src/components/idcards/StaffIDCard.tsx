@@ -220,7 +220,7 @@ export const StaffIDCard = ({
           <div className="flex-shrink-0 text-center">
             <p style={{ color: primaryColor }} className="text-[7pt] font-[900] uppercase mb-1 tracking-wider">RIGHT THUMB</p>
             <div className="w-24 h-24 bg-white/60 rounded-xl border border-slate-200 shadow-inner flex items-center justify-center overflow-hidden">
-               <img src="https://cdn-icons-png.flaticon.com/512/111/111833.png" className="w-14 opacity-[0.2] grayscale contrast-125" />
+               <svg viewBox="0 0 24 24" className="w-14 opacity-[0.2] grayscale contrast-125" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 8v10a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2h7M8 12h4m-4 4h8m-1-8V3a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
             </div>
           </div>
 

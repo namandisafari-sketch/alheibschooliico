@@ -12,14 +12,11 @@ export function InventorySummaryWidget() {
   const { data: stats } = useQuery({
     queryKey: ["admin-inventory-stats"],
     queryFn: async () => {
-      const { data: items } = await supabase.from("inventory_items").select(`
-        *,
-        stock:inventory_stock(quantity)
-      `);
+      const { data: items } = await supabase.from("inventory_items").select("*");
       
       if (!items) return null;
 
-      const lowStock = items.filter(i => (i.stock?.[0]?.quantity || 0) <= i.min_stock_level).length;
+      const lowStock = items.filter(i => (i.quantity || 0) <= i.min_threshold).length;
       const totalItems = items.length;
 
       return { lowStock, totalItems };

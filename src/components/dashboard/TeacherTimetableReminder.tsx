@@ -4,11 +4,13 @@ import { useTimetable } from "@/hooks/useTimetable";
 import { AlertCircle, BellRing, Clock, MapPin, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
 export const TeacherTimetableReminder = () => {
   const { user, role } = useAuth();
   const { data: slots = [] } = useTimetable();
   const [currentReminder, setCurrentReminder] = useState<{
+    id?: string;
     type: "active" | "upcoming";
     subjectName: string;
     className: string;
@@ -16,6 +18,7 @@ export const TeacherTimetableReminder = () => {
     startTime: string;
     endTime: string;
   } | null>(null);
+  const navigate = useNavigate();
 
   // Check schedules every 15 seconds to give immediate real-time reminders
   useEffect(() => {
@@ -77,6 +80,7 @@ export const TeacherTimetableReminder = () => {
 
       if (activeClass) {
         setCurrentReminder({
+          id: activeClass.id,
           type: "active",
           subjectName: activeClass.subjects?.name || "Scheduled Class",
           className: activeClass.classes?.name || "Assigned Class",
@@ -87,6 +91,7 @@ export const TeacherTimetableReminder = () => {
       } else if (nextClass && nextClassTimeDiff <= 120) {
         // If there's an upcoming class in the next 2 hours (120 minutes)
         setCurrentReminder({
+          id: nextClass.id,
           type: "upcoming",
           subjectName: nextClass.subjects?.name || "Scheduled Class",
           className: nextClass.classes?.name || "Assigned Class",
@@ -174,7 +179,11 @@ export const TeacherTimetableReminder = () => {
               : "border-amber-300 text-amber-800 hover:bg-amber-100 bg-white"
           )}
           onClick={() => {
-            window.location.href = "/dos/timetable";
+            if (currentReminder?.id) {
+              navigate(`/dos/timetable?view=my&focus=${currentReminder.id}`);
+            } else {
+              navigate(`/dos/timetable?view=my`);
+            }
           }}
         >
           View Full Schedule

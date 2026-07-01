@@ -58,3 +58,62 @@ export const useMinistryGuidelines = () => {
     },
   });
 };
+
+export const useCompliancePortals = () => {
+  return useQuery({
+    queryKey: ["compliance-portals"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("compliance_portals")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+};
+
+export const useComplianceNotices = () => {
+  return useQuery({
+    queryKey: ["compliance-notices"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("compliance_notices")
+        .select("*")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+};
+
+export const useNationalStandards = () => {
+  return useQuery({
+    queryKey: ["national-standards"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("national_standards")
+        .select("*")
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+};
+
+export const useComplianceContacts = () => {
+  return useQuery({
+    queryKey: ["compliance-contacts"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("compliance_contacts")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+};

@@ -21,7 +21,7 @@ import {
   Shield, UserPlus, AlertTriangle, MessageSquare, ShieldOff, 
   ShieldCheck, KeyRound, Send, RotateCcw, Eye, ArrowLeft, 
   ArrowRight, UploadCloud, GraduationCap, Briefcase, FileCheck, 
-  MapPin, Check, FileDown, CheckCircle2, Info, X
+  MapPin, Check, FileDown, CheckCircle2, Info, X, Edit3
 } from "lucide-react";
 
 const ALL_ROLES = Object.keys(ROLE_LABEL).filter((r) => r !== "admin");
@@ -36,6 +36,22 @@ const UserManagement = () => {
   const [warnUser, setWarnUser] = useState<any>(null);
   const [dmUser, setDmUser] = useState<any>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [editUser, setEditUser] = useState<any>(null);
+  const [editFullName, setEditFullName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editRole, setEditRole] = useState(ALL_ROLES[0] || "teacher");
+  const [editPassword, setEditPassword] = useState("");
+
+  useEffect(() => {
+    if (editUser) {
+      setEditFullName(editUser.full_name || "");
+      setEditEmail(editUser.email || "");
+      setEditPhone(editUser.phone || "");
+      setEditRole(editUser.role || ALL_ROLES[0] || "teacher");
+      setEditPassword("");
+    }
+  }, [editUser]);
 
   const { role: myRole, loading: authLoading } = useAuth() as any;
   const allowed = ["admin", "director", "center_director", "head_teacher", "deputy_head_teacher"].includes(myRole);
@@ -57,6 +73,71 @@ const UserManagement = () => {
     u.email?.toLowerCase().includes(search.toLowerCase()) ||
     (u.role || "").toLowerCase().includes(search.toLowerCase())
   );
+
+  const saveUserEdits = async () => {
+    if (!editUser) return;
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ full_name: editFullName, email: editEmail, phone: editPhone })
+      .eq("id", editUser.id);
+    if (profileError) throw profileError;
+
+    // Fetch existing roles for this user
+    const { data: existingRoles, error: fetchError } = await supabase
+      .from("user_roles")
+      .select("id, role")
+      .eq("user_id", editUser.id);
+    if (fetchError) throw fetchError;
+
+    // Delete roles that don't match (by id, not by value — avoids enum validation)
+    const toDelete = (existingRoles || []).filter((r: any) => r.role !== editRole).map((r: any) => r.id);
+    if (toDelete.length > 0) {
+      const { error: roleDeleteError } = await supabase
+        .from("user_roles")
+        .delete()
+        .in("id", toDelete);
+      if (roleDeleteError) throw roleDeleteError;
+    }
+
+    // Upsert new role only if it doesn't already exist
+    const alreadyExists = (existingRoles || []).some((r: any) => r.role === editRole);
+    if (!alreadyExists) {
+      const { error: roleInsertError } = await supabase
+        .from("user_roles")
+        .insert({ user_id: editUser.id, role: editRole });
+      if (roleInsertError) throw roleInsertError;
+    }
+
+    if (editPassword) {
+      const updateResponse = await fetch("/api/users/update-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: editUser.id, password: editPassword }),
+      });
+      let result: any;
+      const text = await updateResponse.text();
+      try {
+        result = text ? JSON.parse(text) : {};
+      } catch {
+        result = { error: text || "Unexpected server response" };
+      }
+      if (!updateResponse.ok) {
+        throw new Error(result.error || result.message || `Server error: ${updateResponse.status}`);
+      }
+    }
+
+    toast({ title: "Success", description: "User updated successfully." });
+    qc.invalidateQueries({ queryKey: ["dir-users"] });
+    setEditUser(null);
+  };
+
+  const onSaveUserEdits = async () => {
+    try {
+      await saveUserEdits();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Unable to update user", variant: "destructive" });
+    }
+  };
 
   if (!authLoading && !allowed) {
     return (
@@ -108,6 +189,7 @@ const UserManagement = () => {
               <Button size="sm" variant="outline" className="col-span-2 bg-primary/5 hover:bg-primary/10 border-primary/20 text-primary font-medium" onClick={() => setSelectedUser(u)}>
                 <Eye className="h-3.5 w-3.5 mr-1.5" />View Details & Docs
               </Button>
+              <Button size="sm" variant="outline" onClick={() => setEditUser(u)}><Edit3 className="h-3 w-3 mr-1" />Edit User</Button>
               <Button size="sm" variant="outline" onClick={() => setPermsUser(u)}><KeyRound className="h-3 w-3 mr-1" />Permissions</Button>
               <Button size="sm" variant="outline" onClick={() => setDmUser(u)}><MessageSquare className="h-3 w-3 mr-1" />Message</Button>
               <Button size="sm" variant="outline" onClick={() => setWarnUser(u)}><AlertTriangle className="h-3 w-3 mr-1" />Warn</Button>
@@ -126,6 +208,71 @@ const UserManagement = () => {
       {killUser && <KillDialog user={killUser} onClose={() => { setKillUser(null); refetch(); }} byId={me?.id} />}
       {warnUser && <WarnDialog user={warnUser} onClose={() => setWarnUser(null)} byId={me?.id} />}
       {dmUser && <DmDialog user={dmUser} onClose={() => setDmUser(null)} byId={me?.id} />}
+      {editUser && (
+        <Dialog open={!!editUser} onOpenChange={(open) => { if (!open) setEditUser(null); }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit User</DialogTitle>
+              <p className="text-sm text-muted-foreground mt-1">Update profile info, contact details, role assignments, and view password status.</p>
+            </DialogHeader>
+            <div className="space-y-6">
+              <div className="rounded-xl border border-border p-4 bg-background/80">
+                <p className="text-sm font-semibold">Profile details</p>
+                <div className="grid gap-4 md:grid-cols-2 mt-3">
+                  <div>
+                    <Label className="text-xs uppercase tracking-widest text-muted-foreground">Full Name</Label>
+                    <Input value={editFullName} onChange={(e) => setEditFullName(e.target.value)} placeholder="Full name" />
+                  </div>
+                  <div>
+                    <Label className="text-xs uppercase tracking-widest text-muted-foreground">Email Address</Label>
+                    <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} placeholder="user@alheib.test" />
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-xl border border-border p-4 bg-background/80">
+                <p className="text-sm font-semibold">Contact & role</p>
+                <div className="grid gap-4 md:grid-cols-2 mt-3">
+                  <div>
+                    <Label className="text-xs uppercase tracking-widest text-muted-foreground">Phone</Label>
+                    <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} placeholder="+256 700 123 456" />
+                  </div>
+                  <div>
+                    <Label className="text-xs uppercase tracking-widest text-muted-foreground">Role</Label>
+                    <Select value={editRole} onValueChange={(value) => setEditRole(value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ALL_ROLES.map((role) => (
+                          <SelectItem key={role} value={role}>{ROLE_LABEL[role] || role}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-xl border border-border p-4 bg-background/80">
+                <p className="text-sm font-semibold">Password</p>
+                <div className="grid gap-4 md:grid-cols-2 mt-3">
+                  <div>
+                    <Label className="text-xs uppercase tracking-widest text-muted-foreground">Current Password</Label>
+                    <Input type="password" value="********" disabled />
+                    <p className="text-xs text-muted-foreground mt-1">This is a masked representation only. Passwords are not stored in plain text.</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs uppercase tracking-widest text-muted-foreground">New Password</Label>
+                    <Input type="password" value={editPassword} onChange={(e) => setEditPassword(e.target.value)} placeholder="Leave blank to keep current password" />
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <Button variant="outline" onClick={() => setEditUser(null)}>Cancel</Button>
+                <Button onClick={onSaveUserEdits}>Save Changes</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
       {selectedUser && <UserDetailsDialog user={selectedUser} onClose={() => setSelectedUser(null)} />}
     </DashboardLayout>
   );
@@ -223,18 +370,28 @@ const CreateUserDialog = ({ onClose }: { onClose: () => void }) => {
     if (!name.trim()) return;
     setBusy(true);
 
-    // Call standard create-user function
-    const { data, error } = await supabase.functions.invoke("create-user", {
-      body: { email, password, fullName: name, phone, role },
+    // Call standard create-user route on server
+    const response = await fetch("/api/users/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, fullName: name, phone, role }),
     });
 
-    if (error || (data as any)?.error) {
-      toast({ title: "Failed", description: (data as any)?.error || error?.message, variant: "destructive" });
+    let result: any;
+    const text = await response.text();
+    try {
+      result = text ? JSON.parse(text) : {};
+    } catch {
+      result = { error: text || "Unexpected server response" };
+    }
+
+    if (!response.ok) {
+      toast({ title: "Failed", description: result.error || result.message || `Server error: ${response.status}`, variant: "destructive" });
       setBusy(false); 
       return;
     }
 
-    const uid = (data as any)?.user_id;
+    const uid = result.user_id;
     if (uid) {
       // Setup teacher default permissions
       const defaults = (DEFAULT_PERMISSIONS as any)[role] || [];

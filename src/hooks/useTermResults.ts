@@ -49,6 +49,9 @@ export interface TermResultInput {
   juz_completed?: number | null;
   competency_rating: CompetencyLevel;
   teacher_remarks?: string | null;
+  assessment_type?: string;
+  lesson_plan_id?: string | null;
+  scheme_of_work_id?: string | null;
 }
 
 export const useTermResults = (
@@ -120,7 +123,8 @@ export const useSaveTermResults = () => {
       const { data, error } = await supabase
         .from("term_results")
         .upsert(payload, {
-          onConflict: "learner_id,subject_id,class_id,term,academic_year",
+          onConflict: "learner_id,subject_id,term,academic_year,assessment_type",
+          ignoreDuplicates: false,
         })
         .select();
       if (error) throw error;
@@ -213,7 +217,7 @@ export const useUpsertReportCards = () => {
       const { data, error } = await supabase
         .from("report_cards")
         .upsert(rows, {
-          onConflict: "learner_id,class_id,term,academic_year",
+          onConflict: "learner_id,term,academic_year",
         })
         .select();
       if (error) throw error;

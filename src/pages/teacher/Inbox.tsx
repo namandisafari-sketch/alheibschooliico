@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 const TeacherInbox = () => {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const [msgs, setMsgs] = useState<any[]>([]);
   const [warns, setWarns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,8 +77,13 @@ const TeacherInbox = () => {
   const unreadMessagesCount = msgs.filter(m => !m.read_at).length;
   const unacknowledgedWarningsCount = warns.filter(w => !w.acknowledged_at).length;
 
+  const pageTitle = role === "gateman" ? "Gate Communications" : "Communication Hub";
+  const pageSubtitle = role === "gateman"
+    ? "Gate-specific notices, appointments and incident advisories"
+    : "Official notices, warnings & direct communication";
+
   return (
-    <DashboardLayout title="Communication Hub" subtitle="Official notices, warnings & direct communication">
+    <DashboardLayout title={pageTitle} subtitle={pageSubtitle}>
       <div className="space-y-6">
         <Tabs defaultValue="messages" className="w-full">
           <div className="flex items-center justify-between mb-4">

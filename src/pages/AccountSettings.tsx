@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
-import { Loader2, Lock, User, Mail, ShieldAlert } from "lucide-react";
+import { toast } from "sonner";
+import { Loader2, Lock, User, Mail, Bell, ShieldAlert } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { SignatureManager } from "@/components/signature/SignatureManager";
 
 const AccountSettings = () => {
   const { user, role } = useAuth();
@@ -17,56 +17,61 @@ const AccountSettings = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [notifEmail, setNotifEmail] = useState("");
+  const [savingNotif, setSavingNotif] = useState(false);
+  const [notifLoaded, setNotifLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id || notifLoaded) return;
+    supabase.from("profiles").select("notification_email").eq("id", user.id).maybeSingle()
+      .then(({ data }) => {
+        if (data?.notification_email) setNotifEmail(data.notification_email);
+        setNotifLoaded(true);
+      });
+  }, [user?.id]);
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      toast({
-        title: "Error",
-        description: "Passwords do not match",
-        variant: "destructive",
-      });
+      toast.error("Passwords do not match");
       return;
     }
-
     if (newPassword.length < 6) {
-      toast({
-        title: "Error",
-        description: "Password must be at least 6 characters",
-        variant: "destructive",
-      });
+      toast.error("Password must be at least 6 characters");
       return;
     }
-
     setLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
-
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Password updated successfully",
-      });
+      toast.success("Password updated successfully");
       setNewPassword("");
       setConfirmPassword("");
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update password",
-        variant: "destructive",
-      });
+      toast.error(error.message || "Failed to update password");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSaveNotifEmail = async () => {
+    if (!user?.id) return;
+    setSavingNotif(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ notification_email: notifEmail.trim() || null })
+      .eq("id", user.id);
+    setSavingNotif(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Notification email updated. System emails will be sent to this address.");
+  };
+
   return (
     <DashboardLayout title="Account Settings" subtitle="Manage your profile and security credentials">
       <div className="max-w-4xl mx-auto space-y-6">
-        {/* Profile Info (Read Only) */}
         <Card className="border-l-4 border-l-primary">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -94,18 +99,48 @@ const AccountSettings = () => {
                 </div>
               </div>
             </div>
-            
             <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
               <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" />
               <p>
-                Email and name changes are locked. If your details are incorrect, please 
+                Email and name changes are locked. If your details are incorrect, please
                 submit a request to the <strong>Administrator</strong> for approval.
               </p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Security / Password Reset */}
+        <Card className="border-l-4 border-l-blue-500">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="h-5 w-5 text-blue-500" />
+              Notification Email
+            </CardTitle>
+            <CardDescription>
+              System notifications, approvals, and alerts will be sent to this email.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 max-w-md">
+              <Label htmlFor="notifEmail">Secondary Email (for system mails)</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="notifEmail"
+                  type="email"
+                  value={notifEmail}
+                  onChange={(e) => setNotifEmail(e.target.value)}
+                  placeholder={user?.email || "Enter notification email"}
+                />
+                <Button onClick={handleSaveNotifEmail} disabled={savingNotif}>
+                  {savingNotif ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                </Button>
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Leave blank to use your login email for notifications.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -148,7 +183,6 @@ const AccountSettings = () => {
           </CardContent>
         </Card>
 
-        {/* Workspace Info */}
         <Card>
           <CardHeader>
             <CardTitle>Workspace Identity</CardTitle>
@@ -167,6 +201,8 @@ const AccountSettings = () => {
             </div>
           </CardContent>
         </Card>
+
+        <SignatureManager />
       </div>
     </DashboardLayout>
   );

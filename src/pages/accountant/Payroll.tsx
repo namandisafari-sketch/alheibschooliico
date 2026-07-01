@@ -22,7 +22,9 @@ import {
   Plus,
   Clock,
   Loader2,
-  CheckCircle2
+  CheckCircle2,
+  History,
+  UserPlus
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useState } from "react";
@@ -41,7 +43,7 @@ import { format, addDays } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 
-const ArrowUpRight = ({ className }: { className?: string }) => <HistoryIcon className={cn("-rotate-45", className)} />;
+const ArrowUpRight = ({ className }: { className?: string }) => <History className={cn("-rotate-45", className)} />;
 
 const roleIcons: Record<string, React.ReactNode> = {
   admin: <Shield className="h-4 w-4" />,
@@ -228,6 +230,49 @@ const WorkforceHub = () => {
     }
   });
 
+  const executePayrollMutation = useMutation({
+    mutationFn: async () => {
+      const month = format(new Date(), 'yyyy-MM');
+      const empList = employees || [];
+      const totalGross = empList.reduce((s, e) => s + Number(e.base_salary || 0), 0);
+      const totalNet = empList.reduce((s, e) => {
+        const gross = Number(e.base_salary || 0);
+        const paye = gross <= 235000 ? 0 : gross <= 335000 ? (gross - 235000) * 0.1 : gross <= 410000 ? 10000 + (gross - 335000) * 0.2 : gross <= 10000000 ? 25000 + (gross - 410000) * 0.3 : 25000 + (10000000 - 410000) * 0.3 + (gross - 10000000) * 0.4;
+        const nssf = gross * 0.05;
+        return s + gross - paye - nssf;
+      }, 0);
+      const { error } = await supabase.from("payroll_runs").insert({
+        month,
+        status: "completed",
+        total_gross_pay: totalGross,
+        total_net_pay: totalNet,
+        processed_by: user?.id,
+        processed_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      for (const emp of empList) {
+        const gross = Number(emp.base_salary || 0);
+        const paye = gross <= 235000 ? 0 : gross <= 335000 ? (gross - 235000) * 0.1 : gross <= 410000 ? 10000 + (gross - 335000) * 0.2 : gross <= 10000000 ? 25000 + (gross - 410000) * 0.3 : 25000 + (10000000 - 410000) * 0.3 + (gross - 10000000) * 0.4;
+        const nssf = gross * 0.05;
+        await supabase.from("salary_records").insert({
+          profile_id: emp.profile_id || emp.id,
+          base_salary: gross,
+          allowances: 0,
+          deductions: paye + nssf,
+          net_salary: gross - paye - nssf,
+          month,
+          status: "pending",
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payroll_runs"] });
+      toast.success(`Payroll for ${format(new Date(), 'MMMM yyyy')} processed successfully`);
+      setIsGeneratingPayroll(false);
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
   // Mutations
   const addEmployeeMutation = useMutation({
     mutationFn: async () => {
@@ -318,6 +363,17 @@ const WorkforceHub = () => {
     return matchesSearch && matchesRole;
   });
 
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const monthDates = Array.from({ length: daysInMonth }, (_, index) => {
+    const date = new Date(currentYear, currentMonth, index + 1);
+    return {
+      iso: format(date, 'yyyy-MM-dd'),
+      label: format(date, 'd')
+    };
+  });
+
   const stats = [
     { label: "Total Workforce", value: employees?.length || 0, icon: Users, color: "text-slate-900", bg: "bg-slate-100" },
     { label: "Teaching Staff", value: employees?.filter(e => e.role === 'teacher').length || 0, icon: GraduationCap, color: "text-blue-600", bg: "bg-blue-50" },
@@ -328,22 +384,46 @@ const WorkforceHub = () => {
   return (
     <DashboardLayout title="Workforce & HR Hub" subtitle="Unified management center for Teachers, Staff, and Support Workers">
       
-      {/* Analytics Overview */}
-      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-        {stats.map((stat, i) => (
-          <Card key={i} className="border-none shadow-sm rounded-3xl overflow-hidden group hover:shadow-md transition-all">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-2 sm:mb-4">
-                <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-2xl ${stat.bg} flex items-center justify-center`}>
-                  <stat.icon className={`h-5 w-5 sm:h-6 sm:w-6 ${stat.color}`} />
-                </div>
-                <ArrowUpRight className="h-4 w-4 text-slate-300" />
-              </div>
-              <p className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{stat.label}</p>
-              <p className="text-xl sm:text-3xl font-black text-slate-900">{stat.value}</p>
-            </CardContent>
-          </Card>
-        ))}
+      {/* Payroll Summary KPIs */}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-5 mb-8">
+        <Card className="border-2 border-indigo-100 rounded-2xl bg-gradient-to-br from-indigo-50 to-white p-4">
+          <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Total Payroll Cost</p>
+          <p className="text-2xl font-black text-indigo-700 font-mono">
+            {(employees || []).reduce((s, e) => s + Number(e.base_salary || 0), 0).toLocaleString()}
+          </p>
+        </Card>
+        <Card className="border-2 border-emerald-100 rounded-2xl bg-gradient-to-br from-emerald-50 to-white p-4">
+          <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Teachers</p>
+          <p className="text-2xl font-black text-emerald-700">{(employees || []).filter(e => e.role === 'teacher').length}</p>
+        </Card>
+        <Card className="border-2 border-amber-100 rounded-2xl bg-gradient-to-br from-amber-50 to-white p-4">
+          <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Support Staff</p>
+          <p className="text-2xl font-black text-amber-700">{(employees || []).filter(e => e.role !== 'teacher').length}</p>
+        </Card>
+        <Card className="border-2 border-rose-100 rounded-2xl bg-gradient-to-br from-rose-50 to-white p-4">
+          <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Avg Salary</p>
+          <p className="text-2xl font-black text-rose-700 font-mono">
+            {(() => {
+              const arr = employees || [];
+              return arr.length ? Math.round(arr.reduce((s, e) => s + Number(e.base_salary || 0), 0) / arr.length).toLocaleString() : '0';
+            })()}
+          </p>
+        </Card>
+        <Card className="border-2 border-sky-100 rounded-2xl bg-gradient-to-br from-sky-50 to-white p-4">
+          <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Attendance Rate</p>
+          <p className="text-2xl font-black text-sky-700">
+            {(() => {
+              const arr = employees || [];
+              if (!arr.length) return '—';
+              const avg = arr.reduce((s, e) => {
+                const days = (e.attendance || []).length;
+                const present = (e.attendance || []).filter((a: any) => a.status === 'present').length;
+                return s + (days ? present / days : 0);
+              }, 0) / arr.length * 100;
+              return `${Math.round(avg)}%`;
+            })()}
+          </p>
+        </Card>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -497,15 +577,15 @@ const WorkforceHub = () => {
                        <tr>
                           <th className="px-10 py-8">Staff Member</th>
                           <th className="px-4 py-8">Department</th>
-                          {Array.from({ length: 12 }).map((_, i) => (
-                            <th key={i} className="px-2 py-8 text-center text-[9px] font-black">D{i+1}</th>
+                          {monthDates.map((day, i) => (
+                            <th key={day.iso} className="px-2 py-8 text-center text-[9px] font-black">{day.label}</th>
                           ))}
                           <th className="px-10 py-8 text-right">Utilization</th>
                        </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                        {employees?.map(emp => {
-                         const attendanceRate = emp.attendance?.length ? (emp.attendance.filter((a: any) => a.status === 'present').length / 12 * 100).toFixed(0) : 0;
+                         const attendanceRate = emp.attendance?.length ? (emp.attendance.filter((a: any) => a.status === 'present').length / daysInMonth * 100).toFixed(0) : 0;
                          
                          return (
                            <tr key={emp.id} className="text-sm hover:bg-slate-50/80 transition-colors group">
@@ -521,13 +601,15 @@ const WorkforceHub = () => {
                               <td className="px-4 py-8">
                                  <Badge variant="outline" className={cn("text-[9px] uppercase font-black border-none", roleColors[emp.role])}>{emp.role}</Badge>
                               </td>
-                              {Array.from({ length: 12 }).map((_, i) => {
-                                const date = format(addDays(new Date(new Date().getFullYear(), new Date().getMonth(), 1), i), 'yyyy-MM-dd');
+                              {monthDates.map((day) => {
+                                const date = day.iso;
                                 const record = emp.attendance?.find((a: any) => a.date === date);
                                 const isPresent = record?.status === 'present';
-                                
+                                const isLate = record?.status === 'late';
+                                const statusLabel = record?.status ? record.status.toUpperCase() : '—';
+
                                 return (
-                                  <td key={i} className="px-2 py-8 text-center">
+                                  <td key={day.iso} className="px-2 py-8 text-center">
                                      <button 
                                        onClick={() => markAttendanceMutation.mutate({ 
                                          employeeId: emp.id, 
@@ -547,6 +629,10 @@ const WorkforceHub = () => {
                                           isPresent ? "bg-emerald-500 scale-100" : "bg-slate-300 scale-0"
                                         )} />
                                      </button>
+                                     <div className={cn(
+                                        "text-[10px] mt-1 uppercase tracking-widest",
+                                        isLate ? "text-amber-600" : record?.status === 'absent' ? "text-red-600" : "text-slate-500"
+                                     )}>{statusLabel}</div>
                                   </td>
                                 );
                               })}
@@ -871,8 +957,14 @@ const WorkforceHub = () => {
               <p className="text-sm text-slate-500 mt-3 max-w-xs leading-relaxed font-medium">This will finalize net pay for the entire workforce, adjusting for advances and statutory NSSF contributions.</p>
            </div>
            <DialogFooter className="flex-col sm:flex-row gap-3">
-              <Button variant="ghost" onClick={() => setIsGeneratingPayroll(false)} className="rounded-2xl h-14 flex-1 font-bold">Review Manually</Button>
-              <Button className="bg-slate-900 text-white rounded-2xl h-14 flex-1 font-black uppercase tracking-widest shadow-xl shadow-slate-100">Initialize Run</Button>
+               <Button variant="ghost" onClick={() => setIsGeneratingPayroll(false)} className="rounded-2xl h-14 flex-1 font-bold">Review Manually</Button>
+               <Button
+                 onClick={() => executePayrollMutation.mutate()}
+                 disabled={!employees?.length || executePayrollMutation.isPending}
+                 className="bg-slate-900 text-white rounded-2xl h-14 flex-1 font-black uppercase tracking-widest shadow-xl shadow-slate-100"
+               >
+                 {executePayrollMutation.isPending ? 'Processing...' : 'Initialize Run'}
+               </Button>
            </DialogFooter>
         </DialogContent>
       </Dialog>

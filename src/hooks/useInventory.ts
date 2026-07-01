@@ -8,15 +8,10 @@ export interface InventoryItem {
   id: string;
   name: string;
   description: string | null;
-  category_id: string | null;
+  category: string | null;
   unit: string;
-  min_stock_level: number;
-  stock?: {
-    quantity: number;
-  };
-  category?: {
-    name: string;
-  };
+  quantity: number;
+  min_threshold: number;
 }
 
 export interface InventoryCategory {
@@ -32,11 +27,16 @@ export const useInventory = () => {
     queryKey: ["inventory-items"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("inventory_items")
-        .select("*, stock:inventory_stock(quantity), category:inventory_categories(name)")
+        .from("inventory_details")
+        .select("*")
         .order("name");
       if (error) throw error;
-      return data;
+      return (data || []).map((item: any) => ({
+        ...item,
+        quantity: item.current_stock ?? 0,
+        category: item.category_name || "General",
+        min_threshold: item.min_stock_level ?? 5,
+      }));
     },
   });
 

@@ -4,17 +4,19 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Plus, Search, Folder, Download, ExternalLink, Archive, MapPin } from "lucide-react";
+import { FileText, Plus, Search, Folder, Download, ExternalLink, Archive, MapPin, Upload, FileUp, Eye, Trash2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { LogDocumentWizard } from "@/components/office/LogDocumentWizard";
+
+const BUCKET = "document_scans";
 
 const Documents = () => {
   const { user } = useAuth();
@@ -28,20 +30,11 @@ const Documents = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("document_registry")
-        .select(`*, logger:profiles(full_name)`)
+        .select("*, logger:profiles(full_name)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
-  });
-
-  const [formData, setFormData] = useState({
-    title: "",
-    ref_number: "",
-    direction: "inbound",
-    category: "General",
-    physical_location: "",
-    sender_receiver_name: "",
   });
 
   const createDoc = useMutation({
@@ -54,13 +47,31 @@ const Documents = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["document-registry"] });
-      toast({ title: "Logged", description: "Document successfully recorded in registry" });
+      toast({ title: "Logged", description: "Document recorded in registry" });
       setIsDialogOpen(false);
-      setFormData({ title: "", ref_number: "", direction: "inbound", category: "General", physical_location: "", sender_receiver_name: "" });
     },
   });
 
-  const filteredDocs = documents.filter(doc => 
+  const handleWizardSubmit = async (formData: any, file: File | null) => {
+    let fileUrl = null;
+    if (file) {
+      const ext = file.name.split(".").pop();
+      const filePath = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from(BUCKET)
+        .upload(filePath, file);
+      if (uploadErr) {
+        toast({ title: "Upload failed", description: uploadErr.message, variant: "destructive" });
+        return;
+      }
+      const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(filePath);
+      fileUrl = urlData?.publicUrl || null;
+    }
+
+    createDoc.mutate({ ...formData, file_url: fileUrl });
+  };
+
+  const filteredDocs = documents.filter(doc =>
     doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     doc.ref_number?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -68,7 +79,7 @@ const Documents = () => {
   return (
     <DashboardLayout title="Document Registry" subtitle="Manage School Documentation & File Archive">
       <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card className="bg-slate-50/50">
             <CardContent className="pt-4 flex items-center gap-4">
               <div className="h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600">
@@ -99,8 +110,21 @@ const Documents = () => {
                 <Archive className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs font-bold text-muted-foreground uppercase">Physical Archive</p>
-                <p className="text-xl font-bold">Active</p>
+                <p className="text-xs font-bold text-muted-foreground uppercase">With Scans</p>
+                <p className="text-xl font-bold">{documents.filter(d => d.file_url).length}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-slate-50/50">
+            <CardContent className="pt-4 flex items-center gap-4">
+              <div className="h-10 w-10 bg-orange-100 rounded-lg flex items-center justify-center text-orange-600">
+                <Upload className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-muted-foreground uppercase">Outbound</p>
+                <p className="text-xl font-bold">
+                  {documents.filter(d => d.direction === 'outbound').length}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -109,88 +133,24 @@ const Documents = () => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="relative w-full sm:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search by title or ref..." 
+            <Input
+              placeholder="Search by title or ref..."
               className="pl-9"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" /> Log Document
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Registry Entry</DialogTitle>
-                <DialogDescription>Add a new inbound or outbound document record</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 mt-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Direction</Label>
-                    <Select onValueChange={(v) => setFormData(p => ({...p, direction: v}))}>
-                      <SelectTrigger><SelectValue placeholder="Inbound" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="inbound">Inbound</SelectItem>
-                        <SelectItem value="outbound">Outbound</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Category</Label>
-                    <Select onValueChange={(v) => setFormData(p => ({...p, category: v}))}>
-                      <SelectTrigger><SelectValue placeholder="Circular" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Circular">Circular</SelectItem>
-                        <SelectItem value="Invoice">Invoice</SelectItem>
-                        <SelectItem value="Letter">Letter</SelectItem>
-                        <SelectItem value="Policy">Policy</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Document Title</Label>
-                  <Input 
-                    value={formData.title}
-                    onChange={(e) => setFormData(p => ({...p, title: e.target.value}))}
-                    placeholder="e.g. Ministry of Education Guidelines" 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Reference Number</Label>
-                  <Input 
-                    value={formData.ref_number}
-                    onChange={(e) => setFormData(p => ({...p, ref_number: e.target.value}))}
-                    placeholder="e.g. MOE/2024/001" 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Sender / Recipient Name</Label>
-                  <Input 
-                    value={formData.sender_receiver_name}
-                    onChange={(e) => setFormData(p => ({...p, sender_receiver_name: e.target.value}))}
-                    placeholder="Entity name..." 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Physical Location (Shelf/Folder)</Label>
-                  <Input 
-                    value={formData.physical_location}
-                    onChange={(e) => setFormData(p => ({...p, physical_location: e.target.value}))}
-                    placeholder="e.g. Cabinet B, Tray 1" 
-                  />
-                </div>
-                <Button className="w-full gap-2" onClick={() => createDoc.mutate(formData)} disabled={createDoc.isPending}>
-                  {createDoc.isPending ? "Logging..." : "Confirm Entry"}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button className="gap-2" onClick={() => setIsDialogOpen(true)}>
+            <Plus className="h-4 w-4" /> Log Document
+          </Button>
         </div>
+
+        <LogDocumentWizard
+          open={isDialogOpen}
+          onOpenChange={setIsDialogOpen}
+          onSubmit={handleWizardSubmit}
+          isLoading={createDoc.isPending}
+        />
 
         <Card>
           <CardContent className="p-0">
@@ -211,7 +171,7 @@ const Documents = () => {
                     <TableHead>Category</TableHead>
                     <TableHead>Entity</TableHead>
                     <TableHead>Location</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
+                    <TableHead className="text-center">Scan</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -237,10 +197,35 @@ const Documents = () => {
                           {doc.physical_location || "Not tracked"}
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
+                      <TableCell className="text-center">
+                        {doc.file_url ? (
+                          <TooltipProvider delayDuration={200}>
+                            <div className="flex items-center justify-center gap-1">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                                    <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                                      <Eye className="h-4 w-4 text-blue-600" />
+                                    </a>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent><p>View scan</p></TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                                    <a href={doc.file_url} download>
+                                      <Download className="h-4 w-4 text-emerald-600" />
+                                    </a>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent><p>Download scan</p></TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </TooltipProvider>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">No scan</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

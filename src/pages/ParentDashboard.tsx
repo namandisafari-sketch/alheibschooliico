@@ -134,7 +134,7 @@ const ParentDashboard = () => {
                   >
                     <div className="flex items-start gap-4">
                       <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 font-display text-xl font-semibold text-primary">
-                        {learner.full_name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                        {(((learner.full_name || "").split(" ").map((n: string) => n[0] || "").join("").slice(0, 2)) || "?")}
                       </div>
                       <div className="flex-1">
                         <h3 className="font-display text-xl font-semibold">

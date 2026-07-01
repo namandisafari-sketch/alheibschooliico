@@ -1,5 +1,7 @@
 // @ts-nocheck
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -13,28 +15,169 @@ const TeacherAttendance = () => {
   const { user } = useAuth();
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [locationMessage, setLocationMessage] = useState<string | null>(null);
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const { data: activeLeave = [] } = useQuery({
+    queryKey: ["my-active-leave", user?.id, today],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("leave_requests" as any)
+        .select("*")
+        .eq("user_id", user.id)
+        .or("status.eq.approved,admin_decision.eq.approved")
+        .lte("start_date", today)
+        .gte("end_date", today);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const isOnApprovedLeave = activeLeave.length > 0;
+  const approvedLeaveSummary = isOnApprovedLeave ? `${activeLeave[0]?.leave_type || "Leave"} approved until ${activeLeave[0]?.end_date}` : "No approved leave for today.";
+
+  const fetchAttendance = async () => {
+    if (!user?.id) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("staff_attendance" as any)
+        .select("*")
+        .eq("user_id", user.id)
+        .order("date", { ascending: false })
+        .limit(60);
+      if (error) throw error;
+      setRows(data || []);
+    } catch (err) {
+      console.error("Error fetching attendance:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (!user?.id) return;
-    const fetchAttendance = async () => {
-      setLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from("staff_attendance" as any)
-          .select("*")
-          .eq("user_id", user.id)
-          .order("date", { ascending: false })
-          .limit(60);
-        if (error) throw error;
-        setRows(data || []);
-      } catch (err) {
-        console.error("Error fetching attendance:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchAttendance();
   }, [user?.id]);
+
+  const getDistanceFromLatLonInMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const toRad = (value: number) => (value * Math.PI) / 180;
+    const R = 6371000;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const campusLocation = { latitude: 0.3167, longitude: 32.5825 };
+  const attendanceRadius = 250;
+
+  const handleClockAction = (action: "in" | "out") => {
+    if (!user?.id) return;
+    if (!navigator?.geolocation) {
+      setLocationMessage("Geolocation is unavailable in this browser.");
+      return;
+    }
+
+    setActionLoading(true);
+    setLocationMessage(null);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const distance = getDistanceFromLatLonInMeters(
+            campusLocation.latitude,
+            campusLocation.longitude,
+            latitude,
+            longitude,
+          );
+
+          if (distance > attendanceRadius) {
+            setLocationMessage(`Check-in must happen from inside the approved campus radius (${attendanceRadius}m). Current distance: ${Math.round(distance)}m.`);
+            setActionLoading(false);
+            return;
+          }
+
+          const timeString = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+          const currentHour = new Date().getHours();
+          const existingRecord = rows.find((row) => row.date === today);
+
+          if (action === "in") {
+            const status = currentHour >= 8 ? "late" : "present";
+            if (existingRecord) {
+              const { error } = await supabase
+                .from("staff_attendance" as any)
+                .update({ check_in: timeString, status, notes: `On-campus clock-in (${Math.round(distance)}m from center)` })
+                .eq("id", existingRecord.id);
+              if (error) throw error;
+            } else {
+              const { error } = await supabase
+                .from("staff_attendance" as any)
+                .insert({
+                  user_id: user.id,
+                  date: today,
+                  check_in: timeString,
+                  status: status,
+                  notes: `On-campus clock-in (${Math.round(distance)}m from center)`,
+                });
+              if (error) throw error;
+            }
+            setLocationMessage(`Checked in at ${timeString}. ${status === "late" ? "Late entry recorded." : "Welcome on time."}`);
+          } else {
+            if (currentHour < 16 && !isOnApprovedLeave) {
+              setLocationMessage("Early checkout is restricted before 16:00 unless you have approved leave.");
+              setActionLoading(false);
+              return;
+            }
+            if (existingRecord) {
+              const { error } = await supabase
+                .from("staff_attendance" as any)
+                .update({ check_out: timeString, notes: `On-campus checkout (${Math.round(distance)}m from center)` })
+                .eq("id", existingRecord.id);
+              if (error) throw error;
+            } else {
+              const { error } = await supabase
+                .from("staff_attendance" as any)
+                .insert({
+                  user_id: user.id,
+                  date: today,
+                  check_out: timeString,
+                  status: "present",
+                  notes: `On-campus checkout (${Math.round(distance)}m from center)`,
+                });
+              if (error) throw error;
+            }
+            setLocationMessage(`Checked out at ${timeString}. ${isOnApprovedLeave ? "Approved leave applied." : "Good work today."}`);
+          }
+
+          await fetchAttendance();
+        } catch (error: any) {
+          setLocationMessage(error?.message || "Unable to record attendance.");
+        } finally {
+          setActionLoading(false);
+        }
+      },
+      (err) => {
+        setLocationMessage(err.message || "Location permission denied.");
+        setActionLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
+    );
+  };
+
+  const navigate = useNavigate();
+
+  const todayRecord = rows.find((r) => r.date === today);
+  const attendanceMessage = todayRecord
+    ? `Today: check-in ${todayRecord.check_in || "--"} · check-out ${todayRecord.check_out || "--"}.`
+    : "No attendance recorded for today yet.";
 
   const presentCount = rows.filter((r) => r.status === "present").length;
   const lateCount = rows.filter((r) => r.status === "late").length;
@@ -47,6 +190,8 @@ const TeacherAttendance = () => {
         return <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-200 hover:bg-emerald-500/20">Present</Badge>;
       case "late":
         return <Badge className="bg-amber-500/10 text-amber-600 border-amber-200 hover:bg-amber-500/20">Late</Badge>;
+      case "on_leave":
+        return <Badge className="bg-blue-500/10 text-blue-600 border-blue-200 hover:bg-blue-500/20">On Leave</Badge>;
       default:
         return <Badge variant="destructive" className="bg-red-500/10 text-red-600 border-red-200 hover:bg-red-500/20">Absent</Badge>;
     }
@@ -98,6 +243,58 @@ const TeacherAttendance = () => {
               <XCircle className="h-8 w-8 text-red-100" />
             </CardContent>
           </Card>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Card className="lg:col-span-2 border-slate-200 shadow-sm">
+            <CardContent>
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="default" size="sm" className="h-10" onClick={() => handleClockAction("in")} disabled={actionLoading}>
+                    Check In
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-10" onClick={() => handleClockAction("out")} disabled={actionLoading}>
+                    Check Out
+                  </Button>
+                </div>
+                <div className="text-sm text-slate-600">{attendanceMessage}</div>
+                <div className="text-xs text-muted-foreground">{approvedLeaveSummary}</div>
+                {locationMessage ? (
+                  <div className="rounded-xl border border-orange-100 bg-orange-50 p-3 text-sm text-orange-700">
+                    {locationMessage}
+                  </div>
+                ) : null}
+              </div>
+            </CardContent>
+          </Card>
+          <div className="lg:col-span-1 space-y-3">
+            <Card className="border-slate-200 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-sm font-bold">Range Compliance</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground mb-2">Position must be captured within the administrator-approved attendance radius.</p>
+                <p className="font-mono text-sm">Radius: {attendanceRadius}m</p>
+                <p className="text-xs text-muted-foreground mt-2">Campus center is used as the approved check-in zone. Early checkout is blocked before 16:00 unless approved leave is active.</p>
+              </CardContent>
+            </Card>
+            <Card className="border-slate-200 shadow-sm">
+              <CardContent>
+                <div className="text-xs font-bold uppercase text-muted-foreground">Today&apos;s Record</div>
+                <div className="mt-3 text-sm text-slate-700">
+                  {todayRecord ? (
+                    <>
+                      <div>In: {todayRecord.check_in || "--"}</div>
+                      <div>Out: {todayRecord.check_out || "--"}</div>
+                      <div>Status: {getStatusBadge(todayRecord.status)}</div>
+                    </>
+                  ) : (
+                    <div>No record available yet.</div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">
@@ -182,7 +379,7 @@ const TeacherAttendance = () => {
                     Unexplained absences result in automatic deductions from the monthly net pay. Ensure all leave is approved in advance.
                   </p>
                 </div>
-                <Button className="w-full h-8 text-[11px] font-bold" variant="outline">
+                <Button className="w-full h-8 text-[11px] font-bold" variant="outline" onClick={() => navigate("/teacher/requests") }>
                   Apply for Leave
                 </Button>
               </CardContent>

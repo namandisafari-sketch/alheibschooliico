@@ -1,5 +1,4 @@
-// UNEB-style grading utilities — auto by class level
-// P1-P4 = Lower Primary (A-E), P5-P7 = Upper Primary (D1-F9)
+// UNEB-style grading utilities — Uganda Primary Standard (D1-F9) for all levels
 
 export interface GradeBand {
   grade: string;
@@ -32,14 +31,13 @@ export const ISLAMIC_LETTER_OPTIONS = ["A", "B+", "B", "C+", "C", "D", "E"];
 
 export const calculateGrade = (
   score: number | null | undefined,
-  classLevel: number | undefined,
+  classLevel?: number,
 ): GradeBand => {
   if (score === null || score === undefined || isNaN(score)) {
     return { grade: "-", remark: "-", tone: "fair" };
   }
-  const bands = (classLevel ?? 1) >= 5 ? PLE_BANDS : LOWER_BANDS;
-  const found = bands.find((b) => score >= b.min);
-  return found?.band ?? { grade: "F", remark: "Fail", tone: "fail" };
+  const found = PLE_BANDS.find((b) => score >= b.min);
+  return found?.band ?? { grade: "F9", remark: "Fail", tone: "fail" };
 };
 
 export const toneToTextClass: Record<GradeBand["tone"], string> = {
@@ -62,6 +60,25 @@ export const computeAggregate = (scores: number[]) => {
   if (scores.length === 0) return { total: 0, average: 0 };
   const total = scores.reduce((a, b) => a + b, 0);
   return { total, average: total / scores.length };
+};
+
+// Competency thresholds used to derive competency ratings from numeric scores.
+// These mirror common thresholds used in primary assessments and can be
+// adjusted to match specific curricula (e.g., Uganda Primary Curriculum).
+export const COMPETENCY_THRESHOLDS = {
+  exceeding: 75,
+  meeting: 60,
+  approaching: 45,
+};
+
+export const getCompetencyLevel = (
+  score: number | null | undefined,
+): "exceeding" | "meeting" | "approaching" | "beginning" => {
+  if (score === null || score === undefined || isNaN(score)) return "meeting";
+  if (score >= COMPETENCY_THRESHOLDS.exceeding) return "exceeding";
+  if (score >= COMPETENCY_THRESHOLDS.meeting) return "meeting";
+  if (score >= COMPETENCY_THRESHOLDS.approaching) return "approaching";
+  return "beginning";
 };
 
 export const getPLEPoint = (score: number | null): number => {

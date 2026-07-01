@@ -186,6 +186,28 @@ const PettyCash = () => {
   return (
     <>
     <DashboardLayout title={t("pettyCash")} subtitle="Manage box liquidity and project-specific petty cash cycles">
+      {/* KPI Summary */}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-6">
+        <Card className="p-4 rounded-2xl border-2 border-slate-100 bg-gradient-to-br from-indigo-50 to-white">
+          <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Open Runs</p>
+          <p className="text-2xl font-black text-indigo-700">{(runs || []).filter(r => r.status === 'open').length}</p>
+        </Card>
+        <Card className="p-4 rounded-2xl border-2 border-slate-100 bg-gradient-to-br from-emerald-50 to-white">
+          <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Total Float (Open)</p>
+          <p className="text-2xl font-black text-emerald-700 font-mono">
+            {(runs || []).filter(r => r.status === 'open').reduce((s, r) => s + Number(r.total_float || 0), 0).toLocaleString()}
+          </p>
+        </Card>
+        <Card className="p-4 rounded-2xl border-2 border-slate-100 bg-gradient-to-br from-amber-50 to-white">
+          <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Pending Liquidity</p>
+          <p className="text-2xl font-black text-amber-700">{(liqRequests || []).filter(r => r.status === 'pending').length}</p>
+        </Card>
+        <Card className="p-4 rounded-2xl border-2 border-slate-100 bg-gradient-to-br from-rose-50 to-white">
+          <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Total Runs</p>
+          <p className="text-2xl font-black text-rose-700">{(runs || []).length}</p>
+        </Card>
+      </div>
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 h-auto p-1 bg-slate-100 rounded-2xl mb-8">
            <TabsTrigger value="runs" className="gap-2 rounded-xl py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm">

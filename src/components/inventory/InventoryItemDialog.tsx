@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useInventory } from "@/hooks/useInventory";
+
 import {
   Dialog,
   DialogContent,
@@ -41,8 +42,7 @@ const formSchema = z.object({
   category_id: z.string().min(1, "Please select a category"),
   description: z.string().trim().optional(),
   unit: z.string().trim().min(1, "Unit is required"),
-  min_stock_level: z.string().transform((v) => parseInt(v, 10)).pipe(z.number().min(0)),
-  sku: z.string().trim().optional(),
+  min_stock_level: z.number().min(0),
   supplier_name: z.string().trim().optional(),
   supplier_contact: z.string().trim().optional(),
   brand: z.string().trim().optional(),
@@ -67,7 +67,7 @@ export function InventoryItemDialog({ children, item, open: controlledOpen, onOp
   const setOpen = setControlledOpen !== undefined ? setControlledOpen : setInternalOpen;
   
   const queryClient = useQueryClient();
-  const { categories } = useInventory();
+  const { items: allItems, categories } = useInventory();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -76,8 +76,7 @@ export function InventoryItemDialog({ children, item, open: controlledOpen, onOp
       category_id: "",
       description: "",
       unit: "pieces",
-      min_stock_level: "5" as any,
-      sku: "",
+      min_stock_level: 5,
       supplier_name: "",
       supplier_contact: "",
       brand: "",
@@ -89,13 +88,13 @@ export function InventoryItemDialog({ children, item, open: controlledOpen, onOp
 
   useEffect(() => {
     if (item && mode === "edit") {
+      const catId = categories.data?.find((c: any) => c.name === item.category || c.name === item.category_name)?.id || item.category_id || "";
       form.reset({
         name: item.name || "",
-        category_id: item.category_id || "",
+        category_id: catId,
         description: item.description || "",
         unit: item.unit || "pieces",
-        min_stock_level: String(item.min_stock_level || 5) as any,
-        sku: item.sku || "",
+        min_stock_level: item.min_stock_level ?? item.min_threshold ?? 5,
         supplier_name: item.supplier_name || "",
         supplier_contact: item.supplier_contact || "",
         brand: item.brand || "",
@@ -109,8 +108,7 @@ export function InventoryItemDialog({ children, item, open: controlledOpen, onOp
             category_id: "",
             description: "",
             unit: "pieces",
-            min_stock_level: "5" as any,
-            sku: "",
+            min_stock_level: 5,
             supplier_name: "",
             supplier_contact: "",
             brand: "",
@@ -119,53 +117,45 @@ export function InventoryItemDialog({ children, item, open: controlledOpen, onOp
             expiry_date: "",
           });
     }
-  }, [item, mode, form, open]);
+  }, [item, mode, form, open, categories.data]);
 
   const mutation = useMutation({
     mutationFn: async (values: FormValues) => {
+      const existing = allItems.data?.find(
+        (i: any) => i.name.toLowerCase() === values.name.toLowerCase() && (mode !== "edit" || i.id !== item?.id)
+      );
+      if (existing) {
+        throw new Error(`An item with the name "${values.name}" already exists.`);
+      }
+
+      const payload = {
+        name: values.name,
+        category_id: values.category_id,
+        description: values.description || null,
+        unit: values.unit,
+        min_stock_level: values.min_stock_level,
+        supplier_name: values.supplier_name || null,
+        supplier_contact: values.supplier_contact || null,
+        brand: values.brand || null,
+        model: values.model || null,
+        storage_location: values.storage_location || null,
+        expiry_date: values.expiry_date || null,
+      };
+
       if (mode === "edit" && item) {
         const { error } = await supabase
           .from("inventory_items")
-          .update({
-            name: values.name,
-            category_id: values.category_id,
-            description: values.description || null,
-            unit: values.unit,
-            min_stock_level: values.min_stock_level,
-            sku: values.sku || null,
-            supplier_name: values.supplier_name || null,
-            supplier_contact: values.supplier_contact || null,
-            brand: values.brand || null,
-            model: values.model || null,
-            storage_location: values.storage_location || null,
-            expiry_date: values.expiry_date || null,
-          })
+          .update(payload)
           .eq("id", item.id);
         if (error) throw error;
       } else {
-        const { data: newItem, error: itemError } = await supabase
+        const { error: itemError } = await supabase
           .from("inventory_items")
-          .insert({
-            name: values.name,
-            category_id: values.category_id,
-            description: values.description || null,
-            unit: values.unit,
-            min_stock_level: values.min_stock_level,
-            sku: values.sku || null,
-            supplier_name: values.supplier_name || null,
-            supplier_contact: values.supplier_contact || null,
-            brand: values.brand || null,
-            model: values.model || null,
-            storage_location: values.storage_location || null,
-            expiry_date: values.expiry_date || null,
-          })
+          .insert(payload)
           .select()
           .single();
 
         if (itemError) throw itemError;
-
-        // Initialize stock at 0
-        await supabase.from("inventory_stock").insert({ item_id: newItem.id, quantity: 0 });
       }
     },
     onSuccess: () => {
@@ -321,22 +311,12 @@ export function InventoryItemDialog({ children, item, open: controlledOpen, onOp
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Alert Threshold</FormLabel>
-                          <FormControl><Input type="number" {...field} /></FormControl>
+                          <FormControl><Input type="number" {...field} onChange={(e) => field.onChange(e.target.valueAsNumber || 0)} /></FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={form.control}
-                      name="sku"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Stock Keeping Unit (SKU)</FormLabel>
-                          <FormControl><Input placeholder="Internal SKU code" {...field} /></FormControl>
-                        </FormItem>
-                      )}
-                    />
-                 </div>
+                                     </div>
                  <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}

@@ -11,6 +11,7 @@ import { BookOpen, Users, ClipboardList, BookOpenCheck } from "lucide-react";
 const TeacherMyClasses = () => {
   const { user } = useAuth();
   const [rows, setRows] = useState<any[]>([]);
+  const [leadClassIds, setLeadClassIds] = useState<string[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -18,6 +19,13 @@ const TeacherMyClasses = () => {
     (async () => {
       // Get classes where teacher is the main class teacher
       const { data: leadClasses } = await supabase
+        .from("classes")
+        .select("id")
+        .eq("teacher_id", user.id);
+      const leadIds = (leadClasses || []).map(c => c.id);
+      setLeadClassIds(leadIds);
+      
+      const { data: leadClassesFull } = await supabase
         .from("classes")
         .select("*")
         .eq("teacher_id", user.id);
@@ -29,7 +37,7 @@ const TeacherMyClasses = () => {
         .eq("teacher_id", user.id);
 
       const allClassMap = new Map();
-      (leadClasses || []).forEach(c => allClassMap.set(c.id, c));
+      (leadClassesFull || []).forEach(c => allClassMap.set(c.id, c));
       (assigned || []).forEach(a => {
         if (a.classes) allClassMap.set(a.class_id, a.classes);
       });
@@ -80,11 +88,19 @@ const TeacherMyClasses = () => {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button asChild size="sm" variant="outline" className="flex-1 gap-1">
-                  <Link to="/attendance">
-                    <ClipboardList className="h-3.5 w-3.5" /> Attendance
-                  </Link>
-                </Button>
+                {leadClassIds.includes(c.id) ? (
+                  <Button asChild size="sm" variant="outline" className="flex-1 gap-1">
+                    <Link to="/attendance">
+                      <ClipboardList className="h-3.5 w-3.5" /> Attendance
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button asChild size="sm" variant="outline" className="flex-1 gap-1">
+                    <Link to="/teacher/lesson-register">
+                      <BookOpen className="h-3.5 w-3.5" /> Register
+                    </Link>
+                  </Button>
+                )}
                 <Button asChild size="sm" variant="outline" className="flex-1 gap-1">
                   <Link to="/teacher/gradebook">
                     <BookOpenCheck className="h-3.5 w-3.5" /> Marks

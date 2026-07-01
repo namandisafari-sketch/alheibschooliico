@@ -11,7 +11,7 @@ import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import SearchableSelect from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -42,6 +42,20 @@ const Suppliers = () => {
     category: "Stationery",
     rating: 5,
   });
+
+  const categories = [
+    "Stationery",
+    "Food & Beverages",
+    "Building & Repairs",
+    "IT Services",
+    "Transportation",
+    "Uniforms",
+    "Cleaning Supplies",
+    "Medical Supplies",
+    "Library Resources",
+    "Sporting Goods",
+    ...Array.from({ length: 1000 }, (_, i) => `Other Category ${i + 1}`),
+  ];
 
   const createSupplier = useMutation({
     mutationFn: async (sup: any) => {
@@ -97,15 +111,12 @@ const Suppliers = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Category</Label>
-                    <Select value={formData.category} onValueChange={(v) => setFormData(p => ({...p, category: v}))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Stationery">Stationery</SelectItem>
-                        <SelectItem value="Food">Food & Beverages</SelectItem>
-                        <SelectItem value="Construction">Building & Repairs</SelectItem>
-                        <SelectItem value="IT">IT Services</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={formData.category}
+                      onChange={(v) => setFormData(p => ({ ...p, category: v }))}
+                      options={categories}
+                      placeholder="Select or type category..."
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Contact Person</Label>

@@ -1,12 +1,11 @@
 // @ts-nocheck
-import { useState, useRef, useMemo, useEffect } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -33,28 +32,24 @@ import {
   Search, 
   Download, 
   CreditCard, 
-  User, 
   Users,
   ChevronDown, 
   Loader2, 
   Package, 
   UserCheck, 
   AlertTriangle, 
-  ShieldAlert, 
-  CheckCircle2,
   Printer,
   Activity,
   Cpu,
   Layers,
   Settings2,
-  LayoutDashboard
 } from "lucide-react";
 import { StaffIDCard } from "@/components/idcards/StaffIDCard";
 import { StudentIDCard } from "@/components/idcards/StudentIDCard";
 import { VisitorIDCard } from "@/components/idcards/VisitorIDCard";
 import { EmergencyReentrySlip } from "@/components/idcards/EmergencyReentrySlip";
 import { AssetSizeControls } from "@/components/settings/AssetSizeControls";
-import { useVisitors, useVisitorVisits } from "@/hooks/useVisitors";
+import { useVisitorVisits } from "@/hooks/useVisitors";
 import { toPng } from "html-to-image";
 import { toast } from "@/hooks/use-toast";
 import JSZip from "jszip";
@@ -104,6 +99,10 @@ const IDCards = () => {
   const [exporting, setExporting] = useState(false);
   const [batchExporting, setBatchExporting] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
+  const [visitorVisitId, setVisitorVisitId] = useState<string>("");
+  const [pickupLearnerId, setPickupLearnerId] = useState<string>("");
+  const [reentryVisitId, setReentryVisitId] = useState<string>("");
+  const [reentryDuration, setReentryDuration] = useState<number>(60);
   const frontRef = useRef<HTMLDivElement>(null);
   const backRef = useRef<HTMLDivElement>(null);
 
@@ -112,8 +111,10 @@ const IDCards = () => {
   const { data: classes = [] } = useClasses();
   const { data: siteSettings } = useSiteSettings();
   const { data: idSettings } = useIdCardSettings();
+  const { data: activeVisits = [] } = useVisitorVisits("active");
+  const { data: allVisits = [] } = useVisitorVisits("all");
 
-  const schoolName = "Alheib Mixed Day & Boarding School";
+  const schoolName = siteSettings?.school_name || "Alheib Mixed Day & Boarding School";
 
   const filteredStaff = staff.filter((s) =>
     s.full_name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -206,7 +207,8 @@ const IDCards = () => {
       toast({ title: t("exported"), description: t("cardDownloaded") });
     } catch (e) {
       console.error(e);
-      toast({ title: t("exportFailed"), description: String(e), variant: "destructive" });
+      const errorMsg = e instanceof Error ? e.message : e && typeof e === 'object' && 'message' in e ? String((e as any).message) : String(e);
+      toast({ title: t("exportFailed"), description: errorMsg, variant: "destructive" });
     } finally {
       setExporting(false);
     }
@@ -222,11 +224,22 @@ const IDCards = () => {
     const root = createRoot(host);
 
     return new Promise<string>((resolve, reject) => {
-      root.render(cardJsx);
+      try {
+        root.render(cardJsx);
+      } catch (renderErr) {
+        root.unmount();
+        host.remove();
+        reject(renderErr instanceof Error ? renderErr : new Error(String(renderErr)));
+        return;
+      }
       setTimeout(async () => {
         try {
           const target = host.firstElementChild as HTMLElement | null;
           if (!target) throw new Error("Card render failed");
+          const imgs = target.querySelectorAll("img");
+          await Promise.allSettled(Array.from(imgs).map(img => 
+            img.complete ? Promise.resolve() : new Promise(r => { img.onload = r; img.onerror = r; })
+          ));
           const dataUrl = await toPng(target, {
             pixelRatio: 3,
             cacheBust: true,
@@ -234,12 +247,12 @@ const IDCards = () => {
           });
           resolve(dataUrl);
         } catch (e) {
-          reject(e);
+          reject(e instanceof Error ? e : new Error(String(e)));
         } finally {
-          root.unmount();
-          host.remove();
+          try { root.unmount(); } catch {}
+          try { host.remove(); } catch {}
         }
-      }, 250);
+      }, 500);
     });
   };
 
@@ -295,7 +308,8 @@ const IDCards = () => {
       toast({ title: t("exported"), description: `${targets.length} \u00d7 ${t("idCards")}` });
     } catch (e) {
       console.error(e);
-      toast({ title: t("exportFailed"), description: String(e), variant: "destructive" });
+      const errorMsg = e instanceof Error ? e.message : e && typeof e === 'object' && 'message' in e ? String((e as any).message) : String(e);
+      toast({ title: t("exportFailed"), description: errorMsg, variant: "destructive" });
     } finally {
       setBatchExporting(false);
       setBatchProgress({ current: 0, total: 0 });
@@ -431,11 +445,71 @@ const IDCards = () => {
                         <SelectContent>
                           {filteredStaff.map((s) => (
                             <SelectItem key={s.id} value={s.id}>
-                              {s.full_name} ΓÇö {s.role}
+                              {s.full_name} — {s.role}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+                  )}
+
+                  {/* VISITOR CONTROLS */}
+                  {activeTab === "visitors" && (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-muted-foreground px-1">Active Visit (Day Pass)</label>
+                        <Select value={visitorVisitId} onValueChange={setVisitorVisitId}>
+                          <SelectTrigger className="h-11 bg-muted/20 border-muted/50">
+                            <SelectValue placeholder="On-Site Visitor..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {activeVisits.map((v) => (
+                              <SelectItem key={v.id} value={v.id}>
+                                {v.visitor_name} — {v.badge_number}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-muted-foreground px-1">Pick-Up Learner</label>
+              <Select value={pickupLearnerId} onValueChange={onPickupLearnerIdChange}>
+                          <SelectTrigger className="h-11 bg-muted/20 border-muted/50">
+                            <SelectValue placeholder="Target Learner..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {learners.slice(0, 50).map((l) => (
+                              <SelectItem key={l.id} value={l.id}>{l.full_name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-muted-foreground px-1">Checked-Out Visit (Re-entry)</label>
+              <Select value={reentryVisitId} onValueChange={onReentryVisitIdChange}>
+                          <SelectTrigger className="h-11 bg-muted/20 border-muted/50">
+                            <SelectValue placeholder="Checked-out Visitor..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allVisits.filter((v) => v.status === "checked_out").slice(0, 50).map((v) => (
+                              <SelectItem key={v.id} value={v.id}>{v.visitor_name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-muted-foreground px-1">Validity Duration</label>
+              <Select value={String(reentryDuration)} onValueChange={(v) => onReentryDurationChange(Number(v))}>
+                          <SelectTrigger className="h-11 bg-muted/20 border-muted/50">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="15">15 minutes</SelectItem>
+                            <SelectItem value="30">30 minutes</SelectItem>
+                            <SelectItem value="60">1 hour</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   )}
                   
@@ -577,12 +651,20 @@ const IDCards = () => {
 
                   {activeTab === "visitors" && (
                     <div className="grid grid-cols-1 gap-8 max-w-4xl mx-auto">
-                       <VisitorStationSection 
-                        schoolName={schoolName} 
-                        schoolLogoUrl={schoolLogoUrl} 
-                        isRTL={isRTL} 
-                        learners={learners} 
-                       />
+                   <VisitorStationSection 
+                         schoolName={schoolName} 
+                         schoolLogoUrl={schoolLogoUrl} 
+                         isRTL={isRTL} 
+                         learners={learners}
+                         visitId={visitorVisitId}
+                         onVisitIdChange={setVisitorVisitId}
+                         pickupLearnerId={pickupLearnerId}
+                         onPickupLearnerIdChange={setPickupLearnerId}
+                         reentryVisitId={reentryVisitId}
+                         onReentryVisitIdChange={setReentryVisitId}
+                         reentryDuration={reentryDuration}
+                         onReentryDurationChange={setReentryDuration}
+                        />
                     </div>
                   )}
                 </div>
@@ -615,22 +697,32 @@ const VisitorStationSection = ({
   schoolLogoUrl,
   isRTL,
   learners,
+  visitId,
+  onVisitIdChange,
+  pickupLearnerId,
+  onPickupLearnerIdChange,
+  reentryVisitId,
+  onReentryVisitIdChange,
+  reentryDuration,
+  onReentryDurationChange,
 }: {
   schoolName: string;
   schoolLogoUrl?: string;
   isRTL: boolean;
   learners: any[];
+  visitId: string;
+  onVisitIdChange: (v: string) => void;
+  pickupLearnerId: string;
+  onPickupLearnerIdChange: (v: string) => void;
+  reentryVisitId: string;
+  onReentryVisitIdChange: (v: string) => void;
+  reentryDuration: number;
+  onReentryDurationChange: (v: number) => void;
 }) => {
   const { data: visits = [] } = useVisitorVisits("active");
   const { data: allVisits = [] } = useVisitorVisits("all");
-  const { data: visitors = [] } = useVisitors();
   
-  const [visitId, setVisitId] = useState<string>("");
-  const [visitorId, setVisitorId] = useState<string>("");
-  const [pickupLearnerId, setPickupLearnerId] = useState<string>("");
-  const [reentryVisitId, setReentryVisitId] = useState<string>("");
-  const [reentryDuration, setReentryDuration] = useState<number>(60);
-  const [reentryWidth, setReentryWidth] = useState<54 | 80>(80);
+  const [reentryWidth] = useState<54 | 80>(80);
 
   const dayRef = useRef<HTMLDivElement>(null);
   const dayBackRef = useRef<HTMLDivElement>(null);
@@ -643,7 +735,6 @@ const VisitorStationSection = ({
   const checkedOutVisits = useMemo(() => allVisits.filter((v) => v.status === "checked_out").slice(0, 50), [allVisits]);
   const reentryVisit = checkedOutVisits.find((v) => v.id === reentryVisitId);
   const visit = visits.find((v) => v.id === visitId);
-  const visitor = visitors.find((v) => v.id === visitorId);
   const pickupLearner = learners.find((l) => l.id === pickupLearnerId);
 
   const { data: guardianRecord } = useGuardian(pickupLearner?.guardian_id);
@@ -695,7 +786,7 @@ const VisitorStationSection = ({
           <div className="flex flex-col md:flex-row gap-4 items-end">
             <div className="flex-1 space-y-2">
               <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Select Learner</label>
-              <Select value={pickupLearnerId} onValueChange={setPickupLearnerId}>
+              <Select value={pickupLearnerId} onValueChange={onPickupLearnerIdChange}>
                 <SelectTrigger className="bg-zinc-800 border-white/10 text-white h-11">
                   <SelectValue placeholder="Target Learner..." />
                 </SelectTrigger>
@@ -755,7 +846,7 @@ const VisitorStationSection = ({
           <div className="flex flex-col md:flex-row gap-4 items-end">
             <div className="flex-1 space-y-2">
               <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Select Visit</label>
-              <Select value={visitId} onValueChange={setVisitId}>
+              <Select value={visitId} onValueChange={onVisitIdChange}>
                 <SelectTrigger className="bg-zinc-800 border-white/10 text-white h-11">
                   <SelectValue placeholder="On-Site Visitor..." />
                 </SelectTrigger>
@@ -815,7 +906,7 @@ const VisitorStationSection = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2 md:col-span-1">
               <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Select Recent Visit</label>
-              <Select value={reentryVisitId} onValueChange={setReentryVisitId}>
+              <Select value={reentryVisitId} onValueChange={onReentryVisitIdChange}>
                 <SelectTrigger className="bg-zinc-800 border-white/10 text-white h-11">
                   <SelectValue placeholder="Checked-out Visitor..." />
                 </SelectTrigger>
@@ -828,7 +919,7 @@ const VisitorStationSection = ({
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Validity Duration</label>
-              <Select value={String(reentryDuration)} onValueChange={(v) => setReentryDuration(Number(v))}>
+              <Select value={String(reentryDuration)} onValueChange={(v) => onReentryDurationChange(Number(v))}>
                 <SelectTrigger className="bg-zinc-800 border-white/10 text-white h-11">
                   <SelectValue />
                 </SelectTrigger>

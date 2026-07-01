@@ -82,37 +82,31 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
-          message: string | null
-          reason: string
+          message: string
           response: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           status: string | null
-          type: string
           user_id: string | null
         }
         Insert: {
           created_at?: string | null
           id?: string
-          message?: string | null
-          reason: string
+          message: string
           response?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string | null
-          type: string
           user_id?: string | null
         }
         Update: {
           created_at?: string | null
           id?: string
-          message?: string | null
-          reason?: string
+          message?: string
           response?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string | null
-          type?: string
           user_id?: string | null
         }
         Relationships: [
@@ -5042,6 +5036,7 @@ export type Database = {
           payment_date: string
           payment_method: string | null
           reference_number: string | null
+          receipt_number: string | null
           salary_record_id: string
           staff_id: string
           status: string | null
@@ -5055,6 +5050,7 @@ export type Database = {
           payment_date?: string
           payment_method?: string | null
           reference_number?: string | null
+          receipt_number?: string | null
           salary_record_id: string
           staff_id: string
           status?: string | null
@@ -5068,6 +5064,7 @@ export type Database = {
           payment_date?: string
           payment_method?: string | null
           reference_number?: string | null
+          receipt_number?: string | null
           salary_record_id?: string
           staff_id?: string
           status?: string | null
@@ -5473,6 +5470,160 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      student_gate_logs: {
+        Row: {
+          check_in_at: string
+          check_out_at: string | null
+          created_at: string
+          id: string
+          learner_id: string
+          notes: string | null
+          purpose: string | null
+          status: string
+          verified_by: string | null
+          verification_method: string
+        }
+        Insert: {
+          check_in_at?: string
+          check_out_at?: string | null
+          created_at?: string
+          id?: string
+          learner_id: string
+          notes?: string | null
+          purpose?: string | null
+          status?: string
+          verified_by?: string | null
+          verification_method?: string
+        }
+        Update: {
+          check_in_at?: string
+          check_out_at?: string | null
+          created_at?: string
+          id?: string
+          learner_id?: string
+          notes?: string | null
+          purpose?: string | null
+          status?: string
+          verified_by?: string | null
+          verification_method?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_gate_logs_learner_id_fkey"
+            columns: ["learner_id"]
+            isOneToOne: false
+            referencedRelation: "learners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      temp_workers: {
+        Row: {
+          id: string
+          created_at: string
+          updated_at: string
+          full_name: string
+          phone: string | null
+          company: string | null
+          id_number: string | null
+          photo_url: string | null
+          purpose: string | null
+          supervised_by: string | null
+          status: string
+          notes: string | null
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          updated_at?: string
+          full_name: string
+          phone?: string | null
+          company?: string | null
+          id_number?: string | null
+          photo_url?: string | null
+          purpose?: string | null
+          supervised_by?: string | null
+          status?: string
+          notes?: string | null
+          created_by?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          updated_at?: string
+          full_name?: string
+          phone?: string | null
+          company?: string | null
+          id_number?: string | null
+          photo_url?: string | null
+          purpose?: string | null
+          supervised_by?: string | null
+          status?: string
+          notes?: string | null
+          created_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "temp_workers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      temp_worker_logs: {
+        Row: {
+          id: string
+          temp_worker_id: string
+          check_in_at: string
+          check_out_at: string | null
+          status: string
+          verified_by: string | null
+          purpose: string | null
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          temp_worker_id: string
+          check_in_at?: string
+          check_out_at?: string | null
+          status?: string
+          verified_by?: string | null
+          purpose?: string | null
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          temp_worker_id?: string
+          check_in_at?: string
+          check_out_at?: string | null
+          status?: string
+          verified_by?: string | null
+          purpose?: string | null
+          notes?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "temp_worker_logs_temp_worker_id_fkey"
+            columns: ["temp_worker_id"]
+            isOneToOne: false
+            referencedRelation: "temp_workers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temp_worker_logs_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       staff_letters: {
         Row: {
@@ -6411,6 +6562,7 @@ export type Database = {
         | "dos"
         | "manager"
         | "secretary"
+        | "orphan_supervisor"
       approval_stage:
         | "submitted"
         | "manager_approved"

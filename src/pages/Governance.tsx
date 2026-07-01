@@ -8,6 +8,8 @@ import { Separator } from "@/components/ui/separator";
 import { useGovernanceMembers, useGovernanceMeetings, useGovernancePolicies } from "@/hooks/useCompliance";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const Governance = () => {
   const { data: members = [], isLoading: membersLoading } = useGovernanceMembers();
@@ -15,6 +17,17 @@ const Governance = () => {
   const { data: policies = [], isLoading: policiesLoading } = useGovernancePolicies();
 
   const nextMeeting = meetings.find(m => m.status === 'scheduled');
+
+  const activeMembers = members.filter(m => m.status === 'active').length;
+  const attendanceRate = members.length ? Math.round((activeMembers / members.length) * 100) : 0;
+
+  const activePolicies = policies.filter(p => p.status === 'active').length;
+  const policyRatio = policies.length ? (activePolicies / policies.length) : 0;
+
+  // Derive a simple strategic score from policy coverage and meeting frequency
+  const meetingsScheduled = meetings.filter(m => m.status === 'scheduled').length;
+  const scoreValue = Math.round((policyRatio * 70) + Math.min(meetingsScheduled, 5) * 6 + Math.min(attendanceRate / 100, 1) * 24);
+  const strategicGrade = scoreValue >= 90 ? 'A+' : scoreValue >= 75 ? 'A' : scoreValue >= 50 ? 'B' : 'C';
 
   return (
     <DashboardLayout title="Governance Board" subtitle="Strategic Oversight, Policy Framework & SMB Operations">
@@ -30,7 +43,7 @@ const Governance = () => {
             <CardContent>
               <div className="text-2xl font-black">{membersLoading ? "..." : members.length}</div>
               <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
-                <Activity className="h-3 w-3" /> 100% Attendance Rate
+                <Activity className="h-3 w-3" /> {membersLoading ? '...' : `${attendanceRate}% Active`}
               </p>
             </CardContent>
           </Card>
@@ -43,7 +56,7 @@ const Governance = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-black">{policiesLoading ? "..." : policies.filter(p => p.status === 'active').length}</div>
+              <div className="text-2xl font-black">{policiesLoading ? "..." : activePolicies}</div>
               <p className="text-[10px] text-emerald-600 font-bold mt-1 tracking-tight">
                 Fully Compliant
               </p>
@@ -58,7 +71,7 @@ const Governance = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-black text-amber-600">{meetings.filter(m => m.status === 'scheduled').length}</div>
+              <div className="text-2xl font-black text-amber-600">{meetingsScheduled}</div>
               <p className="text-[10px] text-muted-foreground mt-1 tracking-tight">
                 Agenda items set
               </p>
@@ -73,7 +86,7 @@ const Governance = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-black">A+</div>
+              <div className="text-2xl font-black">{strategicGrade}</div>
               <p className="text-[10px] text-muted-foreground mt-1 tracking-tight">
                 Audit: Satisfactory
               </p>
@@ -85,13 +98,18 @@ const Governance = () => {
           <Card className="md:col-span-2 border-slate-200 shadow-lg bg-white overflow-hidden">
             <CardHeader className="bg-slate-50/50 border-b">
               <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg font-black tracking-tight">School Management Board (SMB)</CardTitle>
-                  <CardDescription className="text-[11px]">Primary decision-making body and executive committee</CardDescription>
-                </div>
-                <Button variant="outline" size="sm" className="font-bold text-[10px]">
-                  <Landmark className="h-3 w-3 mr-2" /> Constitution
-                </Button>
+                  <div>
+                    <CardTitle className="text-lg font-black tracking-tight">School Management Board (SMB)</CardTitle>
+                    <CardDescription className="text-[11px]">Primary decision-making body and executive committee</CardDescription>
+                    <div className="text-[10px] text-muted-foreground mt-1">Members are sourced from the <strong>governance_members</strong> table (SMB).</div>
+                  </div>
+                    <Button variant="outline" size="sm" className="font-bold text-[10px]" onClick={() => {
+                      const constitution = policies.find(p => p.title.toLowerCase().includes("board governance"));
+                      if (constitution?.document_url) window.open(constitution.document_url, "_blank");
+                      else toast.info("Board Governance Charter not yet uploaded");
+                    }}>
+                      <Landmark className="h-3 w-3 mr-2" /> Constitution
+                    </Button>
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -121,7 +139,7 @@ const Governance = () => {
                           <img src={member.image_url} alt="" className="h-10 w-10 rounded-full object-cover" />
                         ) : (
                           <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center font-black text-slate-400 text-xs text-center">
-                            {member.full_name?.split(" ").map(n => n[0]).join("")}
+                            {((member.full_name || "").split(" ").map(n => n[0] || "").join("")) || "?"}
                           </div>
                         )}
                         <div>
@@ -191,14 +209,18 @@ const Governance = () => {
                         <span className="text-[11px] font-bold">{doc.title}</span>
                         <span className="text-[9px] text-muted-foreground">v{doc.version} | {doc.category}</span>
                       </div>
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => {
+                        if (doc.document_url) window.open(doc.document_url, "_blank");
+                      }}>
                         <Eye className="h-3 w-3" />
                       </Button>
                     </div>
                   ))
                 )}
                 <div className="p-4 pt-2">
-                  <Button variant="link" className="text-xs font-bold p-0 h-auto">View All Frameworks &rarr;</Button>
+                  <Button variant="link" className="text-xs font-bold p-0 h-auto" onClick={() => toast.info(`${policies.length} policies in library`)}>
+                    View All Frameworks ({policies.length}) &rarr;
+                  </Button>
                 </div>
               </CardContent>
             </Card>

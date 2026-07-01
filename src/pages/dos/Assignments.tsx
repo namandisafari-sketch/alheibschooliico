@@ -10,6 +10,7 @@ import { useSubjects, useCreateSubject } from "@/hooks/useSubjects";
 import { useStaff } from "@/hooks/useStaff";
 import { useBroadcastNotification } from "@/hooks/useInAppNotifications";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAcademicSettings } from "@/hooks/useAcademicSettings";
 import { Link } from "react-router-dom";
 import { Layers, Plus, Trash2, User, BookOpen, GraduationCap, Filter } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -24,6 +25,7 @@ const Assignments = () => {
   const { data: classes = [] } = useClasses();
   const { data: subjects = [] } = useSubjects();
   const { data: teachers = [] } = useStaff("teacher");
+  const { data: academicSettings } = useAcademicSettings();
   const createAssignment = useCreateAssignment();
   const createSubject = useCreateSubject();
   const deleteAssignment = useDeleteAssignment();
@@ -31,13 +33,20 @@ const Assignments = () => {
   const { toast } = useToast();
   const { t, tr } = useLanguage();
 
+  const fmtTerm = (id: string) => {
+    const terms = academicSettings?.terms ?? [];
+    const match = terms.find((t: any) => t.id === id);
+    return match?.name || ({ term_1: "Term I", term_2: "Term II", term_3: "Term III" })[id] || id;
+  };
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [subjectDialogOpen, setSubjectDialogOpen] = useState(false);
+  const defaultTerm = academicSettings?.current_term_id ?? "term_1";
   const [formData, setFormData] = useState({
     teacher_id: "",
     class_id: "",
     subject_id: "",
-    term: "Term 1",
+    term: defaultTerm,
   });
   const [subjectForm, setSubjectForm] = useState({
     name: "",
@@ -232,7 +241,7 @@ const Assignments = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">{t("Master Assignment List")}</CardTitle>
-            <CardDescription>{t("Academic year 2024 active deployments")}</CardDescription>
+            <CardDescription>{t("Academic year")} {academicSettings?.current_year ?? new Date().getFullYear()} {t("active deployments")}</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -275,7 +284,7 @@ const Assignments = () => {
                             <span>{as.subject?.name}</span>
                           </div>
                         </TableCell>
-                        <TableCell>{as.term}</TableCell>
+                        <TableCell>{fmtTerm(as.term)}</TableCell>
                         <TableCell className="text-right">
                           <Button 
                             variant="ghost" 

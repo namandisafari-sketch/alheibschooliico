@@ -37,6 +37,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 interface UserActionsProps {
   user: any; // User type from UserManagement
+  onEdit?: () => void;
   onManagePermissions?: () => void;
   onWarn?: () => void;
   onMessage?: () => void;
@@ -100,6 +101,11 @@ export const UserActions = ({
           <DropdownMenuItem onClick={handleResetPassword}>
             <Key className="mr-2 h-4 w-4 text-zinc-400" /> Reset Password
           </DropdownMenuItem>
+          {onEdit && (
+            <DropdownMenuItem onClick={onEdit}>
+              <UserCheck className="mr-2 h-4 w-4 text-slate-500" /> Edit User
+            </DropdownMenuItem>
+          )}
           {onManagePermissions && (
             <DropdownMenuItem onClick={onManagePermissions}>
               <KeyRound className="mr-2 h-4 w-4 text-purple-500" /> Manage Permissions

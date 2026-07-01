@@ -4,6 +4,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { AssetUnderMyCustody } from "@/components/dashboard/AssetUnderMyCustody";
 import { 
   GraduationCap, 
   FileCheck, 
@@ -19,7 +20,8 @@ import {
   LayoutDashboard,
   Clock,
   UserCheck,
-  TrendingDown
+  TrendingDown,
+  Layers
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,32 +33,108 @@ const DosHome = () => {
   const { role } = useAuth();
   const isAdmin = role === "admin" || role === "director" || role === "center_director" || role === "dos" || role === "head_teacher";
 
-  // Real-time stats for the dashboard
+  type DosStatRow = {
+    pendingPlans: number;
+    activeWarnings: number;
+    activeTeachers: number;
+    totalClasses: number;
+    lowPerformanceCount: number;
+    upcomingExams: number;
+    syllabusCompletion: number;
+    syllabusCoverageCompleted: number;
+    syllabusCoverageTotal: number;
+    lessonPlanningCompliance: number;
+    lessonPlanApprovedCount: number;
+    lessonPlanTotal: number;
+    missingObservations: number;
+    unassignedExamSlots: number;
+    classPerformance: Array<{ name: string; average: number }>;
+  };
+
   const { data: stats = {
     pendingPlans: 0,
     activeWarnings: 0,
     activeTeachers: 0,
     totalClasses: 0,
     lowPerformanceCount: 0,
-    upcomingExams: 0
-  }} = useQuery({
+    upcomingExams: 0,
+    syllabusCompletion: 0,
+    syllabusCoverageCompleted: 0,
+    syllabusCoverageTotal: 0,
+    lessonPlanningCompliance: 0,
+    lessonPlanApprovedCount: 0,
+    lessonPlanTotal: 0,
+    missingObservations: 0,
+    unassignedExamSlots: 0,
+    classPerformance: []
+  } as DosStatRow} = useQuery({
     queryKey: ["dos-dashboard-stats"],
     queryFn: async () => {
-      const [plans, warnings, staff, classes, performance, exams] = await Promise.all([
-        supabase.from("lesson_plans").select("*", { count: "exact" }).eq("status", "pending"),
-        supabase.from("academic_warnings").select("*", { count: "exact" }).eq("status", "active"),
-        supabase.from("profiles").select("*", { count: "exact" }).eq("role", "teacher"),
-        supabase.from("classes").select("*", { count: "exact" }),
-        supabase.from("term_results").select("*", { count: "exact" }).lt("score", 50),
-        supabase.from("exam_series").select("*", { count: "exact" }).eq("status", "scheduled")
+      const safeCount = async (table: string, filter?: (q: any) => any) => {
+        try {
+          let q = supabase.from(table).select("id", { count: "exact", head: true });
+          if (filter) q = filter(q);
+          const { count, error } = await q;
+          return error ? { count: 0 } : { count: count ?? 0 };
+        } catch { return { count: 0 }; }
+      };
+
+      const [plans, warnings, staff, classCount, lowPerformance, scheduledExams, coverageTotal, coverageCompleted, lessonPlanTotal, approvedLessonPlans, pendingObservations, unassignedSlots, resultRows] = await Promise.all([
+        safeCount("lesson_plans", q => q.eq("status", "pending")),
+        safeCount("academic_warnings", q => q.eq("status", "active")),
+        safeCount("profiles", q => q.eq("role", "teacher")),
+        safeCount("classes"),
+        safeCount("term_results", q => q.lt("score", 50)),
+        safeCount("exam_series", q => q.eq("status", "scheduled")),
+        safeCount("syllabus_coverage"),
+        safeCount("syllabus_coverage", q => q.eq("status", "completed")),
+        safeCount("lesson_plans"),
+        safeCount("lesson_plans", q => q.eq("status", "approved")),
+        safeCount("lesson_observations", q => q.neq("status", "completed")),
+        safeCount("exam_timetable", q => q.or("room_id.is.null,invigilator_id.is.null")),
+        supabase.from("term_results").select("score, class:classes(name)").not("score", "is", null).catch(() => ({ data: [] })),
       ]);
+
+      const classAverages = new Map<string, { total: number; count: number }>();
+      const resultsData = resultRows && !(resultRows as any)?.error ? (resultRows as any)?.data || [] : [];
+      resultsData.forEach((row: any) => {
+        const name = row.class?.name || "Unknown class";
+        const score = Number(row.score ?? 0);
+        const existing = classAverages.get(name) || { total: 0, count: 0 };
+        existing.total += score;
+        existing.count += 1;
+        classAverages.set(name, existing);
+      });
+
+      const classPerformance = Array.from(classAverages.entries())
+        .map(([name, values]) => ({
+          name,
+          average: values.count > 0 ? Math.round(values.total / values.count) : 0,
+        }))
+        .sort((a, b) => b.average - a.average)
+        .slice(0, 3);
+
+      const completedCoverageCount = coverageCompleted?.count || 0;
+      const totalCoverageCount = coverageTotal?.count || 0;
+      const totalLessonPlanCount = lessonPlanTotal?.count || 0;
+      const approvedPlansCount = approvedLessonPlans?.count || 0;
+
       return {
-        pendingPlans: plans.count || 0,
-        activeWarnings: warnings.count || 0,
-        activeTeachers: staff.count || 0,
-        totalClasses: classes.count || 0,
-        lowPerformanceCount: performance.count || 0,
-        upcomingExams: exams.count || 0
+        pendingPlans: plans?.count || 0,
+        activeWarnings: warnings?.count || 0,
+        activeTeachers: staff?.count || 0,
+        totalClasses: classCount?.count || 0,
+        lowPerformanceCount: lowPerformance?.count || 0,
+        upcomingExams: scheduledExams?.count || 0,
+        syllabusCompletion: totalCoverageCount > 0 ? Math.round((completedCoverageCount / totalCoverageCount) * 100) : 0,
+        syllabusCoverageCompleted: completedCoverageCount,
+        syllabusCoverageTotal: totalCoverageCount,
+        lessonPlanningCompliance: totalLessonPlanCount > 0 ? Math.round((approvedPlansCount / totalLessonPlanCount) * 100) : 0,
+        lessonPlanApprovedCount: approvedPlansCount,
+        lessonPlanTotal: totalLessonPlanCount,
+        missingObservations: pendingObservations?.count || 0,
+        unassignedExamSlots: unassignedSlots?.count || 0,
+        classPerformance,
       };
     }
   });
@@ -132,8 +210,8 @@ const DosHome = () => {
                   </CardTitle>
                   <CardDescription>Curriculum oversight, assessment management & teacher quality</CardDescription>
                 </div>
-                <Button variant="outline" size="sm" className="hidden sm:flex font-bold text-xs uppercase tracking-tighter">
-                  Generate Academic Report
+                <Button variant="outline" size="sm" className="hidden sm:flex font-bold text-xs uppercase tracking-tighter" asChild>
+                  <Link to="/reports">Generate Academic Report</Link>
                 </Button>
               </div>
             </CardHeader>
@@ -143,11 +221,12 @@ const DosHome = () => {
                   { label: "Syllabus Coverage Tracking", icon: BookMarked, path: "/dos/syllabus", color: "text-emerald-500", desc: "Detailed completion analysis by teacher" },
                   { label: "Lesson Observation Log", icon: FileCheck, path: "/dos/lesson-tracking", color: "text-blue-500", desc: "Evaluate classroom teaching quality" },
                   { label: "Exam Scheduling & Series", icon: ClipboardList, path: "/dos/exams", color: "text-orange-500", desc: "Dates, papers, and invigilation" },
-                  { label: "Teacher Load Assignments", icon: Users, path: "/dos/assignments", color: "text-purple-500", desc: "Manage class and subject distributions" },
+                  { label: "Class Teachers", icon: UserCheck, path: "/dos/class-teachers", color: "text-blue-500", desc: "Assign homeroom teachers to each class" },
+                  { label: "Subject Load Assignments", icon: Users, path: "/dos/assignments", color: "text-purple-500", desc: "Manage subject-teacher allocations" },
                   { label: "Academic Timetable (Live)", icon: Calendar, path: "/dos/timetable", color: "text-indigo-500", desc: "Master school schedule adjustment" },
                   { label: "P7 PLE & Candidates", icon: GraduationCap, path: "/dos/p7-management", color: "text-red-500", desc: "UNEB registration & performance tracking" },
                   { label: "Results & Analysis", icon: TrendingUp, path: "/dos/analysis", color: "text-cyan-500", desc: "Deep dive into termly performance" },
-                  { label: "Departmental Coordination", icon: Users, path: "/dos/assignments", color: "text-pink-500", desc: "Manage subject assignments and departments" },
+                  { label: "Subject Load (Per Teacher)", icon: Layers, path: "/dos/subject-load", color: "text-pink-500", desc: "View and manage each teacher's subject load" },
                 ].map((action) => (
                   <Link to={action.path} key={action.label} className="p-6 hover:bg-muted/50 transition-all group relative overflow-hidden">
                     <div className="flex flex-col h-full">
@@ -176,37 +255,43 @@ const DosHome = () => {
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs font-bold">
                     <span>Syllabus Completion</span>
-                    <span className="text-emerald-600">68%</span>
+                    <span className="text-emerald-600">{stats.syllabusCompletion}%</span>
                   </div>
                   <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-500" style={{ width: '68%' }} />
+                    <div className="h-full bg-emerald-500" style={{ width: `${stats.syllabusCompletion}%` }} />
                   </div>
-                  <p className="text-[10px] text-muted-foreground italic">Target for this week: 75%</p>
+                  <p className="text-[10px] text-muted-foreground italic">
+                    {stats.syllabusCoverageCompleted}/{stats.syllabusCoverageTotal} coverage records completed
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs font-bold">
                     <span>Lesson Planning Compliance</span>
-                    <span className="text-blue-600">92%</span>
+                    <span className="text-blue-600">{stats.lessonPlanningCompliance}%</span>
                   </div>
                   <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500" style={{ width: '92%' }} />
+                    <div className="h-full bg-blue-500" style={{ width: `${stats.lessonPlanningCompliance}%` }} />
                   </div>
-                  <p className="text-[10px] text-muted-foreground italic">3 Teachers yet to submit</p>
+                  <p className="text-[10px] text-muted-foreground italic">
+                    {stats.lessonPlanApprovedCount}/{stats.lessonPlanTotal} lesson plans approved
+                  </p>
                 </div>
                 <div className="pt-2 border-t mt-4">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[10px] font-bold uppercase text-slate-400">Class Performance</span>
                   </div>
                   <div className="space-y-2">
-                    {['P7 North', 'P6 Blue', 'P5 Red'].map((cls, i) => (
-                      <div key={cls} className="flex items-center justify-between text-[11px]">
-                        <span className="font-medium text-slate-600">{cls}</span>
+                    {stats.classPerformance.length > 0 ? stats.classPerformance.map((cls) => (
+                      <div key={cls.name} className="flex items-center justify-between text-[11px]">
+                        <span className="font-medium text-slate-600">{cls.name}</span>
                         <div className="flex items-center gap-2">
-                          <div className={`h-1.5 w-1.5 rounded-full ${i === 0 ? 'bg-emerald-500' : 'bg-orange-500'}`} />
-                          <span className="font-bold">{85 - i * 5}%</span>
+                          <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          <span className="font-bold">{cls.average}%</span>
                         </div>
                       </div>
-                    ))}
+                    )) : (
+                      <p className="text-[11px] text-slate-500">No class result data available yet.</p>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -227,20 +312,20 @@ const DosHome = () => {
                 <div className="space-y-2">
                   <div className="flex items-center gap-3 p-2.5 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors cursor-pointer group">
                     <div className="h-8 w-8 rounded bg-orange-500/20 flex items-center justify-center text-orange-400 font-bold text-xs ring-1 ring-orange-500/30">
-                      3
+                      {stats.unassignedExamSlots}
                     </div>
                     <div>
-                      <p className="text-[11px] font-bold">Unvalidated Exam Results</p>
-                      <p className="text-[9px] text-slate-400 tracking-tight">P6 Mid-Term Series II</p>
+                      <p className="text-[11px] font-bold">Unassigned Exam Slots</p>
+                      <p className="text-[9px] text-slate-400 tracking-tight">Room or invigilator missing</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-2.5 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors cursor-pointer group">
                     <div className="h-8 w-8 rounded bg-blue-500/20 flex items-center justify-center text-blue-400 font-bold text-xs ring-1 ring-blue-500/30">
-                      12
+                      {stats.missingObservations}
                     </div>
                     <div>
                       <p className="text-[11px] font-bold">Missing Lesson Observations</p>
-                      <p className="text-[9px] text-slate-400 tracking-tight">Week 8 Academic Review</p>
+                      <p className="text-[9px] text-slate-400 tracking-tight">Open teaching reviews</p>
                     </div>
                   </div>
                 </div>
@@ -252,6 +337,7 @@ const DosHome = () => {
           </div>
         </div>
       </div>
+      <AssetUnderMyCustody />
     </DashboardLayout>
   );
 };

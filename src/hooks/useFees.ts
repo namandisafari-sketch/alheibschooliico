@@ -112,7 +112,7 @@ export const useStudentBalances = () =>
     queryFn: async () => {
       const [{ data: learners }, { data: structures }, { data: payments }, { data: assignments }] =
         await Promise.all([
-          supabase.from("learners").select("id, full_name, admission_number, class_id, classes(name, level)").eq("status", "active"),
+          supabase.from("learners").select("id, full_name, admission_number, class_id, pupil_status, status, classes(name, level)").eq("status", "active"),
           supabase.from("fee_structures").select("*").eq("is_active", true),
           supabase.from("fee_payments").select("learner_id, amount"),
           supabase.from("fee_assignments").select("*"),

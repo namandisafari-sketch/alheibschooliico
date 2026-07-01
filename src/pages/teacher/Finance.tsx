@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -10,12 +10,29 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApplyAdvanceDialog } from "@/components/finance/ApplyAdvanceDialog";
 import { useQuery } from "@tanstack/react-query";
+import { exportEarningsStatement, exportPayslip } from "@/lib/pdfExport";
 
 const TeacherFinance = () => {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const [rows, setRows] = useState<any[]>([]);
   const [loadingSalaries, setLoadingSalaries] = useState(true);
   const [isApplyOpen, setIsApplyOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const { data: employee } = useQuery({
+    queryKey: ["my-employee-profile", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from("employees")
+        .select("*")
+        .eq("profile_id", user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id
+  });
 
   const { data: advances = [], isLoading: loadingAdvances } = useQuery({
     queryKey: ["my-advances", user?.id],
@@ -58,6 +75,26 @@ const TeacherFinance = () => {
   const totalYTD = rows.reduce((s, r) => s + Number(r.net_pay || 0), 0);
   const lastPayslip = rows[0];
 
+  const handleExportStatement = useCallback(async () => {
+    if (rows.length === 0) return;
+    setExporting(true);
+    try {
+      await exportEarningsStatement(rows, employee, user?.user_metadata?.full_name || employee?.full_name || "Staff Member");
+    } catch (err) {
+      console.error("Export failed:", err);
+    } finally {
+      setExporting(false);
+    }
+  }, [rows, employee, user]);
+
+  const handleExportPayslip = useCallback(async (row: any) => {
+    try {
+      await exportPayslip(row, employee, user?.user_metadata?.full_name || employee?.full_name || "Staff Member");
+    } catch (err) {
+      console.error("Payslip export failed:", err);
+    }
+  }, [employee, user]);
+
   const getStatusBadge = (stage: string) => {
     switch (stage) {
       case "submitted": return <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 gap-1"><Clock className="h-3 w-3" /> Submitted</Badge>;
@@ -69,8 +106,13 @@ const TeacherFinance = () => {
     }
   };
 
+  const pageTitle = role === "gateman" ? "Gate Finance" : "My Finance";
+  const pageSubtitle = role === "gateman"
+    ? "Payslips, advances and allowances for gate staff"
+    : "Electronic Payslips & Earnings History";
+
   return (
-    <DashboardLayout title="My Finance" subtitle="Electronic Payslips & Earnings History">
+    <DashboardLayout title={pageTitle} subtitle={pageSubtitle}>
       <div className="space-y-6">
         <div className="grid gap-4 md:grid-cols-3">
           <Card className="bg-slate-900 text-white border-none shadow-xl">
@@ -140,8 +182,8 @@ const TeacherFinance = () => {
                   <CardTitle className="text-lg font-bold">Earnings History</CardTitle>
                   <CardDescription>Monthly disbursement details for the past 12 months</CardDescription>
                 </div>
-                <Button variant="outline" size="sm" className="h-8 gap-2 text-xs font-bold">
-                  <Download className="h-3 w-3" /> Export Statement
+                <Button variant="outline" size="sm" className="h-8 gap-2 text-xs font-bold" onClick={handleExportStatement} disabled={exporting || rows.length === 0}>
+                  <Download className="h-3 w-3" /> {exporting ? "Exporting..." : "Export Statement"}
                 </Button>
               </CardHeader>
               <CardContent className="p-0">
@@ -181,7 +223,7 @@ const TeacherFinance = () => {
                             <td className="px-6 py-4 text-emerald-600">+UGX {Number(r.bonuses || 0).toLocaleString()}</td>
                             <td className="px-6 py-4 text-right font-black">UGX {Number(r.net_pay || 0).toLocaleString()}</td>
                             <td className="px-6 py-4 text-right">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-200">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-200" onClick={() => handleExportPayslip(r)} title="Download Payslip">
                                 <Download className="h-4 w-4" />
                               </Button>
                             </td>
@@ -246,7 +288,7 @@ const TeacherFinance = () => {
               <CardContent className="space-y-3">
                 <div className="flex justify-between text-[11px] border-b pb-2">
                   <span className="text-muted-foreground">TIN Number</span>
-                  <span className="font-mono font-bold tracking-tight">100-XXXX-XXXX</span>
+                  <span className="font-mono font-bold tracking-tight">{employee?.tin_number || "100-XXXX-XXXX"}</span>
                 </div>
                 <div className="flex justify-between text-[11px] border-b pb-2">
                   <span className="text-muted-foreground">Tax Scheme</span>

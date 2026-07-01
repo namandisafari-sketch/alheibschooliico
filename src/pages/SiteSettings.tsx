@@ -31,9 +31,9 @@ import {
   ExternalLink
 } from "lucide-react";
 import { useSchools, useUpdateSchool, useCreateSchool, School } from "@/hooks/useSchools";
+import { useClasses } from "@/hooks/useClasses";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAcademicSettings, useUpdateAcademicSettings, AcademicSettings } from "@/hooks/useAcademicSettings";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
@@ -51,6 +51,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Droplets, Warehouse, PlusCircle, Trash2 } from "lucide-react";
 import { DataExportCard } from "@/components/settings/DataExportCard";
+import { EmailSettingsCard } from "@/components/settings/EmailSettingsCard";
 
 
 const DEFAULT_ID_CARD: IdCardSettings = {
@@ -72,6 +73,7 @@ const DEFAULT_ID_CARD: IdCardSettings = {
 
 const SiteSettings = () => {
   const { t, isRTL } = useLanguage();
+  const [activeTab, setActiveTab] = useState("profile");
   const { data: idCardSettings, isLoading: isIdLoading } = useIdCardSettings();
   const { data: academicSettings, isLoading: isAcademicLoading } = useAcademicSettings();
   const updateIdCardSettings = useUpdateIdCardSettings();
@@ -89,6 +91,7 @@ const SiteSettings = () => {
 
   const { data: infrastructure = [] } = useInfrastructure(activeSchool?.id);
   const { data: sanitation = [] } = useSanitation(activeSchool?.id);
+  const { data: classes = [] } = useClasses();
   const updateInfra = useUpdateInfrastructure();
   const updateWash = useUpdateSanitation();
   const deleteInfra = useDeleteInfrastructure();
@@ -107,6 +110,25 @@ const SiteSettings = () => {
   useEffect(() => {
     if (academicSettings) setAcademic(academicSettings);
   }, [academicSettings]);
+
+  // Respect URL hash to open specific tab and scroll
+  useEffect(() => {
+    const applyHash = () => {
+      const hash = window.location.hash.replace("#", "");
+      if (!hash) return;
+      if (hash === "wash" || hash === "infrastructure") {
+        setActiveTab("wash");
+        // scroll to the infrastructure section when present
+        setTimeout(() => {
+          const el = document.getElementById("infrastructure");
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 50);
+      }
+    };
+    applyHash();
+    window.addEventListener("hashchange", applyHash);
+    return () => window.removeEventListener("hashchange", applyHash);
+  }, []);
 
   const handleSignatureUpload = async (file: File, type: "director" | "head_teacher") => {
     const setLoad = type === "director" ? setUploadingDir : setUploadingHead;
@@ -326,7 +348,7 @@ const SiteSettings = () => {
           </CardHeader>
           <CardContent className="pt-6">
             {activeSchool ? (
-              <UiTabs defaultValue="profile" className="w-full">
+                <UiTabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <UiTabsList className="grid w-full grid-cols-2 mb-8">
                   <UiTabsTrigger value="profile" className="gap-2">
                     <Building2 className="h-4 w-4" /> Institutional Profile
@@ -557,7 +579,7 @@ const SiteSettings = () => {
                   </div>
                 </UiTabsContent>
 
-                <UiTabsContent value="wash" className="space-y-12">
+                <UiTabsContent id="infrastructure" value="wash" className="space-y-12">
                   {/* Infrastructure Section */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between border-b pb-2">
@@ -584,6 +606,11 @@ const SiteSettings = () => {
                         <PlusCircle className="h-4 w-4" /> Add Asset
                       </Button>
                     </div>
+                    {infrastructure.length === 0 && classes.some((cls) => cls.room) && (
+                      <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-primary">
+                        Showing classrooms inferred from existing class records. To manage physical rooms directly, add infrastructure assets below.
+                      </div>
+                    )}
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -595,7 +622,28 @@ const SiteSettings = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {infrastructure.length === 0 ? (
+                        {infrastructure.length === 0 && classes.some((cls) => cls.room) ? (
+                          classes.filter((cls) => cls.room).map((cls) => (
+                            <TableRow key={cls.id}>
+                              <TableCell className="capitalize font-medium">classroom</TableCell>
+                              <TableCell>
+                                <div className="space-y-1 text-sm">
+                                  <div>{cls.room}</div>
+                                  <div className="text-xs text-muted-foreground">Class: {cls.name}</div>
+                                </div>
+                              </TableCell>
+                              <TableCell>{cls.capacity ?? 0}</TableCell>
+                              <TableCell>
+                                <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-emerald-700">usable</span>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 opacity-50 hover:opacity-100" disabled>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : infrastructure.length === 0 ? (
                           <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground italic">No infrastructure records found.</TableCell></TableRow>
                         ) : (
                           infrastructure.map((item) => (
@@ -734,6 +782,7 @@ const SiteSettings = () => {
                     </Table>
                   </div>
                 </UiTabsContent>
+
               </UiTabs>
             ) : isSchoolsError ? (
               <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
@@ -789,6 +838,8 @@ const SiteSettings = () => {
         </Card>
 
         <DataExportCard />
+
+        <EmailSettingsCard />
       </div>
 
     </DashboardLayout>

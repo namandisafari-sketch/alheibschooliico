@@ -756,6 +756,7 @@ CREATE TABLE public.salary_payments (
   payment_date DATE NOT NULL DEFAULT CURRENT_DATE,
   payment_method TEXT DEFAULT 'bank_transfer',
   reference_number TEXT,
+  receipt_number TEXT UNIQUE,
   status TEXT DEFAULT 'completed',
   notes TEXT,
   paid_by UUID REFERENCES public.profiles(id),
@@ -963,6 +964,7 @@ CREATE TABLE public.fee_payments (
 CREATE INDEX idx_fee_payments_learner ON public.fee_payments(learner_id);
 CREATE INDEX idx_fee_payments_date ON public.fee_payments(payment_date DESC);
 CREATE INDEX idx_fee_payments_receipt ON public.fee_payments(receipt_number);
+CREATE INDEX IF NOT EXISTS idx_salary_payments_receipt ON public.salary_payments(receipt_number);
 
 -- Bursar red list rules
 CREATE TABLE public.bursar_rules (
@@ -5286,6 +5288,17 @@ CREATE POLICY "adv update" ON public.advance_requests FOR UPDATE TO authenticate
     OR public.has_role(auth.uid(),'director')
     OR public.has_role(auth.uid(),'accountant')
     OR public.has_role(auth.uid(),'manager'));
+
+-- Add orphan_supervisor role to app_role enum
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'orphan_supervisor';
+-- Add matron role to app_role enum
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'matron';
+-- Add cook role to app_role enum
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'cook';
+-- Add store_manager role to app_role enum
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'store_manager';
+-- Add manager role to app_role enum
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'manager';
 
 -- Refresh PostgREST schema cache so new columns are visible to the API immediately
 NOTIFY pgrst, 'reload schema';
