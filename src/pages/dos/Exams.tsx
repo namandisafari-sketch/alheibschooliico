@@ -48,7 +48,7 @@ const Exams = () => {
   const [seriesOpen, setSeriesOpen] = useState(false);
   const [slotOpen, setSlotOpen] = useState(false);
   const [newSeries, setNewSeries] = useState({ name: "", academic_year: "", term: "", start_date: "", end_date: "" });
-  const [newSlot, setNewSlot] = useState({ exam_date: "", start_time: "", duration_minutes: "60", class_id: "", subject_id: "", invigilator_id: "", room_id: "" });
+  const [newSlot, setNewSlot] = useState({ exam_date: "", start_time: "", end_time: "", class_id: "", subject_id: "", invigilator_id: "", room_id: "" });
 
   const createSeries = useMutation({
     mutationFn: async () => {
@@ -70,13 +70,22 @@ const Exams = () => {
     onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const calcDuration = (start: string, end: string) => {
+    if (!start || !end) return 120;
+    const [sh, sm] = start.split(":").map(Number);
+    const [eh, em] = end.split(":").map(Number);
+    return (eh * 60 + em) - (sh * 60 + sm);
+  };
+
   const createSlot = useMutation({
     mutationFn: async () => {
+      const duration = calcDuration(newSlot.start_time, newSlot.end_time);
       const { error } = await supabase.from("exam_timetable").insert({
         series_id: selectedSeries,
         exam_date: newSlot.exam_date,
         start_time: newSlot.start_time,
-        duration_minutes: Number(newSlot.duration_minutes),
+        end_time: newSlot.end_time || null,
+        duration_minutes: duration > 0 ? duration : 120,
         class_id: newSlot.class_id || null,
         subject_id: newSlot.subject_id || null,
         invigilator_id: newSlot.invigilator_id || null,
@@ -87,7 +96,7 @@ const Exams = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["exam-timetable"] });
       setSlotOpen(false);
-      setNewSlot({ exam_date: "", start_time: "", duration_minutes: "60", class_id: "", subject_id: "", invigilator_id: "", room_id: "" });
+      setNewSlot({ exam_date: "", start_time: "", end_time: "", class_id: "", subject_id: "", invigilator_id: "", room_id: "" });
       toast({ title: "Slot added" });
     },
     onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -172,7 +181,7 @@ const Exams = () => {
                     <div><Label>Start Time</Label><Input type="time" value={newSlot.start_time} onChange={(e) => setNewSlot(p => ({ ...p, start_time: e.target.value }))} /></div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div><Label>Duration (min)</Label><Input type="number" min={15} step={5} value={newSlot.duration_minutes} onChange={(e) => setNewSlot(p => ({ ...p, duration_minutes: e.target.value }))} /></div>
+                    <div><Label>End Time</Label><Input type="time" value={newSlot.end_time} onChange={(e) => setNewSlot(p => ({ ...p, end_time: e.target.value }))} /></div>
                     <div>
                     <Label>Room</Label>
                     <div>
@@ -294,7 +303,8 @@ const Exams = () => {
                   <TableHeader className="bg-muted/50">
                     <TableRow>
                       <TableHead>Date</TableHead>
-                      <TableHead>Time</TableHead>
+                      <TableHead>Start</TableHead>
+                      <TableHead>End</TableHead>
                       <TableHead>Class</TableHead>
                       <TableHead>Subject</TableHead>
                       <TableHead>Invigilator</TableHead>
@@ -311,7 +321,12 @@ const Exams = () => {
                           <div className="flex items-center gap-1">
                             <Clock className="h-3 w-3 text-muted-foreground" />
                             <span>{slot.start_time.slice(0, 5)}</span>
-                            <span className="text-xs text-muted-foreground">({slot.duration_minutes}m)</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3 text-muted-foreground" />
+                            <span>{slot.end_time ? slot.end_time.slice(0, 5) : `${slot.duration_minutes}m`}</span>
                           </div>
                         </TableCell>
                         <TableCell>{slot.class?.name}</TableCell>
