@@ -773,7 +773,7 @@ const MarksEntry = () => {
                 <FileText className="mr-1.5 h-3.5 w-3.5" />
                 Reports
               </Button>
-              {isFormative && selectedLearner && (
+              {(isFormative || isUnscoped) && selectedLearner && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -887,8 +887,8 @@ const MarksEntry = () => {
         </Card>
       )}
 
-      {/* Score Card dialog — only for formative assessments */}
-      {isFormative && (
+      {/* Score Card dialog */}
+      {(isFormative || isUnscoped) && (
         <Dialog open={!!scoreCardLearnerId} onOpenChange={(o) => !o && setScoreCardLearnerId(null)}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
