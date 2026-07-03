@@ -11,9 +11,8 @@ import { useExamSeries, useExamTimetable } from "@/hooks/useAcademicPlanning";
 import { useClasses } from "@/hooks/useClasses";
 import { useSubjects } from "@/hooks/useSubjects";
 import { useStaff } from "@/hooks/useStaff";
-import { FileText, Calendar, Clock, MapPin, User, Plus, Loader2 } from "lucide-react";
+import { FileText, Calendar, Clock, MapPin, User, Plus, Loader2, ChevronRight } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -298,58 +297,81 @@ const Exams = () => {
               </Button>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader className="bg-muted/50">
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Start</TableHead>
-                      <TableHead>End</TableHead>
-                      <TableHead>Class</TableHead>
-                      <TableHead>Subject</TableHead>
-                      <TableHead>Invigilator</TableHead>
-                      <TableHead>Room</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {timetable.map((slot) => (
-                      <TableRow key={slot.id}>
-                        <TableCell className="font-medium">
-                          {format(new Date(slot.exam_date), "EEE, MMM d")}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3 text-muted-foreground" />
-                            <span>{slot.start_time.slice(0, 5)}</span>
+              {(() => {
+                const groups: Record<string, Record<string, typeof timetable>> = {};
+                for (const slot of timetable) {
+                  const d = slot.exam_date;
+                  const t = slot.start_time.slice(0, 5);
+                  (groups[d] ??= {})[t] ??= [];
+                  groups[d][t].push(slot);
+                }
+                const sortedDates = Object.keys(groups).sort();
+                return (
+                  <div className="space-y-8">
+                    {sortedDates.map((date) => {
+                      const timeSlots = groups[date];
+                      const sortedTimes = Object.keys(timeSlots).sort();
+                      const totalSlots = sortedTimes.reduce((s, t) => s + timeSlots[t].length, 0);
+                      return (
+                        <div key={date}>
+                          <div className="flex items-center gap-2 mb-3">
+                            <Calendar className="h-4 w-4 text-primary" />
+                            <h3 className="font-semibold text-base">
+                              {format(new Date(date), "EEEE, MMMM d, yyyy")}
+                            </h3>
+                            <Badge variant="outline" className="text-xs font-normal">
+                              {totalSlots} slot{totalSlots !== 1 ? "s" : ""}
+                            </Badge>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3 text-muted-foreground" />
-                            <span>{slot.end_time ? slot.end_time.slice(0, 5) : `${slot.duration_minutes}m`}</span>
+                          <div className="space-y-4 pl-6 border-l-2 border-muted">
+                            {sortedTimes.map((time) => {
+                              const slots = timeSlots[time];
+                              const first = slots[0];
+                              return (
+                                <div key={time}>
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                                    <span className="font-medium text-sm">{time}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      — {first.end_time ? first.end_time.slice(0, 5) : `${first.duration_minutes}m`}
+                                    </span>
+                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+                                      {slots.length}
+                                    </Badge>
+                                  </div>
+                                  <div className="grid gap-2">
+                                    {slots.map((slot) => (
+                                      <div
+                                        key={slot.id}
+                                        className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border bg-card px-4 py-2.5 text-sm"
+                                      >
+                                        <span className="font-medium min-w-[120px]">
+                                          {slot.class?.name || "—"}
+                                        </span>
+                                        <Badge variant="secondary" className="text-xs">
+                                          {slot.subject?.name || "—"}
+                                        </Badge>
+                                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                          <User className="h-3 w-3" />
+                                          {slot.invigilator?.full_name || "Unassigned"}
+                                        </span>
+                                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                          <MapPin className="h-3 w-3" />
+                                          {roomName(slot.room_id)}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
-                        </TableCell>
-                        <TableCell>{slot.class?.name}</TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">{slot.subject?.name}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1 text-xs">
-                            <User className="h-3 w-3 text-muted-foreground" />
-                            <span>{slot.invigilator?.full_name || "Unassigned"}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1 text-xs">
-                            <MapPin className="h-3 w-3 text-muted-foreground" />
-                            <span>{roomName(slot.room_id)}</span>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
         )}
