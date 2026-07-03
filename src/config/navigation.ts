@@ -39,6 +39,7 @@ import {
   Utensils,
   Plane,
   Scissors,
+  LayoutGrid,
 } from "lucide-react";
 import { AppRole } from "@/hooks/useAuth";
 
@@ -96,6 +97,7 @@ export const navSections: NavSection[] = [
       { icon: PenLine, labelKey: "Scheme of Work", path: "/dos/scheme-of-work", roles: ["admin", "head_teacher", "teacher", "dos"] },
       { icon: BarChart3, labelKey: "Syllabus Coverage", path: "/dos/syllabus-coverage", roles: ["admin", "head_teacher", "dos"] },
       { icon: FileText, labelKey: "Syllabus Reports", path: "/dos/syllabus-reports", roles: ["admin", "head_teacher", "dos"] },
+      { icon: LayoutGrid, labelKey: "Seating Plans", path: "/dos/seating-plans", roles: ["admin", "head_teacher", "dos"] },
       { icon: Bed, labelKey: "Hostel Oversight", path: "/dos/hostel", roles: ["admin", "head_teacher", "dos"] },
     ],
   },

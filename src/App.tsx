@@ -138,6 +138,7 @@ const DosSyllabusCoverage = lazy(() => import("./pages/dos/SyllabusCoverageDashb
 const DosSyllabusReports = lazy(() => import("./pages/dos/SyllabusReports"));
 const DosClassTeachers = lazy(() => import("./pages/dos/ClassTeachers"));
 const DosGradingScales = lazy(() => import("./pages/dos/GradingScaleConfig"));
+const DosSeatingPlans = lazy(() => import("./pages/dos/SeatingPlanManagement"));
 
 // Nurse Pages
 const NurseClinic = lazy(() => import("./pages/nurse/Clinic"));
@@ -693,6 +694,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
                   <DosGradingScales />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dos/seating-plans"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
+                  <DosSeatingPlans />
                 </ProtectedRoute>
               }
             />
