@@ -1,0 +1,1 @@
+-- Budget Files Storage Bucket Setup (already applied in consolidated schema)

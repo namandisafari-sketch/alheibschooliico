@@ -1,0 +1,9 @@
+{
+  "buildCommand": "bash scripts/build.sh",
+  "outputDirectory": "dist",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

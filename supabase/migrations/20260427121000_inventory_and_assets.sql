@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS public.inventory_stock (
 DO $$ 
 BEGIN 
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'inventory_transaction_type') THEN
-        CREATE TYPE inventory_transaction_type AS ENUM ('restock', 'issuance', 'return', 'adjustment', 'damage');
+        CREATE TYPE IF NOT EXISTS inventory_transaction_type AS ENUM ('restock', 'issuance', 'return', 'adjustment', 'damage');
     END IF;
 END $$;
 

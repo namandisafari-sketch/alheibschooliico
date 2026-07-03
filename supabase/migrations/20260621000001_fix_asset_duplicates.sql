@@ -23,3 +23,10 @@ USING (
   WHERE serial_number IS NULL AND asset_tag_id IS NULL
 ) dup
 WHERE a.id = dup.id AND dup.rn > 1;
+
+-- Fix timetable UNIQUE constraint to include term
+ALTER TABLE public.class_timetables
+  DROP CONSTRAINT IF EXISTS uq_class_slot;
+
+ALTER TABLE public.class_timetables
+  ADD CONSTRAINT uq_class_slot UNIQUE (class_id, day_of_week, start_time, term);

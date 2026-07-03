@@ -2,16 +2,28 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Create enum for competency levels (Uganda New Curriculum)
-CREATE TYPE competency_level AS ENUM ('exceeding', 'meeting', 'approaching', 'beginning');
+DO $$ BEGIN
+  CREATE TYPE competency_level AS ENUM ('exceeding', 'meeting', 'approaching', 'beginning');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Create enum for gender
-CREATE TYPE gender_type AS ENUM ('male', 'female');
+DO $$ BEGIN
+  CREATE TYPE gender_type AS ENUM ('male', 'female');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Create enum for attendance status
-CREATE TYPE attendance_status AS ENUM ('present', 'absent', 'late', 'excused');
+DO $$ BEGIN
+  CREATE TYPE attendance_status AS ENUM ('present', 'absent', 'late', 'excused');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Create enum for term
-CREATE TYPE term_type AS ENUM ('term_1', 'term_2', 'term_3');
+DO $$ BEGIN
+  CREATE TYPE term_type AS ENUM ('term_1', 'term_2', 'term_3');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Create profiles table for authenticated users (teachers/admin)
 CREATE TABLE public.profiles (

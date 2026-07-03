@@ -16,3 +16,4 @@ scripts/*.json
 scripts/*.txt
 translation_candidates.txt
 *.bak
+.vercel

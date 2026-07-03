@@ -1,4 +1,20 @@
 
+-- Forward-declare has_role function since this migration runs before it's defined elsewhere
+CREATE OR REPLACE FUNCTION public.has_role(_role_name TEXT, _user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.user_roles
+    WHERE user_id = _user_id
+      AND role::text = _role_name
+  )
+$$;
+
 -- Create Homework table
 CREATE TABLE IF NOT EXISTS homework (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -14,8 +30,7 @@ CREATE TABLE IF NOT EXISTS homework (
 );
 
 -- Enable RLS for homework
-ALTER TABLE homework ENABLE CONTROL;
-ALTER TABLE homework ENABLE RLS;
+ALTER TABLE homework ENABLE ROW LEVEL SECURITY;
 
 -- Create Homework Submissions table
 CREATE TABLE IF NOT EXISTS homework_submissions (
@@ -33,8 +48,7 @@ CREATE TABLE IF NOT EXISTS homework_submissions (
 );
 
 -- Enable RLS for homework_submissions
-ALTER TABLE homework_submissions ENABLE CONTROL;
-ALTER TABLE homework_submissions ENABLE RLS;
+ALTER TABLE homework_submissions ENABLE ROW LEVEL SECURITY;
 
 -- Create Homework Resources table
 CREATE TABLE IF NOT EXISTS homework_resources (
@@ -49,8 +63,7 @@ CREATE TABLE IF NOT EXISTS homework_resources (
 );
 
 -- Enable RLS for homework_resources
-ALTER TABLE homework_resources ENABLE CONTROL;
-ALTER TABLE homework_resources ENABLE RLS;
+ALTER TABLE homework_resources ENABLE ROW LEVEL SECURITY;
 
 -- Policies for homework
 CREATE POLICY "Public homework are viewable by everyone" ON homework
