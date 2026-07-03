@@ -123,22 +123,14 @@ const AccountantTaxReports = lazy(() => import("./pages/accountant/TaxReports"))
 const AccountantFeesTracking = lazy(() => import("./pages/accountant/FeesTracking"));
 const AccountantFees = lazy(() => import("./pages/FeeManagement"));
 
+// Admin Tools
+const AdminTools = lazy(() => import("./pages/AdminTools"));
+
 // DOS Pages
 const DosTimetable = lazy(() => import("./pages/dos/Timetable"));
-const DosSyllabus = lazy(() => import("./pages/dos/Syllabus"));
-const DosExams = lazy(() => import("./pages/dos/Exams"));
-const DosAssignments = lazy(() => import("./pages/dos/Assignments"));
-const DosLessonTracking = lazy(() => import("./pages/dos/LessonTracking"));
-const P7Mgt = lazy(() => import("./pages/dos/P7Mgt"));
-const DosAnalysis = lazy(() => import("./pages/dos/Analysis"));
-const DosSubjects = lazy(() => import("./pages/dos/Subjects"));
-const DosCurriculumSetup = lazy(() => import("./pages/dos/CurriculumSetup"));
-const DosSchemeOfWork = lazy(() => import("./pages/dos/SchemeOfWork"));
-const DosSyllabusCoverage = lazy(() => import("./pages/dos/SyllabusCoverageDashboard"));
-const DosSyllabusReports = lazy(() => import("./pages/dos/SyllabusReports"));
-const DosClassTeachers = lazy(() => import("./pages/dos/ClassTeachers"));
-const DosGradingScales = lazy(() => import("./pages/dos/GradingScaleConfig"));
-const DosSeatingPlans = lazy(() => import("./pages/dos/SeatingPlanManagement"));
+const DosAcademicTools = lazy(() => import("./pages/dos/AcademicTools"));
+const DosExamsGrading = lazy(() => import("./pages/dos/ExamsGrading"));
+const DosLearnersClasses = lazy(() => import("./pages/dos/LearnersClasses"));
 
 // Nurse Pages
 const NurseClinic = lazy(() => import("./pages/nurse/Clinic"));
@@ -211,7 +203,6 @@ const TeacherRequests = lazy(() => import("./pages/teacher/Requests"));
 const TeacherLetters = lazy(() => import("./pages/teacher/Letters"));
 const TeacherLessonRegister = lazy(() => import("./pages/teacher/LessonRegister"));
 const TeacherMyStudents = lazy(() => import("./pages/teacher/MyStudents"));
-const DosSubjectLoad = lazy(() => import("./pages/dos/SubjectLoad"));
 const DosIPLE = lazy(() => import("./pages/dos/IPLE"));
 const DosTheologyHomePage = lazy(() => import("./pages/dos/DosTheologyHome"));
 
@@ -525,6 +516,16 @@ const App = () => (
               }
             />
 
+            {/* Admin Tools Hub */}
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "head_teacher", "deputy_head_teacher"]}>
+                  <AdminTools />
+                </ProtectedRoute>
+              }
+            />
+
             {/* Theology DOS Home — distinct from secular DOS */}
             <Route
               path="/theology"
@@ -563,121 +564,10 @@ const App = () => (
               }
             />
             <Route
-              path="/dos/syllabus"
-              element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
-                  <DosSyllabus />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dos/exams"
-              element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
-                  <DosExams />
-                </ProtectedRoute>
-              }
-            />
-            <Route
               path="/dos/hostel"
               element={
                 <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
                   <DosHostel />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dos/p7-management"
-              element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
-                  <P7Mgt />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dos/assignments"
-              element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
-                  <DosAssignments />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dos/subject-load"
-              element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
-                  <DosSubjectLoad />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dos/departments"
-              element={
-                <Navigate to="/dos/assignments" replace />
-              }
-            />
-            <Route
-              path="/dos/lesson-tracking"
-              element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
-                  <DosLessonTracking />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dos/analysis"
-              element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
-                  <DosAnalysis />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dos/subjects"
-              element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
-                  <DosSubjects />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dos/curriculum-setup"
-              element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
-                  <DosCurriculumSetup />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dos/scheme-of-work"
-              element={
-                <ProtectedRoute allowedRoles={["admin", "teacher", "dos", "head_teacher", "deputy_head_teacher"]}>
-                  <DosSchemeOfWork />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dos/syllabus-coverage"
-              element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
-                  <DosSyllabusCoverage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dos/syllabus-reports"
-              element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
-                  <DosSyllabusReports />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/dos/class-teachers"
-              element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher", "center_director", "director"]}>
-                  <DosClassTeachers />
                 </ProtectedRoute>
               }
             />
@@ -689,22 +579,50 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+
+            {/* Consolidated DOS pages */}
             <Route
-              path="/dos/grading-scales"
+              path="/dos/academic-tools"
               element={
                 <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
-                  <DosGradingScales />
+                  <DosAcademicTools />
                 </ProtectedRoute>
               }
             />
             <Route
-              path="/dos/seating-plans"
+              path="/dos/exams-grading"
               element={
                 <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
-                  <DosSeatingPlans />
+                  <DosExamsGrading />
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/dos/learners-classes"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher", "center_director", "director"]}>
+                  <DosLearnersClasses />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Legacy DOS redirects */}
+            <Route path="/dos/subjects" element={<Navigate to="/dos/academic-tools" replace />} />
+            <Route path="/dos/curriculum-setup" element={<Navigate to="/dos/academic-tools" replace />} />
+            <Route path="/dos/subject-load" element={<Navigate to="/dos/academic-tools" replace />} />
+            <Route path="/dos/scheme-of-work" element={<Navigate to="/dos/academic-tools" replace />} />
+            <Route path="/dos/syllabus" element={<Navigate to="/dos/academic-tools" replace />} />
+            <Route path="/dos/syllabus-coverage" element={<Navigate to="/dos/academic-tools" replace />} />
+            <Route path="/dos/syllabus-reports" element={<Navigate to="/dos/academic-tools" replace />} />
+            <Route path="/dos/lesson-tracking" element={<Navigate to="/dos/academic-tools" replace />} />
+            <Route path="/dos/exams" element={<Navigate to="/dos/exams-grading" replace />} />
+            <Route path="/dos/seating-plans" element={<Navigate to="/dos/exams-grading" replace />} />
+            <Route path="/dos/grading-scales" element={<Navigate to="/dos/exams-grading" replace />} />
+            <Route path="/dos/analysis" element={<Navigate to="/dos/exams-grading" replace />} />
+            <Route path="/dos/p7-management" element={<Navigate to="/dos/learners-classes" replace />} />
+            <Route path="/dos/assignments" element={<Navigate to="/dos/learners-classes" replace />} />
+            <Route path="/dos/class-teachers" element={<Navigate to="/dos/learners-classes" replace />} />
+            <Route path="/dos/departments" element={<Navigate to="/dos/learners-classes" replace />} />
 
             {/* Nurse Module Routes */}
             <Route
