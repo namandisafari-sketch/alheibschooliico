@@ -1,21 +1,23 @@
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useLanguage } from "../contexts/LanguageContext";
 import Staff from "./Staff";
 import StaffAttendance from "./StaffAttendance";
 import StaffManagement from "./StaffManagement";
 import IDCards from "./IDCards";
 import SiteSettings from "./SiteSettings";
 
-const TABS = [
-  { id: "staff", label: "Staff" },
-  { id: "attendance", label: "Staff Attendance" },
-  { id: "assignments", label: "Assignments" },
-  { id: "id-cards", label: "ID Cards" },
-  { id: "settings", label: "System Settings" },
-];
-
 export default function AdminTools() {
+  const { t } = useLanguage();
   const [tab, setTab] = useState("staff");
+
+  const TABS = [
+    { id: "staff", label: t("Staff") },
+    { id: "attendance", label: t("Staff Attendance") },
+    { id: "assignments", label: t("Assignments") },
+    { id: "id-cards", label: t("ID Cards") },
+    { id: "settings", label: t("System Settings") },
+  ];
 
   return (
     <Tabs value={tab} onValueChange={setTab} className="flex flex-col">

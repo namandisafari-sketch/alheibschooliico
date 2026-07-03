@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useLanguage } from "../../contexts/LanguageContext";
 import Subjects from "./Subjects";
 import CurriculumSetup from "./CurriculumSetup";
 import SubjectLoad from "./SubjectLoad";
@@ -9,19 +10,20 @@ import SyllabusCoverageDashboard from "./SyllabusCoverageDashboard";
 import SyllabusReports from "./SyllabusReports";
 import LessonTracking from "./LessonTracking";
 
-const TABS = [
-  { id: "subjects", label: "Subjects" },
-  { id: "curriculum", label: "Curriculum" },
-  { id: "subject-load", label: "Subject Load" },
-  { id: "scheme-of-work", label: "Scheme of Work" },
-  { id: "syllabus", label: "Syllabus" },
-  { id: "coverage", label: "Coverage" },
-  { id: "reports", label: "Reports" },
-  { id: "lesson-tracking", label: "Lesson Tracking" },
-];
-
 export default function AcademicTools() {
+  const { t } = useLanguage();
   const [tab, setTab] = useState("subjects");
+
+  const TABS = [
+    { id: "subjects", label: t("Subjects") },
+    { id: "curriculum", label: t("Curriculum") },
+    { id: "subject-load", label: t("Subject Load") },
+    { id: "scheme-of-work", label: t("Scheme of Work") },
+    { id: "syllabus", label: t("Syllabus") },
+    { id: "coverage", label: t("Coverage") },
+    { id: "reports", label: t("Reports") },
+    { id: "lesson-tracking", label: t("Lesson Tracking") },
+  ];
 
   return (
     <Tabs value={tab} onValueChange={setTab} className="flex flex-col">

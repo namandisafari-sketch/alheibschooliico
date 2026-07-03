@@ -1,19 +1,21 @@
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useLanguage } from "../../contexts/LanguageContext";
 import Exams from "./Exams";
 import SeatingPlanManagement from "./SeatingPlanManagement";
 import GradingScaleConfig from "./GradingScaleConfig";
 import Analysis from "./Analysis";
 
-const TABS = [
-  { id: "exams", label: "Exams" },
-  { id: "seating", label: "Seating Plans" },
-  { id: "grading", label: "Grading Scales" },
-  { id: "analysis", label: "Analysis" },
-];
-
 export default function ExamsGrading() {
+  const { t } = useLanguage();
   const [tab, setTab] = useState("exams");
+
+  const TABS = [
+    { id: "exams", label: t("Exams") },
+    { id: "seating", label: t("Seating Plans") },
+    { id: "grading", label: t("Grading Scales") },
+    { id: "analysis", label: t("Analysis") },
+  ];
 
   return (
     <Tabs value={tab} onValueChange={setTab} className="flex flex-col">

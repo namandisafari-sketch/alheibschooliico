@@ -1,19 +1,21 @@
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useLanguage } from "../../contexts/LanguageContext";
 import P7Mgt from "./P7Mgt";
 import ClassTeachers from "./ClassTeachers";
 import Assignments from "./Assignments";
 import IPLE from "./IPLE";
 
-const TABS = [
-  { id: "p7", label: "P7 Management" },
-  { id: "class-teachers", label: "Class Teachers" },
-  { id: "assignments", label: "Assignments" },
-  { id: "iple", label: "IPLE" },
-];
-
 export default function LearnersClasses() {
+  const { t } = useLanguage();
   const [tab, setTab] = useState("p7");
+
+  const TABS = [
+    { id: "p7", label: t("P7 Management") },
+    { id: "class-teachers", label: t("Class Teachers") },
+    { id: "assignments", label: t("Assignments") },
+    { id: "iple", label: t("IPLE") },
+  ];
 
   return (
     <Tabs value={tab} onValueChange={setTab} className="flex flex-col">
