@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthProvider";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { PrayerTimesProvider } from "@/contexts/PrayerTimesProvider";
@@ -329,12 +329,7 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/users"
-              element={
-                <Navigate to="/director/users" replace />
-              }
-            />
+
             <Route
               path="/marks"
               element={
@@ -407,10 +402,7 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/visitors"
-              element={<Navigate to="/gate?tab=visitors" replace />}
-            />
+
             <Route
               path="/inventory/tracking"
               element={
@@ -605,24 +597,6 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-
-            {/* Legacy DOS redirects */}
-            <Route path="/dos/subjects" element={<Navigate to="/dos/academic-tools" replace />} />
-            <Route path="/dos/curriculum-setup" element={<Navigate to="/dos/academic-tools" replace />} />
-            <Route path="/dos/subject-load" element={<Navigate to="/dos/academic-tools" replace />} />
-            <Route path="/dos/scheme-of-work" element={<Navigate to="/dos/academic-tools" replace />} />
-            <Route path="/dos/syllabus" element={<Navigate to="/dos/academic-tools" replace />} />
-            <Route path="/dos/syllabus-coverage" element={<Navigate to="/dos/academic-tools" replace />} />
-            <Route path="/dos/syllabus-reports" element={<Navigate to="/dos/academic-tools" replace />} />
-            <Route path="/dos/lesson-tracking" element={<Navigate to="/dos/academic-tools" replace />} />
-            <Route path="/dos/exams" element={<Navigate to="/dos/exams-grading" replace />} />
-            <Route path="/dos/seating-plans" element={<Navigate to="/dos/exams-grading" replace />} />
-            <Route path="/dos/grading-scales" element={<Navigate to="/dos/exams-grading" replace />} />
-            <Route path="/dos/analysis" element={<Navigate to="/dos/exams-grading" replace />} />
-            <Route path="/dos/p7-management" element={<Navigate to="/dos/learners-classes" replace />} />
-            <Route path="/dos/assignments" element={<Navigate to="/dos/learners-classes" replace />} />
-            <Route path="/dos/class-teachers" element={<Navigate to="/dos/learners-classes" replace />} />
-            <Route path="/dos/departments" element={<Navigate to="/dos/learners-classes" replace />} />
 
             {/* Nurse Module Routes */}
             <Route
