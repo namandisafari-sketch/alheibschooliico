@@ -87,6 +87,7 @@ export const navSections: NavSection[] = [
       { icon: Calendar, labelKey: "School Timetables", path: "/dos/timetable", roles: ["admin", "head_teacher", "dos"] },
       { icon: BookMarked, labelKey: "Curriculum Coverage", path: "/dos/syllabus", roles: ["admin", "head_teacher", "dos"] },
       { icon: PenLine, labelKey: "Exams & Grading", path: "/dos/exams", roles: ["admin", "head_teacher", "dos"] },
+      { icon: Scale, labelKey: "Grading Scales", path: "/dos/grading-scales", roles: ["admin", "head_teacher", "dos"] },
       { icon: FileText, labelKey: "Marks & Reports", path: "/reports", roles: ["admin", "head_teacher", "teacher", "dos"] },
       { icon: ClipboardCheck, labelKey: "Learner Attendance", path: "/attendance", roles: ["admin", "teacher", "head_teacher", "dos", "orphan_supervisor", "head_of_internal"] },
       { icon: FileText, labelKey: "P7 Management", path: "/dos/p7-management", roles: ["admin", "head_teacher", "dos"] },

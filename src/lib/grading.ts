@@ -7,6 +7,25 @@ export interface GradeBand {
   tone: "excellent" | "good" | "fair" | "weak" | "fail";
 }
 
+export interface GradeBoundaryDB {
+  id: string;
+  grade: string;
+  min_score: number;
+  max_score: number;
+  remark: string | null;
+  color: string | null;
+  sort_order: number;
+}
+
+export interface GradingScaleDB {
+  id: string;
+  name: string;
+  grading_type: "numeric" | "letter" | "descriptive";
+  description: string | null;
+  is_default: boolean;
+  boundaries: GradeBoundaryDB[];
+}
+
 export const PLE_BANDS: { min: number; band: GradeBand }[] = [
   { min: 80, band: { grade: "D1", remark: "Distinction", tone: "excellent" } },
   { min: 75, band: { grade: "D2", remark: "Distinction", tone: "excellent" } },
@@ -36,8 +55,64 @@ export const calculateGrade = (
   if (score === null || score === undefined || isNaN(score)) {
     return { grade: "-", remark: "-", tone: "fair" };
   }
-  const found = PLE_BANDS.find((b) => score >= b.min);
+  const bands = classLevel && classLevel >= 5 ? PLE_BANDS : LOWER_BANDS;
+  const found = bands.find((b) => score >= b.min);
   return found?.band ?? { grade: "F9", remark: "Fail", tone: "fail" };
+};
+
+const toneForGrade = (grade: string): GradeBand["tone"] => {
+  const top = ["D1", "D2", "A", "B+", "Exceeding", "Outstanding"];
+  const mid = ["C3", "C4", "C5", "C6", "B", "C+", "Meeting"];
+  const low = ["P7", "P8", "C", "D", "Approaching"];
+  if (top.includes(grade)) return "excellent";
+  if (mid.includes(grade)) return "good";
+  if (low.includes(grade)) return "fair";
+  if (grade === "E" || grade === "F9" || grade === "Beginning") return "fail";
+  return "fair";
+};
+
+const toneForRemark = (remark: string | null): GradeBand["tone"] => {
+  const r = (remark || "").toLowerCase();
+  if (r.includes("distinct") || r.includes("excellent") || r.includes("outstanding")) return "excellent";
+  if (r.includes("credit") || r.includes("good") || r.includes("meeting") || r.includes("very")) return "good";
+  if (r.includes("pass") || r.includes("fair") || r.includes("average") || r.includes("approach")) return "fair";
+  if (r.includes("fail") || r.includes("need") || r.includes("beginning") || r.includes("below")) return "weak";
+  return "fair";
+};
+
+export const bandsFromScale = (scale: GradingScaleDB): { min: number; band: GradeBand }[] => {
+  return (scale.boundaries || [])
+    .sort((a, b) => b.min_score - a.min_score)
+    .map((b) => ({
+      min: b.min_score,
+      band: {
+        grade: b.grade,
+        remark: b.remark || "",
+        tone: toneForRemark(b.remark) || toneForGrade(b.grade),
+      },
+    }));
+};
+
+export const fetchDefaultScale = async (
+  gradingType?: string,
+): Promise<GradingScaleDB | null> => {
+  try {
+    const { supabase } = await import("@/integrations/supabase/client");
+    let query = supabase
+      .from("grading_scales")
+      .select("*, boundaries:grade_boundaries(*)")
+      .eq("is_active", true)
+      .order("name");
+
+    if (gradingType) {
+      query = query.eq("grading_type", gradingType);
+    }
+
+    const { data } = await query.limit(1).single();
+    return data;
+  } catch {
+    return null;
+  }
 };
 
 export const toneToTextClass: Record<GradeBand["tone"], string> = {
