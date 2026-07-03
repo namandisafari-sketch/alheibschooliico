@@ -13,7 +13,6 @@ interface WizardFormProps {
   currentStep: number;
   onNext?: () => void;
   onBack?: () => void;
-  onSubmit?: () => void;
   isFirstStep: boolean;
   isLastStep: boolean;
   isLoading?: boolean;
@@ -30,7 +29,6 @@ export function WizardForm({
   currentStep,
   onNext,
   onBack,
-  onSubmit,
   isFirstStep,
   isLastStep,
   isLoading,
@@ -118,8 +116,7 @@ export function WizardForm({
           </Button>
         ) : (
           <Button
-            type="button"
-            onClick={onSubmit}
+            type="submit"
             disabled={disableSubmit || isLoading}
             className="gap-2 min-w-[140px] shadow-lg shadow-primary/10"
           >
