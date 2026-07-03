@@ -1,12 +1,13 @@
 // @ts-nocheck
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useAppointments, useUpdateAppointment } from "@/hooks/useAppointments";
-import { Search, Calendar, CheckCircle, XCircle, Clock, User, Phone, ExternalLink } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Search, Calendar, CheckCircle, XCircle, Clock, User, Phone, ExternalLink, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,6 +20,50 @@ const Appointments = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
+  const [conflictMap, setConflictMap] = useState<Record<string, any[]>>({});
+  const [checkingConflict, setCheckingConflict] = useState<string | null>(null);
+
+  const dayMap: Record<string, number> = {
+    Sunday: 7, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6
+  };
+
+  const checkTimetableConflict = async (a: any) => {
+    if (!a.host_staff_id || !a.scheduled_for) return [];
+    const dt = new Date(a.scheduled_for);
+    const dayOfWeek = dayMap[dt.toLocaleDateString("en-US", { weekday: "long" })] || 0;
+    const timeStr = `${dt.getHours().toString().padStart(2, "0")}:${dt.getMinutes().toString().padStart(2, "0")}`;
+
+    const { data: timetable } = await supabase
+      .from("class_timetables")
+      .select("*, subjects:subjects(name), classes:classes(name)")
+      .eq("teacher_id", a.host_staff_id)
+      .eq("day_of_week", dayOfWeek);
+
+    if (!timetable) return [];
+
+    return timetable.filter((slot: any) => {
+      return timeStr >= slot.start_time && timeStr < slot.end_time;
+    });
+  };
+
+  const handleApproveWithConflictCheck = async (a: any) => {
+    setCheckingConflict(a.id);
+    try {
+      const conflicts = await checkTimetableConflict(a);
+      if (conflicts.length > 0) {
+        setConflictMap(prev => ({ ...prev, [a.id]: conflicts }));
+        toast({
+          title: "Timetable Conflict Detected",
+          description: `${a.host_name || "Staff member"} has ${conflicts.length} lesson(s) scheduled at this time.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      await handleApprove(a);
+    } finally {
+      setCheckingConflict(null);
+    }
+  };
 
   const filtered = appointments.filter((a) =>
     a.visitor_name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -176,11 +221,30 @@ const Appointments = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {pending.map((a) => (
+                      {pending.map((a) => {
+                    const conflicts = conflictMap[a.id];
+                    return (
                         <TableRow key={a.id}>
-                          <TableCell className="font-medium">{a.visitor_name}</TableCell>
+                          <TableCell className="font-medium">
+                            {a.visitor_name}
+                            {conflicts && conflicts.length > 0 && (
+                              <div className="flex items-center gap-1 mt-1 text-[10px] text-red-600">
+                                <AlertTriangle className="h-3 w-3" />
+                                <span>Conflict: {conflicts.length} lesson(s) at this time</span>
+                              </div>
+                            )}
+                          </TableCell>
                           <TableCell className="max-w-[200px] truncate">{a.purpose}</TableCell>
-                          <TableCell>{a.host_name || "—"}</TableCell>
+                          <TableCell>
+                            {a.host_name || "—"}
+                            {conflicts && conflicts.length > 0 && (
+                              <div className="text-[10px] text-red-500 mt-0.5">
+                                {conflicts.map((c: any) => (
+                                  <span key={c.id} className="block">{c.subjects?.name} ({c.classes?.name})</span>
+                                ))}
+                              </div>
+                            )}
+                          </TableCell>
                           <TableCell>
                             <div className="flex flex-col">
                               <span className="text-xs">{a.scheduled_for ? format(new Date(a.scheduled_for), "MMM d, yyyy") : "—"}</span>
@@ -196,8 +260,8 @@ const Appointments = () => {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
-                              <Button size="sm" variant="outline" className="text-emerald-600 border-emerald-200 hover:bg-emerald-50" onClick={() => handleApprove(a)} disabled={updateAppointment.isPending}>
-                                <CheckCircle className="h-3 w-3 mr-1" /> Approve
+                              <Button size="sm" variant="outline" className="text-emerald-600 border-emerald-200 hover:bg-emerald-50" onClick={() => handleApproveWithConflictCheck(a)} disabled={updateAppointment.isPending || checkingConflict === a.id}>
+                                <CheckCircle className="h-3 w-3 mr-1" /> {checkingConflict === a.id ? "Checking..." : "Approve"}
                               </Button>
                               <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => handleReject(a)} disabled={updateAppointment.isPending}>
                                 <XCircle className="h-3 w-3 mr-1" /> Reject
@@ -205,7 +269,8 @@ const Appointments = () => {
                             </div>
                           </TableCell>
                         </TableRow>
-                      ))}
+                    );
+                    })}
                     </TableBody>
                   </Table>
                 )}

@@ -87,3 +87,27 @@
   thead { display: table-header-group; }
   tfoot { display: table-footer-group; }
 }
+
+/* ============= Timetable Print ============= */
+.print-timetable-area {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+@media print {
+  .print-timetable-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 10mm;
+    box-sizing: border-box;
+  }
+  .print-timetable-area,
+  .print-timetable-area * {
+    visibility: visible;
+  }
+  .print-timetable-area .no-print {
+    display: none !important;
+  }
+}

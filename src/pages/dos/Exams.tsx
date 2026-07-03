@@ -13,12 +13,13 @@ import { useSubjects } from "@/hooks/useSubjects";
 import { useStaff } from "@/hooks/useStaff";
 import { ExamVenueManager } from "@/components/exams/ExamVenueManager";
 import { ExamSeatingPlan } from "@/components/exams/ExamSeatingPlan";
-import { FileText, Calendar, Clock, MapPin, User, Plus, Loader2, LayoutGrid, Table2 } from "lucide-react";
+import { FileText, Calendar, Clock, MapPin, User, Plus, Loader2, LayoutGrid, Table2, Printer } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import "@/styles/print.css";
 
 const Exams = () => {
   const { data: series = [], isLoading: loadingSeries } = useExamSeries();
@@ -45,6 +46,14 @@ const Exams = () => {
   };
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const handlePrint = () => {
+    if (timetable.length === 0) {
+      toast({ title: "No data", description: "No exam slots to print.", variant: "destructive" });
+      return;
+    }
+    window.print();
+  };
 
   const [seriesOpen, setSeriesOpen] = useState(false);
   const [slotOpen, setSlotOpen] = useState(false);
@@ -109,7 +118,7 @@ const Exams = () => {
   return (
     <DashboardLayout title="Exam Scheduling" subtitle="Academic Assessments & Invigilator Rotas">
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row gap-4 justify-between items-end bg-card p-4 rounded-lg border shadow-sm">
+        <div className="flex flex-col sm:flex-row gap-4 justify-between items-end bg-card p-4 rounded-lg border shadow-sm no-print">
           <div className="space-y-2 flex-1">
             <p className="text-xs font-bold uppercase text-muted-foreground ml-1">Exam Series</p>
             <Select value={selectedSeries} onValueChange={setSelectedSeries}>
@@ -291,14 +300,15 @@ const Exams = () => {
             </CardContent>
           </Card>
         ) : (
+          <div className="print-timetable-area">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-lg">Exam Timetable</CardTitle>
                 <CardDescription>Official schedule for the selected assessment series</CardDescription>
               </div>
-              <Button variant="ghost" size="sm" className="gap-2" onClick={() => window.print()}>
-                <FileText className="h-4 w-4" /> Print Schedule
+              <Button variant="ghost" size="sm" className="gap-2 no-print" onClick={handlePrint}>
+                <Printer className="h-4 w-4" /> Print Schedule
               </Button>
             </CardHeader>
             <CardContent>
@@ -364,7 +374,7 @@ const Exams = () => {
                                           <MapPin className="h-3 w-3" />
                                           {roomName(slot.room_id)}
                                         </span>
-                                        <div className="flex gap-1 ml-auto">
+                                        <div className="flex gap-1 ml-auto no-print">
                                           <Button
                                             variant="ghost"
                                             size="icon"
@@ -399,6 +409,7 @@ const Exams = () => {
               })()}
             </CardContent>
           </Card>
+          </div>
         )}
       </div>
 

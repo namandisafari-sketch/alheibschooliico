@@ -7,8 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { CalendarDays, Save, Plus, Trash2, BookOpen, Copy, CheckCircle2 } from "lucide-react";
+import { CalendarDays, Save, Plus, Trash2, BookOpen, Copy, CheckCircle2, AlertCircle } from "lucide-react";
 import { useLessonPlans, useCreateLessonPlan, useUpdateLessonPlan } from "@/hooks/useLessonPlans";
+import { useLessonRegister } from "@/hooks/useSyllabusTracking";
 import { useClasses } from "@/hooks/useClasses";
 import { useSubjects } from "@/hooks/useSubjects";
 import { useTeacherAssignments } from "@/hooks/useTeacherAssignments";
@@ -27,8 +28,16 @@ const LessonPlanner = () => {
   const { data: classes = [] } = useClasses();
   const { data: subjects = [] } = useSubjects();
   const { data: assignments = [] } = useTeacherAssignments({ teacherId: user?.id });
+  const { data: registerEntries = [] } = useLessonRegister({ teacherId: user?.id });
   const createPlan = useCreateLessonPlan();
   const updatePlan = useUpdateLessonPlan();
+
+  const planTaughtMap = new Map<string, string>();
+  registerEntries.forEach((re: any) => {
+    if (re.lesson_plan_id && !planTaughtMap.has(re.lesson_plan_id)) {
+      planTaughtMap.set(re.lesson_plan_id, re.taught_status);
+    }
+  });
 
   const [teacherPhone, setTeacherPhone] = useState("");
   useEffect(() => {
@@ -185,6 +194,13 @@ const LessonPlanner = () => {
                         <Badge className={plan.status === 'approved' ? 'bg-emerald-600' : plan.status === 'submitted' ? 'bg-amber-500' : 'bg-slate-400'}>
                           {plan.status || 'draft'}
                         </Badge>
+                        {(() => {
+                          const taught = planTaughtMap.get(plan.id);
+                          if (taught === "taught") return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Taught</Badge>;
+                          if (taught === "partially_taught") return <Badge className="bg-amber-100 text-amber-700 border-amber-200"><AlertCircle className="h-3 w-3 mr-0.5" />Partial</Badge>;
+                          if (taught === "not_taught") return <Badge className="bg-red-100 text-red-700 border-red-200">Not Taught</Badge>;
+                          return null;
+                        })()}
                       </div>
                       <CardTitle className="text-base">{plan.title}</CardTitle>
                       {plan.date && <p className="text-xs text-muted-foreground mt-1">{format(new Date(plan.date), "PPP")}</p>}

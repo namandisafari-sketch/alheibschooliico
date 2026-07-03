@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAcademicSettings } from "@/hooks/useAcademicSettings";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -13,9 +13,10 @@ import { Badge } from "@/components/ui/badge";
 import { useLessonRegister, useCreateLessonRegisterEntry, useUpdateLessonRegisterEntry } from "@/hooks/useSyllabusTracking";
 import { useTeacherAssignments } from "@/hooks/useTeacherAssignments";
 import { useLessonPlans } from "@/hooks/useLessonPlans";
-import { CheckCircle2, AlertCircle, MinusCircle, BookOpen, Filter } from "lucide-react";
+import { CheckCircle2, AlertCircle, MinusCircle, BookOpen, Filter, Ban } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const statusIcons = { taught: CheckCircle2, partially_taught: AlertCircle, not_taught: MinusCircle };
 const statusColors = { taught: "text-emerald-600 bg-emerald-50", partially_taught: "text-amber-600 bg-amber-50", not_taught: "text-red-600 bg-red-50" };
@@ -47,6 +48,29 @@ export default function LessonRegister() {
   const [participation, setParticipation] = useState("");
   const [followUp, setFollowUp] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [onLeaveDate, setOnLeaveDate] = useState(false);
+  const [leaveInfo, setLeaveInfo] = useState<any>(null);
+
+  useEffect(() => {
+    if (!user?.id || !date) { setOnLeaveDate(false); setLeaveInfo(null); return; }
+    supabase
+      .from("leave_requests")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("status", "approved")
+      .lte("start_date", date)
+      .gte("end_date", date)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setOnLeaveDate(true);
+          setLeaveInfo(data);
+        } else {
+          setOnLeaveDate(false);
+          setLeaveInfo(null);
+        }
+      });
+  }, [user?.id, date]);
 
   const assignment = assignments.find(a => a.id === selectedAssign);
   const filteredEntries = entries.filter(e => {
@@ -59,6 +83,10 @@ export default function LessonRegister() {
 
   const handleSubmit = async () => {
     if (!assignment) return;
+    if (onLeaveDate) {
+      toast.error("You are on approved leave on this date. You cannot mark lessons as taught or partially taught.");
+      return;
+    }
     const entryDate = new Date(date);
     const entryMonth = entryDate.getMonth();
     if (termStartIdx >= 0 && termEndIdx >= 0) {
@@ -153,13 +181,22 @@ export default function LessonRegister() {
                   <Label className="text-xs">Date</Label>
                   <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
                 </div>
+                {onLeaveDate && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-xs text-orange-700">
+                    <div className="flex items-center gap-2 font-semibold mb-1">
+                      <Ban className="h-4 w-4" />
+                      Approved Leave Detected
+                    </div>
+                    <p>You have an approved {leaveInfo?.leave_type} leave from {leaveInfo?.start_date} to {leaveInfo?.end_date}. You cannot mark lessons as taught during this period.</p>
+                  </div>
+                )}
                 <div id="lr-status-select" className="space-y-2">
                   <Label className="text-xs">Status</Label>
                   <Select value={taughtStatus} onValueChange={setTaughtStatus}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="taught">Taught</SelectItem>
-                      <SelectItem value="partially_taught">Partially Taught</SelectItem>
+                      <SelectItem value="taught" disabled={onLeaveDate}>Taught {onLeaveDate ? "(disabled - on leave)" : ""}</SelectItem>
+                      <SelectItem value="partially_taught" disabled={onLeaveDate}>Partially Taught {onLeaveDate ? "(disabled - on leave)" : ""}</SelectItem>
                       <SelectItem value="not_taught">Not Taught</SelectItem>
                     </SelectContent>
                   </Select>

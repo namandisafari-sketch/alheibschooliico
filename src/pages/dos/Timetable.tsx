@@ -2,7 +2,7 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Download, Clock, MapPin, User, ChevronLeft, ChevronRight, AlertTriangle, BookOpen } from "lucide-react";
+import { Plus, Download, Clock, MapPin, User, ChevronLeft, ChevronRight, AlertTriangle, BookOpen, Printer } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -182,6 +182,14 @@ const Timetable = () => {
       setTerm(termOptions[nextIndex]);
     };
 
+    const handlePrint = () => {
+      if (!selectedClassId) {
+        toast({ title: "Select a class first", description: "Choose a class before printing its timetable.", variant: "destructive" });
+        return;
+      }
+      window.print();
+    };
+
     const handleExport = () => {
       if (!selectedClassId) {
         toast({ title: "Select a class first", description: "Choose a class before exporting its timetable.", variant: "destructive" });
@@ -343,7 +351,7 @@ const Timetable = () => {
     return (
       <DashboardLayout title={pageTitle} subtitle={pageSubtitle}>
             <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100 no-print">
                     <div className="flex items-center gap-4">
                         {role === "teacher" ? (
                           <div className="flex items-center gap-3">
@@ -400,6 +408,9 @@ const Timetable = () => {
                         <div className="flex gap-2 flex-1 sm:flex-none">
                             <Button variant="outline" size="sm" className="gap-2 flex-1 sm:flex-none" onClick={handleExport}>
                                 <Download className="h-4 w-4" /> Export
+                            </Button>
+                            <Button variant="outline" size="sm" className="gap-2 flex-1 sm:flex-none" onClick={handlePrint}>
+                                <Printer className="h-4 w-4" /> Print
                             </Button>
                             <Button size="sm" className="gap-2 flex-1 sm:flex-none" onClick={handleAddPeriod} disabled={role === "teacher" && teacherViewMode === "my"}>
                                 <Plus className="h-4 w-4" /> Add Period
@@ -494,6 +505,7 @@ const Timetable = () => {
                   </DialogContent>
                 </Dialog>
 
+                <div className="print-timetable-area">
                 {!selectedClassId ? (
                     <Card className="border-dashed py-20">
                         <CardContent className="text-center space-y-3">
@@ -664,7 +676,7 @@ const Timetable = () => {
                   </>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 no-print">
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -720,6 +732,7 @@ const Timetable = () => {
                             )}
                         </CardContent>
                     </Card>
+                </div>
                 </div>
             </div>
         </DashboardLayout>

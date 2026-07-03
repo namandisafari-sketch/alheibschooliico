@@ -15,6 +15,8 @@ import { useAcademicSettings } from "@/hooks/useAcademicSettings";
 import { useClasses } from "@/hooks/useClasses";
 import { useSubjects } from "@/hooks/useSubjects";
 import { useTeacherAssignments } from "@/hooks/useTeacherAssignments";
+import { useTeachers } from "@/hooks/useTeachers";
+import { useQuery } from "@tanstack/react-query";
 import { useSchemeOfWork, useCreateSchemeOfWork, useUpdateSchemeOfWork, useDeleteSchemeOfWork, useCopySchemeOfWork } from "@/hooks/useSyllabusTracking";
 import { toast } from "sonner";
 import { BookOpen, Copy, Plus, Trash2, Save, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
@@ -40,7 +42,31 @@ export default function SchemeOfWork() {
   const currentYear = academicSettings?.current_year ?? new Date().getFullYear();
   const totalWeeks = academicSettings?.total_weeks ?? 14;
 
-  const { data: schemes = [], refetch } = useSchemeOfWork({ teacherId: user?.id, term: currentTerm, academicYear: currentYear });
+  const [viewTeacherId, setViewTeacherId] = useState<string>(user?.id || "");
+  const { data: allTeachers = [] } = useTeachers();
+
+  const isAdminOrDos = ["admin", "dos", "head_teacher", "deputy_head_teacher"].includes(role || "");
+  const effectiveTeacherId = isAdminOrDos && viewTeacherId ? viewTeacherId : user?.id;
+
+  const { data: lessonPlansList = [] } = useQuery({
+    queryKey: ["lesson-plans-link", effectiveTeacherId],
+    queryFn: async () => {
+      const { data } = await supabase.from("lesson_plans").select("id, title, week_number, class_id, subject_id, teacher_id, status, date").eq("teacher_id", effectiveTeacherId);
+      return data || [];
+    },
+    enabled: !!effectiveTeacherId,
+  });
+
+  const { data: registerList = [] } = useQuery({
+    queryKey: ["register-link", effectiveTeacherId],
+    queryFn: async () => {
+      const { data } = await supabase.from("lesson_register").select("id, lesson_plan_id, teacher_id, class_id, subject_id, date, taught_status, topic").eq("teacher_id", effectiveTeacherId);
+      return data || [];
+    },
+    enabled: !!effectiveTeacherId,
+  });
+
+  const { data: schemes = [], refetch } = useSchemeOfWork({ teacherId: effectiveTeacherId, term: currentTerm, academicYear: currentYear });
   const createScheme = useCreateSchemeOfWork();
   const updateScheme = useUpdateSchemeOfWork();
   const deleteScheme = useDeleteSchemeOfWork();
@@ -76,6 +102,18 @@ export default function SchemeOfWork() {
   const filteredSchemes = selectedAssignment && assignment
     ? schemes.filter(s => s.class_id === assignment.class_id && s.subject_id === assignment.subject_id)
     : schemes;
+
+  const enrichedSchemes = filteredSchemes.map((s: any) => {
+    const linkedPlans = lessonPlansList.filter((lp: any) =>
+      lp.teacher_id === s.teacher_id && lp.class_id === s.class_id && lp.subject_id === s.subject_id && lp.week_number === s.week_number
+    );
+    const linkedRegister = registerList.filter((r: any) =>
+      r.teacher_id === s.teacher_id && r.class_id === s.class_id && r.subject_id === s.subject_id
+    );
+    const hasTaught = linkedRegister.some((r: any) => r.taught_status === "taught");
+    const hasPartial = linkedRegister.some((r: any) => r.taught_status === "partially_taught");
+    return { ...s, lessonPlans: linkedPlans, registerEntries: linkedRegister, hasTaught, hasPartial };
+  });
 
   const handleAdd = async () => {
     if (!assignment || !topic.trim()) return;
@@ -138,6 +176,23 @@ export default function SchemeOfWork() {
 
   return (
     <DashboardLayout title="Scheme of Work" subtitle="Plan your weekly teaching topics and lessons">
+      {isAdminOrDos && (
+        <div className="mb-4 bg-card p-4 rounded-xl border shadow-sm">
+          <div className="flex items-center gap-4">
+            <p className="text-xs font-bold uppercase text-muted-foreground">Viewing Teacher:</p>
+            <Select value={viewTeacherId} onValueChange={setViewTeacherId}>
+              <SelectTrigger className="w-[250px]">
+                <SelectValue placeholder="Select teacher" />
+              </SelectTrigger>
+              <SelectContent>
+                {allTeachers.map((t: any) => (
+                  <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <Card className="lg:col-span-1 h-fit">
           <CardHeader>
@@ -299,83 +354,93 @@ export default function SchemeOfWork() {
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Week</TableHead>
-                      <TableHead>Day</TableHead>
-                      <TableHead>Subject</TableHead>
-                      <TableHead>Class</TableHead>
-                      <TableHead>Theme</TableHead>
-                      <TableHead>Topic</TableHead>
-                      <TableHead>Sub-Topic</TableHead>
-                      <TableHead>Content</TableHead>
-                      <TableHead className="text-center">Planned</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredSchemes.length === 0 ? (
-                      <TableRow><TableCell colSpan={11} className="text-center py-12 text-muted-foreground">No scheme entries yet. Add one using the form.</TableCell></TableRow>
-                    ) : (
-                      filteredSchemes.map(s => (
-                        <TableRow key={s.id}>
-                          <TableCell className="font-bold">Week {s.week_number}</TableCell>
-                          <TableCell className="text-xs">{s.day || "—"}</TableCell>
-                          <TableCell>{s.subject?.name}</TableCell>
-                          <TableCell>{s.class?.name}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate" title={s.theme || ""}>{s.theme || "—"}</TableCell>
-                          <TableCell className="font-medium">{s.topic}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground">{s.sub_topic || "—"}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate" title={s.content || ""}>{s.content || "—"}</TableCell>
-                          <TableCell className="text-center">{s.planned_lessons}</TableCell>
-                          <TableCell>
-                            <Badge variant={s.status === 'approved' ? 'default' : 'secondary'} className="text-[10px]">
-                              {s.status === 'draft' ? 'Draft' : s.status === 'submitted' ? 'Submitted' : 'Approved'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
-                                setEditId(editId === s.id ? "" : s.id);
-                              }}>
-                                <Save className="h-3 w-3" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-500" onClick={async () => {
-                                const next = s.status === 'draft' ? 'submitted' : s.status === 'submitted' ? 'approved' : 'draft';
-                                await updateScheme.mutateAsync({ id: s.id, status: next });
-                                refetch();
-                                toast.success(`Status → ${next}`);
-                                if (next === 'submitted') {
-                                  fetch("/api/notify/scheme-submitted", {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({
-                                      teacherName: user?.user_metadata?.full_name || "A teacher",
-                                      topic: s.topic,
-                                      classSubject: `${s.class?.name || ""} ${s.subject?.name || ""}`,
-                                      teacherPhone: teacherPhone || undefined,
-                                    }),
-                                  }).catch(() => {});
-                                }
-                              }} title="Toggle Status">
-                                <CheckCircle2 className="h-3 w-3" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={async () => {
-                                await deleteScheme.mutateAsync(s.id);
-                                refetch();
-                                toast.success("Entry removed");
-                              }}>
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Week</TableHead>
+                        {isAdminOrDos && <TableHead>Teacher</TableHead>}
+                        <TableHead>Day</TableHead>
+                        <TableHead>Subject</TableHead>
+                        <TableHead>Class</TableHead>
+                        <TableHead>Topic</TableHead>
+                        <TableHead className="text-center">Planned</TableHead>
+                        <TableHead className="text-center">Lesson Plans</TableHead>
+                        <TableHead>Taught</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {enrichedSchemes.length === 0 ? (
+                        <TableRow><TableCell colSpan={isAdminOrDos ? 11 : 10} className="text-center py-12 text-muted-foreground">No scheme entries yet. Add one using the form.</TableCell></TableRow>
+                      ) : (
+                        enrichedSchemes.map((s: any) => (
+                          <TableRow key={s.id}>
+                            <TableCell className="font-bold">Week {s.week_number}</TableCell>
+                            {isAdminOrDos && <TableCell className="text-xs">{s.teacher?.full_name || "—"}</TableCell>}
+                            <TableCell className="text-xs">{s.day || "—"}</TableCell>
+                            <TableCell>{s.subject?.name}</TableCell>
+                            <TableCell>{s.class?.name}</TableCell>
+                            <TableCell className="font-medium max-w-[200px] truncate" title={s.topic}>{s.topic}{s.sub_topic ? <span className="text-xs text-muted-foreground ml-1">- {s.sub_topic}</span> : ""}</TableCell>
+                            <TableCell className="text-center">{s.planned_lessons}</TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant="outline" className="text-[10px]">{s.lessonPlans.length}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              {s.hasTaught ? (
+                                <Badge className="bg-emerald-100 text-emerald-700 text-[10px]">Taught</Badge>
+                              ) : s.hasPartial ? (
+                                <Badge className="bg-amber-100 text-amber-700 text-[10px]">Partial</Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px] text-muted-foreground">Pending</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={s.status === 'approved' ? 'default' : 'secondary'} className="text-[10px]">
+                                {s.status === 'draft' ? 'Draft' : s.status === 'submitted' ? 'Submitted' : 'Approved'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
+                                  setEditId(editId === s.id ? "" : s.id);
+                                }}>
+                                  <Save className="h-3 w-3" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-500" onClick={async () => {
+                                  const next = s.status === 'draft' ? 'submitted' : s.status === 'submitted' ? 'approved' : 'draft';
+                                  await updateScheme.mutateAsync({ id: s.id, status: next });
+                                  refetch();
+                                  toast.success(`Status → ${next}`);
+                                  if (next === 'submitted') {
+                                    fetch("/api/notify/scheme-submitted", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        teacherName: user?.user_metadata?.full_name || "A teacher",
+                                        topic: s.topic,
+                                        classSubject: `${s.class?.name || ""} ${s.subject?.name || ""}`,
+                                        teacherPhone: teacherPhone || undefined,
+                                      }),
+                                    }).catch(() => {});
+                                  }
+                                }} title="Toggle Status">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={async () => {
+                                  await deleteScheme.mutateAsync(s.id);
+                                  refetch();
+                                  toast.success("Entry removed");
+                                }}>
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
               </div>
             </CardContent>
           </Card>
