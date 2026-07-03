@@ -79,6 +79,7 @@ const TeacherHome = lazy(() => import("./pages/teacher/TeacherHome"));
 const TheologyTeacherHome = lazy(() => import("./pages/teacher/TheologyTeacherHome"));
 const AccountantHome = lazy(() => import("./pages/accountant/AccountantHome"));
 const DosHome = lazy(() => import("./pages/dos/DosHome"));
+const DosHostel = lazy(() => import("./pages/dos/Hostel"));
 const NurseHome = lazy(() => import("./pages/nurse/NurseHome"));
 const Students = lazy(() => import("./pages/Students"));
 const Teachers = lazy(() => import("./pages/Teachers"));
@@ -436,7 +437,7 @@ const App = () => (
             <Route
               path="/calendar"
               element={
-                <ProtectedRoute allowedRoles={["admin", "teacher", "staff", "security", "gateman", "parent", "head_teacher", "accountant"]}>
+                <ProtectedRoute allowedRoles={["admin", "teacher", "staff", "security", "gateman", "parent", "head_teacher", "accountant", "dos", "deputy_head_teacher"]}>
                   <Calendar />
                 </ProtectedRoute>
               }
@@ -572,6 +573,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
                   <DosExams />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dos/hostel"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
+                  <DosHostel />
                 </ProtectedRoute>
               }
             />
@@ -1123,7 +1132,7 @@ const App = () => (
             <Route
               path="/teacher/inbox"
               element={
-                <ProtectedRoute allowedRoles={["admin", "teacher", "staff", "security", "gateman", "head_teacher", "deputy_head_teacher", "matron", "nurse", "cook", "storekeeper"]}>
+                <ProtectedRoute allowedRoles={["admin", "teacher", "staff", "security", "gateman", "head_teacher", "deputy_head_teacher", "matron", "nurse", "cook", "storekeeper", "dos", "dos_theology", "theology_teacher", "head_of_internal"]}>
                   <TeacherInbox />
                 </ProtectedRoute>
               }
@@ -1131,7 +1140,7 @@ const App = () => (
             <Route
               path="/teacher/finance"
               element={
-                <ProtectedRoute allowedRoles={["admin", "teacher", "staff", "security", "gateman", "head_teacher", "deputy_head_teacher", "matron", "nurse", "cook", "storekeeper"]}>
+                <ProtectedRoute allowedRoles={["admin", "teacher", "staff", "security", "gateman", "head_teacher", "deputy_head_teacher", "matron", "nurse", "cook", "storekeeper", "dos", "dos_theology", "theology_teacher", "head_of_internal"]}>
                   <TeacherFinance />
                 </ProtectedRoute>
               }
