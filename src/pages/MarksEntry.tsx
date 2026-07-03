@@ -61,6 +61,8 @@ import {
   ISLAMIC_LETTER_OPTIONS,
   computeAggregate,
   getCompetencyLevel,
+  loadGradeBands,
+  GradeBand,
 } from "@/lib/grading";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -178,6 +180,14 @@ const MarksEntry = () => {
 
   const selectedClassData = filteredClasses.find((c) => c.id === selectedClass);
   const classLevel = selectedClassData?.level;
+
+  // Load DB-driven grading scale bands
+  const { data: gradeBands } = useQuery({
+    queryKey: ["grade-bands"],
+    queryFn: () => loadGradeBands("numeric"),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const { data: allSubjects = [] } = useSubjects(classLevel);
 
   const filteredSubjects = isScopedTeacher && teacherSubjectIds.length > 0
@@ -857,6 +867,7 @@ const MarksEntry = () => {
                     onChange={updateCell}
                     onKeyNav={handleKeyNav}
                     classLevel={classLevel}
+                    gradeBands={gradeBands}
                     showAggregate={tab === "academic"}
                     aggregateFor={academicTotals}
                   />
@@ -915,6 +926,7 @@ const MarksEntry = () => {
                   subjects={visibleSubjects}
                   marks={marks[scoreCardLearnerId] ?? {}}
                   classLevel={classLevel}
+                  gradeBands={gradeBands}
                   assessmentType={assessmentType}
                   className={selectedClassData?.name || ""}
                   term={selectedTerm}
@@ -936,6 +948,7 @@ const ScoreCard = ({
   subjects,
   marks,
   classLevel,
+  gradeBands = null,
   assessmentType,
   className,
   term,
@@ -945,6 +958,7 @@ const ScoreCard = ({
   subjects: Subject[];
   marks: Record<string, CellData>;
   classLevel?: number;
+  gradeBands?: { min: number; band: GradeBand }[] | null;
   assessmentType: string;
   className: string;
   term: string;
@@ -990,7 +1004,7 @@ const ScoreCard = ({
 
             const score = cell.score !== "" ? parseFloat(cell.score) : null;
             const grade = score !== null && !isNaN(score)
-              ? calculateGrade(score, classLevel)
+              ? calculateGrade(score, classLevel, gradeBands ?? undefined)
               : null;
             const competency = score !== null && !isNaN(score)
               ? getCompetencyLevel(score)
@@ -1237,6 +1251,7 @@ interface MarksGridProps {
     tc: number,
   ) => void;
   classLevel?: number;
+  gradeBands?: { min: number; band: GradeBand }[] | null;
   showAggregate: boolean;
   aggregateFor: (id: string) => { total: number; average: number };
 }
@@ -1253,6 +1268,7 @@ const MarksGrid = ({
   onChange,
   onKeyNav,
   classLevel,
+  gradeBands = null,
   showAggregate,
   aggregateFor,
 }: MarksGridProps) => {
@@ -1278,7 +1294,7 @@ const MarksGrid = ({
   const learnerAggregate =
     selectedLearner && showAggregate ? aggregateFor(selectedLearner.id) : null;
   const overallGrade = learnerAggregate
-    ? calculateGrade(learnerAggregate.average, classLevel)
+    ? calculateGrade(learnerAggregate.average, classLevel, gradeBands ?? undefined)
     : null;
 
   return (
@@ -1374,7 +1390,7 @@ const MarksGrid = ({
                 const cell = learnerMarks[subject.id] ?? blank;
                 const grade =
                   subject.grading_type === "numeric" && cell.score !== ""
-                    ? calculateGrade(parseFloat(cell.score), classLevel)
+                    ? calculateGrade(parseFloat(cell.score), classLevel, gradeBands ?? undefined)
                     : null;
                 return (
                   <div

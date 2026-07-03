@@ -84,7 +84,7 @@ export const HistoricalArchiveExplorer = () => {
         });
         setCategoryConfig(config);
       }
-    });
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {

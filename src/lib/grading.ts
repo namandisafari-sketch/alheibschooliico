@@ -51,12 +51,13 @@ export const ISLAMIC_LETTER_OPTIONS = ["A", "B+", "B", "C+", "C", "D", "E"];
 export const calculateGrade = (
   score: number | null | undefined,
   classLevel?: number,
+  bands?: { min: number; band: GradeBand }[],
 ): GradeBand => {
   if (score === null || score === undefined || isNaN(score)) {
     return { grade: "-", remark: "-", tone: "fair" };
   }
-  const bands = classLevel && classLevel >= 5 ? PLE_BANDS : LOWER_BANDS;
-  const found = bands.find((b) => score >= b.min);
+  const sorted = bands ?? (classLevel && classLevel >= 5 ? PLE_BANDS : LOWER_BANDS);
+  const found = sorted.find((b) => score >= b.min);
   return found?.band ?? { grade: "F9", remark: "Fail", tone: "fail" };
 };
 
@@ -113,6 +114,14 @@ export const fetchDefaultScale = async (
   } catch {
     return null;
   }
+};
+
+export const loadGradeBands = async (gradingType?: string): Promise<{ min: number; band: GradeBand }[] | null> => {
+  const scale = await fetchDefaultScale(gradingType);
+  if (scale && scale.boundaries?.length) {
+    return bandsFromScale(scale);
+  }
+  return null;
 };
 
 export const toneToTextClass: Record<GradeBand["tone"], string> = {

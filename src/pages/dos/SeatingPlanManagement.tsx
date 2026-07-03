@@ -29,7 +29,7 @@ export default function SeatingPlanManagement() {
   const queryClient = useQueryClient();
 
   // Filters
-  const [selectedSeries, setSelectedSeries] = useState<string>("");
+  const [selectedSeries, setSelectedSeries] = useState<string>("all");
 
   // Generation per venue
   const [patternMap, setPatternMap] = useState<Record<string, string>>({});
@@ -64,8 +64,8 @@ export default function SeatingPlanManagement() {
         .select("*, class:classes!exam_timetable_class_id_fkey(id, name), subject:subjects(id, name), invigilator:profiles!exam_timetable_invigilator_id_fkey(id, full_name)")
         .order("exam_date")
         .order("start_time");
-      if (selectedSeries) {
-        query = query.eq("exam_series_id", selectedSeries);
+      if (selectedSeries && selectedSeries !== "all") {
+        query = query.eq("series_id", selectedSeries);
       }
       const { data, error } = await query;
       if (error) throw error;
@@ -79,10 +79,10 @@ export default function SeatingPlanManagement() {
     queryFn: async () => {
       let query = supabase
         .from("exam_venues")
-        .select("*, timetable:exam_timetable!exam_venues_exam_timetable_id_fkey(id, exam_date, start_time, end_time, exam_series_id), hosted_class:classes!exam_venues_hosted_class_id_fkey(id, name)")
+        .select("*, timetable:exam_timetable!exam_venues_exam_timetable_id_fkey(id, exam_date, start_time, end_time, series_id), hosted_class:classes!exam_venues_hosted_class_id_fkey(id, name)")
         .order("venue_name");
-      if (selectedSeries) {
-        query = query.eq("timetable.exam_series_id", selectedSeries);
+      if (selectedSeries && selectedSeries !== "all") {
+        query = query.eq("timetable.series_id", selectedSeries);
       }
       const { data, error } = await query;
       if (error) throw error;
@@ -97,7 +97,6 @@ export default function SeatingPlanManagement() {
       const { data, error } = await supabase
         .from("classes")
         .select("id, name")
-        .eq("status", "active")
         .order("name");
       if (error) throw error;
       return data;
@@ -323,7 +322,7 @@ export default function SeatingPlanManagement() {
                 <SelectValue placeholder="All series" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All series</SelectItem>
+                <SelectItem value="all">All series</SelectItem>
                 {series.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.name} ({s.academic_year} Term {s.term})
