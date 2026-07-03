@@ -460,7 +460,7 @@ const App = () => (
             <Route
               path="/madrasa"
               element={
-                <ProtectedRoute allowedRoles={["admin", "ict_admin", "teacher", "class_teacher", "subject_teacher", "head_teacher", "deputy_head_teacher", "dos", "center_director", "director", "board_director", "proprietor", "islamic_coordinator", "sheikh", "imam", "staff", "orphan_supervisor"]}>
+                <ProtectedRoute allowedRoles={["admin", "ict_admin", "teacher", "class_teacher", "subject_teacher", "head_teacher", "deputy_head_teacher", "center_director", "director", "board_director", "proprietor", "islamic_coordinator", "sheikh", "imam", "staff", "orphan_supervisor", "dos_theology"]}>
                   <Madrasa />
                 </ProtectedRoute>
               }
@@ -468,7 +468,7 @@ const App = () => (
             <Route
               path="/islamic"
               element={
-                <ProtectedRoute allowedRoles={["admin", "ict_admin", "teacher", "class_teacher", "subject_teacher", "head_teacher", "deputy_head_teacher", "dos", "center_director", "director", "board_director", "proprietor", "islamic_coordinator", "sheikh", "imam", "staff", "orphan_supervisor"]}>
+                <ProtectedRoute allowedRoles={["admin", "ict_admin", "teacher", "class_teacher", "subject_teacher", "head_teacher", "deputy_head_teacher", "center_director", "director", "board_director", "proprietor", "islamic_coordinator", "sheikh", "imam", "staff", "orphan_supervisor", "dos_theology"]}>
                   <Madrasa />
                 </ProtectedRoute>
               }
@@ -546,7 +546,7 @@ const App = () => (
             <Route
               path="/dos"
               element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "dos_theology"]}>
+                <ProtectedRoute allowedRoles={["admin", "dos"]}>
                   <DosHome />
                 </ProtectedRoute>
               }
@@ -554,7 +554,7 @@ const App = () => (
             <Route
               path="/dos/timetable"
               element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher", "dos_theology"]}>
+                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
                   <DosTimetable />
                 </ProtectedRoute>
               }
@@ -562,7 +562,7 @@ const App = () => (
             <Route
               path="/dos/syllabus"
               element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher", "dos_theology"]}>
+                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
                   <DosSyllabus />
                 </ProtectedRoute>
               }
@@ -570,7 +570,7 @@ const App = () => (
             <Route
               path="/dos/exams"
               element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher", "dos_theology"]}>
+                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
                   <DosExams />
                 </ProtectedRoute>
               }
@@ -578,7 +578,7 @@ const App = () => (
             <Route
               path="/dos/p7-management"
               element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher", "dos_theology"]}>
+                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
                   <P7Mgt />
                 </ProtectedRoute>
               }
@@ -586,7 +586,7 @@ const App = () => (
             <Route
               path="/dos/assignments"
               element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher", "dos_theology"]}>
+                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
                   <DosAssignments />
                 </ProtectedRoute>
               }
@@ -594,7 +594,7 @@ const App = () => (
             <Route
               path="/dos/subject-load"
               element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher", "dos_theology"]}>
+                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
                   <DosSubjectLoad />
                 </ProtectedRoute>
               }
@@ -608,7 +608,7 @@ const App = () => (
             <Route
               path="/dos/lesson-tracking"
               element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher", "dos_theology"]}>
+                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
                   <DosLessonTracking />
                 </ProtectedRoute>
               }
@@ -616,7 +616,7 @@ const App = () => (
             <Route
               path="/dos/analysis"
               element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher", "dos_theology"]}>
+                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
                   <DosAnalysis />
                 </ProtectedRoute>
               }
@@ -624,7 +624,7 @@ const App = () => (
             <Route
               path="/dos/subjects"
               element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher", "dos_theology"]}>
+                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
                   <DosSubjects />
                 </ProtectedRoute>
               }
@@ -632,7 +632,7 @@ const App = () => (
             <Route
               path="/dos/curriculum-setup"
               element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher", "dos_theology"]}>
+                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
                   <DosCurriculumSetup />
                 </ProtectedRoute>
               }
@@ -640,7 +640,7 @@ const App = () => (
             <Route
               path="/dos/scheme-of-work"
               element={
-                <ProtectedRoute allowedRoles={["admin", "teacher", "dos", "head_teacher", "deputy_head_teacher", "dos_theology"]}>
+                <ProtectedRoute allowedRoles={["admin", "teacher", "dos", "head_teacher", "deputy_head_teacher"]}>
                   <DosSchemeOfWork />
                 </ProtectedRoute>
               }
@@ -648,7 +648,7 @@ const App = () => (
             <Route
               path="/dos/syllabus-coverage"
               element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher", "dos_theology"]}>
+                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
                   <DosSyllabusCoverage />
                 </ProtectedRoute>
               }
@@ -656,7 +656,7 @@ const App = () => (
             <Route
               path="/dos/syllabus-reports"
               element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher", "dos_theology"]}>
+                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher"]}>
                   <DosSyllabusReports />
                 </ProtectedRoute>
               }
@@ -665,7 +665,7 @@ const App = () => (
             <Route
               path="/dos/class-teachers"
               element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher", "center_director", "director", "dos_theology"]}>
+                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher", "center_director", "director"]}>
                   <DosClassTeachers />
                 </ProtectedRoute>
               }
@@ -673,7 +673,7 @@ const App = () => (
             <Route
               path="/dos/iple"
               element={
-                <ProtectedRoute allowedRoles={["admin", "dos", "head_teacher", "deputy_head_teacher", "dos_theology", "center_director"]}>
+                <ProtectedRoute allowedRoles={["admin", "head_teacher", "deputy_head_teacher", "dos_theology", "center_director"]}>
                   <DosIPLE />
                 </ProtectedRoute>
               }
@@ -1165,7 +1165,7 @@ const App = () => (
             <Route
               path="/teacher/theology"
               element={
-                <ProtectedRoute allowedRoles={["admin", "theology_teacher"]}>
+                <ProtectedRoute allowedRoles={["admin", "theology_teacher", "dos_theology"]}>
                   <TheologyTeacherHome />
                 </ProtectedRoute>
               }
