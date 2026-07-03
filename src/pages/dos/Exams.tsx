@@ -11,7 +11,9 @@ import { useExamSeries, useExamTimetable } from "@/hooks/useAcademicPlanning";
 import { useClasses } from "@/hooks/useClasses";
 import { useSubjects } from "@/hooks/useSubjects";
 import { useStaff } from "@/hooks/useStaff";
-import { FileText, Calendar, Clock, MapPin, User, Plus, Loader2, ChevronRight } from "lucide-react";
+import { ExamVenueManager } from "@/components/exams/ExamVenueManager";
+import { ExamSeatingPlan } from "@/components/exams/ExamSeatingPlan";
+import { FileText, Calendar, Clock, MapPin, User, Plus, Loader2, LayoutGrid, Table2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -46,6 +48,9 @@ const Exams = () => {
 
   const [seriesOpen, setSeriesOpen] = useState(false);
   const [slotOpen, setSlotOpen] = useState(false);
+  const [venueManagerOpen, setVenueManagerOpen] = useState(false);
+  const [seatingPlanOpen, setSeatingPlanOpen] = useState(false);
+  const [activeSlotId, setActiveSlotId] = useState<string>("");
   const [newSeries, setNewSeries] = useState({ name: "", academic_year: "", term: "", start_date: "", end_date: "" });
   const [newSlot, setNewSlot] = useState({ exam_date: "", start_time: "", end_time: "", class_id: "", subject_id: "", invigilator_id: "", room_id: "" });
 
@@ -359,6 +364,26 @@ const Exams = () => {
                                           <MapPin className="h-3 w-3" />
                                           {roomName(slot.room_id)}
                                         </span>
+                                        <div className="flex gap-1 ml-auto">
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            title="Manage Venues"
+                                            onClick={() => { setActiveSlotId(slot.id); setVenueManagerOpen(true); }}
+                                          >
+                                            <LayoutGrid className="h-3.5 w-3.5" />
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            title="Seating Plan"
+                                            onClick={() => { setActiveSlotId(slot.id); setSeatingPlanOpen(true); }}
+                                          >
+                                            <Table2 className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </div>
                                       </div>
                                     ))}
                                   </div>
@@ -376,6 +401,17 @@ const Exams = () => {
           </Card>
         )}
       </div>
+
+      <ExamVenueManager
+        open={venueManagerOpen}
+        onOpenChange={setVenueManagerOpen}
+        timetableId={activeSlotId}
+      />
+      <ExamSeatingPlan
+        open={seatingPlanOpen}
+        onOpenChange={setSeatingPlanOpen}
+        timetableId={activeSlotId}
+      />
     </DashboardLayout>
   );
 };

@@ -60,6 +60,58 @@ export const useExamSeries = () => {
   });
 };
 
+export const useExamVenues = (timetableId?: string) => {
+  return useQuery({
+    queryKey: ["exam-venues", timetableId],
+    queryFn: async () => {
+      if (!timetableId) return [];
+      const { data, error } = await supabase
+        .from("exam_venues")
+        .select("*")
+        .eq("exam_timetable_id", timetableId)
+        .order("venue_name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!timetableId,
+  });
+};
+
+export const useSeatingPlan = (venueId?: string) => {
+  return useQuery({
+    queryKey: ["exam-seating-plan", venueId],
+    queryFn: async () => {
+      if (!venueId) return null;
+      const { data, error } = await supabase
+        .from("exam_seating_plans")
+        .select("*")
+        .eq("exam_venue_id", venueId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!venueId,
+  });
+};
+
+export const useSeatAssignments = (seatingPlanId?: string) => {
+  return useQuery({
+    queryKey: ["exam-seat-assignments", seatingPlanId],
+    queryFn: async () => {
+      if (!seatingPlanId) return [];
+      const { data, error } = await supabase
+        .from("exam_seat_assignments")
+        .select("*, learner:learners(id, full_name, admission_number)")
+        .eq("seating_plan_id", seatingPlanId)
+        .order("session_number")
+        .order("desk_number");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!seatingPlanId,
+  });
+};
+
 export const useExamTimetable = (seriesId?: string) => {
   return useQuery({
     queryKey: ["exam-timetable", seriesId],
