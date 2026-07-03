@@ -201,8 +201,8 @@ const GradingScaleConfig = () => {
     setBoundaryDialogOpen(true);
   };
 
-  const openEditBoundary = (boundary: GradeBoundary) => {
-    setActiveScaleId(boundary.id);
+  const openEditBoundary = (boundary: GradeBoundary, scaleId: string) => {
+    setActiveScaleId(scaleId);
     setEditingBoundary(boundary.id);
     setBoundaryForm({
       grade: boundary.grade,
@@ -399,7 +399,7 @@ const GradingScaleConfig = () => {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => openEditBoundary(boundary)}
+                                  onClick={() => openEditBoundary(boundary, scale.id)}
                                 >
                                   <Pencil className="h-3.5 w-3.5" />
                                 </Button>
